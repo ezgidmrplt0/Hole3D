@@ -6,11 +6,12 @@ TagManager:
   tags:
   - Zombie
   - Ground
+  - Human
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Obstacle
   - Water
   - UI
   - Ground

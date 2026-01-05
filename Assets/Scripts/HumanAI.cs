@@ -74,10 +74,24 @@ public class HumanAI : MonoBehaviour
         Vector3 newPos = transform.position + runDir.normalized * fleeDistance;
 
         NavMeshHit hit;
-        // NavMesh üzerinde geçerli bir nokta bul
-        if (NavMesh.SamplePosition(newPos, out hit, 5f, NavMesh.AllAreas))
+        // 1. Plan: Direkt ters yöne kaç
+        if (NavMesh.SamplePosition(newPos, out hit, 2f, NavMesh.AllAreas))
         {
             agent.SetDestination(hit.position);
+        }
+        else
+        {
+            // 2. Plan (Köşe/Kenar Durumu): Eğer dışarı kaçamıyorsan, haritanın ortasına veya rastgele bir yere kaç
+            // Basitçe (0,0,0) noktasına doğru kaçmayı deneyelim (Harita merkezi varsayımı)
+            // Veya rastgele bir yöne kaç
+            Vector3 randomDir = Random.insideUnitSphere * fleeDistance;
+            randomDir.y = 0;
+            Vector3 fallbackPos = transform.position + randomDir;
+            
+            if (NavMesh.SamplePosition(fallbackPos, out hit, 5f, NavMesh.AllAreas))
+            {
+                agent.SetDestination(hit.position);
+            }
         }
     }
 }

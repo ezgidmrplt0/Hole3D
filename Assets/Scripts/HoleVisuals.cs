@@ -9,23 +9,15 @@ public class HoleVisuals : MonoBehaviour
 
     private void Start()
     {
-        // Subscribe to LevelManager progress events
-        if (LevelManager.Instance != null)
-        {
-            LevelManager.Instance.OnProgressUpdated += UpdateProgress;
-        }
-
-        // Initialize empty
+        // LevelManager bağlantısını kaldırdık. 
+        // Bu bar artık sadece Deliğin XP durumunu (Büyüme) gösterecek.
+        // Stage progress için ayrı bir UI barı (ekranın üstünde) kullanılması daha doğru olur.
         UpdateProgress(0f);
     }
 
     private void OnDestroy()
     {
-        // Unsubscribe to avoid memory leaks
-        if (LevelManager.Instance != null)
-        {
-            LevelManager.Instance.OnProgressUpdated -= UpdateProgress;
-        }
+        // Temizlik
     }
 
     private void UpdateProgress(float progress)
@@ -34,5 +26,10 @@ public class HoleVisuals : MonoBehaviour
         {
             progressImage.fillAmount = progress;
         }
+    }
+
+    public void UpdateLocalProgress(float value)
+    {
+        UpdateProgress(value);
     }
 }

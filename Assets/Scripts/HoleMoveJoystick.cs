@@ -21,6 +21,14 @@ public class HoleMoveJoystick : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        
+        // EĞER RIGIDBODY YOKSA EKLE (Otomatik Çözüm)
+        if (rb == null)
+        {
+            Debug.LogWarning("HoleMoveJoystick: Rigidbody bulunamadı, otomatik ekleniyor...");
+            rb = gameObject.AddComponent<Rigidbody>();
+        }
+
         // Kaymayı önlemek için ayarlar
         rb.drag = 5f; 
         rb.angularDrag = 5f;
@@ -30,18 +38,13 @@ public class HoleMoveJoystick : MonoBehaviour
         
         // Bu objenin ve altındaki tüm çocukların (rim, hole center) colliderlarını listeye al
         holeColliders = GetComponentsInChildren<Collider>();
-        
-        // BAŞLANGIÇTA HER ŞEYLE ÇARPIŞMAYI KAPAT (Hileli çözüm)
-        // Eğer Y eksenini kilitlediysek zemine çarpmaya gerek yok.
-        // Ama delik mantığı için Trigger'lar çalışmalı.
-        // O yüzden sadece PHYSICS collision'ı kapatalım?
-        // En temiz yöntem: Hole Rigidbodysini 'IsKinematic' yapalım, ama o zaman Trigger çalışır mı? Evet çalışır!
-        // Kullanıcı IsKinematic false olsun dedi ama... En stabil yol bu.
-        // Şimdilik velocity ile devam ama collision'ı ignore edelim.
     }
 
     void FixedUpdate()
     {
+        // Rigidbody yoksa hareket edemeyiz
+        if (rb == null) return;
+
         Vector3 direction = new Vector3(joystick.Horizontal, 0f, joystick.Vertical);
         
         // Debug için konsola yaz (Sadece hareket varsa)

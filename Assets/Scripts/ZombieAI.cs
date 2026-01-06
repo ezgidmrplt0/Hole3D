@@ -1,7 +1,14 @@
 using UnityEngine;
+using TMPro;
 
 public class ZombieAI : CharacterAI
 {
+    [Header("Level Info")]
+    public int level = 1;
+    public int currentXP = 0;
+    public int xpToNextLevel = 10; // 10 tane yediğinde level atlasın
+    public TMP_Text levelText;
+
     [Header("Behavior")]
     public string preyTag = "Human";
     public float detectionRange = 15f;
@@ -22,6 +29,13 @@ public class ZombieAI : CharacterAI
         // Zombi hızını biraz düşürelim (Varsayılan 5 biraz hızlıydı)
         runSpeed = 3.5f; 
         walkSpeed = 1.5f;
+
+        // Level Textini Ayarla
+        if (levelText != null) 
+        {
+            levelText.text = level.ToString(); 
+            // Text her zaman kameraya baksın istiyorsan Update'e kod ekleyebiliriz ama şimdilik sabit
+        }
         
         PickNewRoamTarget();
     }
@@ -109,6 +123,36 @@ public class ZombieAI : CharacterAI
 
     private void OnCollisionEnter(Collision collision)
     {
+        // 1. YEME MANTIĞI: İnsanla çarpışırsa
+        if (collision.gameObject.CompareTag(preyTag))
+        {
+            // İnsanı yok et (Yendi!)
+            Destroy(collision.gameObject);
+
+            // XP Kazan
+            currentXP++;
+            
+            // Level Atla (Eşik değeri geçilirse)
+            if (currentXP >= xpToNextLevel)
+            {
+                level++;
+                currentXP = 0; // Sıfırla veya devret
+                // xpToNextLevel += 5; // İstersen zorluğu artırabilirsin
+
+                if (levelText != null) levelText.text = level.ToString();
+                
+                // Sadece Level Atladığında Büyüsün (Opsiyonel, yoksa her yediğinde mi büyüsün?)
+                // Kullanıcı "her yediğinde büyüsün" demedi, "10 insan yediklerinde level atlasınlar" dedi.
+                // Biz yine de her yediğinde hafif büyütelim ama level sadece 10'da bir artsın.
+            }
+
+            // Zombiyi büyüt (Her yemekte azıcık büyüsün, ödül olsun)
+            transform.localScale = Vector3.Min(transform.localScale * 1.05f, Vector3.one * 3f);
+            
+            return; 
+        }
+
+        // 2. DUVAR/ENGEL MANTIĞI
         // Duvara veya herhangi bir engele çarparsa
         foreach (ContactPoint contact in collision.contacts)
         {

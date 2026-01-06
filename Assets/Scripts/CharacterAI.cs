@@ -3,7 +3,8 @@ using UnityEngine;
 public class CharacterAI : MonoBehaviour
 {
     [Header("Movement")]
-    public float moveSpeed = 3f;
+    public float runSpeed = 5f;
+    public float walkSpeed = 2f;
     public float rotationSpeed = 5f;
 
     [Header("Obstacle Avoidance")]
@@ -15,11 +16,64 @@ public class CharacterAI : MonoBehaviour
     protected Rigidbody rb;
     protected Vector3 moveDirection;
     protected Animator animator;
+    
+    // Animator param kontrolü
+    private bool hasIsRunParam = false;
+    protected bool isAnimatorValid = false; // Animasyon sisteminin güvenli olup olmadığını tutar
 
     protected virtual void Awake()
     {
-        // 0. Setup Animator
-        animator = GetComponent<Animator>();
+        // 0. Setup Animator (Akıllı Arama)
+        // Bazen çocuk objelerde birden fazla Animator olabilir (aksesuarlar vs.)
+        // Doğru olanı (parametreleri içeren ana karakteri) bulmalıyız.
+        Animator[] allAnimators = GetComponentsInChildren<Animator>();
+        
+        // Önce temizle
+        isAnimatorValid = false;
+        animator = null;
+
+        foreach (var anim in allAnimators)
+        {
+            if (anim.runtimeAnimatorController == null) continue;
+
+            bool localHasWalk = false;
+            bool localHasRun = false;
+            bool localHasIsRun = false;
+            
+            foreach (var param in anim.parameters)
+            {
+                if (param.name == "walk") localHasWalk = true;
+                if (param.name == "run") localHasRun = true;
+                if (param.name == "IsRun") localHasIsRun = true;
+            }
+
+            // Eğer bu animatörde yürüme/koşma parametreleri varsa, doğru olan budur!
+            // Veya en azından 'IsRun' varsa yine kullanmaya değer olabilir ama
+            // CrossFade("walk") yapacağımız için state isimleri de önemli.
+            // Şimdilik parametreler var diye varsayıyoruz ki state'ler de vardır.
+            if (localHasWalk || localHasRun)
+            {
+                animator = anim;
+                isAnimatorValid = true; // Bu animatör bizim sistemle uyumlu!
+                
+                // IsRun varsa kaydet
+                if (localHasIsRun) hasIsRunParam = true;
+                
+                break; // Bulduk, aramayı bitir
+            }
+        }
+
+        // Eğer uyumlu bir animatör bulamadıysak, ilkiyle yetin ama state değiştirmeye zorlama
+        if (!isAnimatorValid && allAnimators.Length > 0)
+        {
+             animator = allAnimators[0];
+             // Warning'i bir kere verelim, spam yapmasın.
+             // Debug.LogWarning($"{gameObject.name}: Uyumlu parametreler bulunamadı (walk/run). Animasyon geçişleri devre dışı.");
+        }
+        else if (allAnimators.Length == 0)
+        {
+             // Debug.LogWarning($"{gameObject.name}: Hiçbir Animator bulunamadı!");
+        }
 
         // 1. Remove old NavMeshAgent if present
         UnityEngine.AI.NavMeshAgent navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
@@ -35,8 +89,11 @@ public class CharacterAI : MonoBehaviour
             rb = gameObject.AddComponent<Rigidbody>();
         }
         
-        // Sadece rotasyonu kilitle. Y ekseni serbest kalsın (deliğe düşebilsinler).
-        rb.constraints = RigidbodyConstraints.FreezeRotation;
+        // Rotasyonu ve Y eksenini kilitle (Havaya kalkmayı/tırmanmayı önle)
+        // DÜZELTME: FreezePostionY yapınca havada spawn olurlarsa inemiyorlar.
+        // O yüzden Y pozisyonunu serbest bırakıp Gravity açıyoruz.
+        // Tırmanmayı engellemek için kod içinde Y hızını kısıtlayacağız.
+        rb.constraints = RigidbodyConstraints.FreezeRotation; 
         rb.useGravity = true;
 
         // 3. Setup Collider
@@ -48,10 +105,85 @@ public class CharacterAI : MonoBehaviour
             collider.center = new Vector3(0, 1f, 0);
             collider.radius = 0.5f;
         }
+
     }
 
-    protected void Move(Vector3 targetDirection)
+    protected virtual void OnEnable()
     {
+        // Sıkışma Kontrolü Başlat (Obje açılıp kapandığında tekrar çalışsın)
+        StartCoroutine(CheckStuckRoutine());
+    }
+
+    // --- Sıkışma (Stuck) Algılama Değişkenleri ---
+    private Vector3 lastStuckPos;
+    private bool isEscaping = false;
+    private float escapeTimer = 0f;
+    private Vector3 escapeDirection;
+
+    private System.Collections.IEnumerator CheckStuckRoutine()
+    {
+        while (true)
+        {
+            // Her 0.5 saniyede bir kontrol et
+            lastStuckPos = transform.position;
+            yield return new WaitForSeconds(0.5f);
+
+            // Eğer "kaçış modunda" değilsek ve hareket etmeye çalışıyorsak (moveDirection dolu)
+            if (!isEscaping && moveDirection.magnitude > 0.1f)
+            {
+                float distanceMoved = Vector3.Distance(transform.position, lastStuckPos);
+                
+                // Eğer 0.5 saniyede neredeyse hiç ilerleyemediysek (Sıkıştık!)
+                if (distanceMoved < 0.2f)
+                {
+                    // Sıkışma algılandı! Kurtarma moduna geç.
+                    StartEscapeManeuver();
+                }
+            }
+        }
+    }
+
+    private void StartEscapeManeuver()
+    {
+        isEscaping = true;
+        escapeTimer = 1.5f; // 1.5 saniye boyunca kurtulmaya çalış
+
+        // Rastgele açık bir yön bulmaya çalış
+        escapeDirection = -transform.forward; // Varsayılan: Geri git
+        
+        // 4 bir yana bakıp boş olanı seçmeye çalışalım
+        Vector3[] potentialDirs = { -transform.forward, transform.right, -transform.right, transform.forward + transform.right };
+        
+        foreach (var dir in potentialDirs)
+        {
+            if (!Physics.Raycast(transform.position + Vector3.up, dir, 2f, obstacleLayer))
+            {
+                escapeDirection = dir;
+                break;
+            }
+        }
+        
+        escapeDirection.Normalize();
+    }
+
+    protected void Move(Vector3 targetDirection, bool isRunning)
+    {
+        // --- Sıkışma Kurtarma Mantığı ---
+        if (isEscaping)
+        {
+            escapeTimer -= Time.deltaTime;
+            if (escapeTimer <= 0)
+            {
+                isEscaping = false;
+            }
+            else
+            {
+                // Kaçış modundaysak, gelen hedefi yoksay ve kaçış yönüne git
+                targetDirection = escapeDirection;
+                isRunning = false; // Sakin çıkalım
+            }
+        }
+
         // Temel hareket yönü
         moveDirection = targetDirection.normalized;
 
@@ -65,11 +197,17 @@ public class CharacterAI : MonoBehaviour
             moveDirection.Normalize();
         }
 
+        // Hızı belirle
+        float currentSpeed = isRunning ? runSpeed : walkSpeed;
+
         // Hareketi uygula
-        Vector3 velocity = moveDirection * moveSpeed;
+        Vector3 velocity = moveDirection * currentSpeed;
         
-        // Y eksenini koru (rb.velocity.y)
-        velocity.y = rb.velocity.y;
+        // Y eksenini koru AMA Tırmanmayı Önle!
+        // Eğer yukarı çıkmaya çalışıyorsa (velocity.y > 0) bunu engelle.
+        // Aşağı düşüyorsa (yerçekimi) izin ver.
+        velocity.y = Mathf.Min(rb.velocity.y, 0f);
+        
         rb.velocity = velocity;
 
         // Dönüş
@@ -82,11 +220,44 @@ public class CharacterAI : MonoBehaviour
         // Animasyon Güncelleme
         if (animator != null)
         {
-            // Eğer hareket varsa (yön vektörü 0 değilse) Run true olsun
-            bool isMoving = moveDirection.magnitude > 0.1f;
-            animator.SetBool("Run", isMoving);
+            // Kullanıcının istediği 'IsRun' parametresi (Varsa kullan)
+            if (hasIsRunParam)
+            {
+                animator.SetBool("IsRun", isRunning);
+            }
+
+            // Trigger Mantığı (State takibi ile)
+            string targetState = "idle";
+            
+            // Eğer CharacterAI "hareket et" diyorsa (moveDirection > 0), animasyon da oynamalı.
+            // Sadece fiziksel hıza (velocity.magnitude) bakarsak, duvara takılınca 0 olur ve idle'a düşer.
+            // Ama biz duvara takılsa bile bacakları çalışsın (moonwalk gibi) isteyebiliriz ki oyuncu takıldığını anlasın.
+            // Veya tam tersi, duvara takılınca dursun. 
+            // Şimdilik sorun "kayarken duruyor görünmesi" ise, velocity yerine 'moveDirection' daha garantidir.
+            
+            if (moveDirection.magnitude > 0.01f)
+            {
+                targetState = isRunning ? "run" : "walk";
+            }
+
+            // State değiştiyse doğrudan o animasyona geçiş yap (CrossFade)
+            // Bu yöntem, Animator'daki okları (Transition) ve 'Has Exit Time' ayarlarını
+            // baypas ederek anında tepki verir. Kayma ve gecikmeyi çözer.
+            if (currentAnimState != targetState)
+            {
+                currentAnimState = targetState;
+                
+                // Sadece uyumlu animatörlerde geçiş yap (Hata spamını önle)
+                if (isAnimatorValid)
+                {
+                    // 0.2 saniyelik yumuşak geçişle doğrudan animasyonu oynat
+                    animator.CrossFadeInFixedTime(targetState, 0.2f);
+                }
+            }
         }
     }
+
+    private string currentAnimState = "";
 
     private Vector3 AvoidObstacles(Vector3 desiredDir)
     {

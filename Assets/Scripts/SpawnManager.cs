@@ -30,7 +30,7 @@ public class SpawnManager : MonoBehaviour
     [Tooltip("Minimum distance between spawned characters.")]
     public float minSpawnDistance = 2f;
     [Tooltip("Maximum attempts to find a valid position per character.")]
-    public int maxSpawnAttempts = 10;
+    public int maxSpawnAttempts = 30; // 10'dan 30'a çıkardık, daha fazla şans tanıyalım
 
     private List<Vector3> spawnedPositions = new List<Vector3>();
 
@@ -105,18 +105,23 @@ public class SpawnManager : MonoBehaviour
 
     private bool IsValidPosition(Vector3 position)
     {
-        // Check for collisions within the specified radius
-        Vector3 checkPos = position + Vector3.up * collisionCheckRadius;
+        // 1. Engel Kontrolü (Obstacle Layer)
+        // Kürenin merkezini biraz yukarı kaldırıyoruz ki zeminle (Y=0) çakışmasın.
+        // checkPos = (X, Y + Radius + 0.2f, Z) -> Alt noktası Y=0.2f olur.
+        Vector3 checkPos = position + Vector3.up * (collisionCheckRadius + 0.2f);
+        
         if (Physics.CheckSphere(checkPos, collisionCheckRadius, obstacleLayer))
         {
+            // Debug.Log("Spawn Failed: Hit Obstacle"); // Çok spam yaparsa kapatın
             return false;
         }
 
-        // Check distance to other spawned characters
+        // 2. Diğer karakterlere mesafe kontrolü
         foreach (Vector3 spawnedPos in spawnedPositions)
         {
             if (Vector3.Distance(position, spawnedPos) < minSpawnDistance)
             {
+                // Debug.Log("Spawn Failed: Too Close to another character");
                 return false;
             }
         }
@@ -136,17 +141,20 @@ public class SpawnManager : MonoBehaviour
         // Yukarıdan aşağıya Raycast atıp zemini bul
         Vector3 rayStart = new Vector3(randomX, raycastHeight, randomZ);
         
+        // Eğer Ground Layer seçilmemişse veya 'Nothing' ise direkt varsayılan yüksekliği kullan
+        if (groundLayer.value == 0)
+        {
+             return new Vector3(randomX, 0f + spawnHeightOffset, randomZ);
+        }
+
         if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
         {
             return hit.point + Vector3.up * spawnHeightOffset;
         }
         
-        // Zemin bulunamazsa varsayılan olarak Y=0 (veya sonsuz dönüp kontrol edebiliriz)
-        // Eğer harita düz ise direkt new Vector3(randomX, 0, randomZ) döndürebiliriz.
-        // Güvenlik için şimdilik Raycast tutmadığında negativeInfinity dönelim.
-        // Ancak kullanıcı 'zemin' layer'ını seçmeyi unutursa hiç spawn olmaz.
-        // Fallback olarak Y=0.5f verelim.
-        return new Vector3(randomX, 0f + spawnHeightOffset, randomZ); 
+        // Eğer Raycast hiçbir şeye çarpmazsa (Boşluktaysa) buraya spawnlama
+        // Return negative infinity to signal retry
+        return Vector3.negativeInfinity;
     }
 
     private void OnDrawGizmosSelected()

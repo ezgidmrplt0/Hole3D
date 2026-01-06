@@ -8,6 +8,10 @@ public class HumanAI : CharacterAI
     public string enemyTag = "Zombie";
     public float fearRadius = 5f;
 
+    // Çarpışma tepkisi için değişkenler
+    private float bounceTimer;
+    private Vector3 bounceDirection;
+
     private Vector3 wanderTarget;
     private float timer;
 
@@ -19,12 +23,21 @@ public class HumanAI : CharacterAI
 
     void Update()
     {
+        // 0. Çarpışma Sonrası Sekme (En yüksek öncelik)
+        if (bounceTimer > 0)
+        {
+            bounceTimer -= Time.deltaTime;
+            Move(bounceDirection, false); // Çarpınca YÜRÜYEREK uzaklaş (Panik yapma)
+            return;
+        }
+
+        // 1. Zombi kontrolü (Kaçış)
         // 1. Zombi kontrolü (Kaçış)
         Transform enemy = GetClosestEnemy();
         if (enemy != null)
         {
             Vector3 fleeDirection = transform.position - enemy.position;
-            Move(fleeDirection);
+            Move(fleeDirection, true); // Koşarak kaç
             return; // Kaçarken başka bir şey yapma
         }
 
@@ -37,14 +50,14 @@ public class HumanAI : CharacterAI
         }
 
         Vector3 directionToTarget = wanderTarget - transform.position;
-        // Hedefe çok yakınsa bekle veya yeni hedef seç
         if (directionToTarget.magnitude < 0.5f)
         {
             moveDirection = Vector3.zero;
+            // Durunca animasyonlar otomatik kapanır (CharacterAI içinde)
         }
         else
         {
-            Move(directionToTarget);
+            Move(directionToTarget, false); // Yürüyerek gez
         }
     }
 
@@ -85,16 +98,24 @@ public class HumanAI : CharacterAI
 
     private void OnCollisionEnter(Collision collision)
     {
-        // Eğer duvara/engele çarparsak hemen yeni yön seç
-        // (Zemin ile çarpışmayı yoksaymak için layer kontrolü yapılabilir veya normaline bakılabilir)
-        // Şimdilik basitçe: Normali yukarı (Y) değilse duvardır.
-        
+        // Herhangi bir engele çarparsak (Zemin hariç)
         foreach (ContactPoint contact in collision.contacts)
         {
-            // Eğer yüzeyin normali yukarı bakmıyorsa (yani duvarsa)
-            if (Vector3.Dot(contact.normal, Vector3.up) < 0.5f)
+            // Normalin Y değeri düşükse (Duvar/Kutu/Ağaç vs.)
+            if (Mathf.Abs(contact.normal.y) < 0.6f) 
             {
-                PickNewWanderTarget();
+                // 1. "Reflect" (Yansıma) kullanarak daha yumuşak bir dönüş sağla
+                // Sadece geri tepmek (contact.normal) yerine, açılı şekilde sek.
+                Vector3 reflection = Vector3.Reflect(transform.forward, contact.normal);
+                
+                bounceDirection = reflection.normalized;
+                bounceTimer = 0.5f; // 0.5 saniye boyunca bu yeni yöne git
+
+                // 2. Wander hedefini de bu yeni yöne taşı
+                // Böylece bounce bittiğinde tekrar duvara dönmezler.
+                wanderTarget = transform.position + bounceDirection * wanderRadius;
+                timer = changeDirectionInterval; // Yeni hedefte bir süre kararlı kalsın
+
                 break;
             }
         }

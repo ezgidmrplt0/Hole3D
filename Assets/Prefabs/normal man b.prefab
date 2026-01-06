@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 5709379098503822793}
   - component: {fileID: 4684451241150937929}
-  - component: {fileID: 6113186629404089777}
   - component: {fileID: 428981997983584448}
+  - component: {fileID: 8046772688644168520}
   m_Layer: 0
   m_Name: normal man b
   m_TagString: Human
@@ -56,28 +56,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!195 &6113186629404089777
-NavMeshAgent:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3217378706426146571}
-  m_Enabled: 1
-  m_AgentTypeID: 0
-  m_Radius: 0.5
-  m_Speed: 3.5
-  m_Acceleration: 8
-  avoidancePriority: 50
-  m_AngularSpeed: 120
-  m_StoppingDistance: 0
-  m_AutoTraverseOffMeshLink: 1
-  m_AutoBraking: 1
-  m_AutoRepath: 1
-  m_Height: 2
-  m_BaseOffset: 0
-  m_WalkableMask: 4294967295
-  m_ObstacleAvoidanceType: 4
 --- !u!114 &428981997983584448
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -90,10 +68,46 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cf1a0e9c73cd9afb79fc0008d1d55432, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  movementSpeed: 5
-  predatorTag: Zombie
-  detectionRange: 10
-  fleeDistance: 5
+  moveSpeed: 3
+  rotationSpeed: 5
+  detectionRadius: 1.5
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 8
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  wanderRadius: 10
+  changeDirectionInterval: 3
+  enemyTag: Zombie
+  fearRadius: 5
+--- !u!54 &8046772688644168520
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3217378706426146571}
+  serializedVersion: 4
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 0
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 36
+  m_CollisionDetection: 0
 --- !u!1001 &8601693431379763673
 PrefabInstance:
   m_ObjectHideFlags: 0

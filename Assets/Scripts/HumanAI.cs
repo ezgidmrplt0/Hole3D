@@ -1,96 +1,101 @@
 using UnityEngine;
-using UnityEngine.AI;
 
-[RequireComponent(typeof(NavMeshAgent))]
-public class HumanAI : MonoBehaviour
+public class HumanAI : CharacterAI
 {
-    [Header("Settings")]
-    public float movementSpeed = 5.0f;
-    public string predatorTag = "Zombie";
-    public float detectionRange = 10f;
-    public float fleeDistance = 5f;
-    
-    private NavMeshAgent agent;
-    private float nextCheck;
-    private Animator animator;
+    [Header("Behavior")]
+    public float wanderRadius = 10f;
+    public float changeDirectionInterval = 3f;
+    public string enemyTag = "Zombie";
+    public float fearRadius = 5f;
 
-    void Start()
+    private Vector3 wanderTarget;
+    private float timer;
+
+    protected override void Awake()
     {
-        agent = GetComponent<NavMeshAgent>();
-        agent.speed = movementSpeed;
-        animator = GetComponentInChildren<Animator>();
-        if (animator == null) Debug.LogWarning("HumanAI: Animator bileseni bulunamadi!");
+        base.Awake();
+        PickNewWanderTarget();
     }
 
     void Update()
     {
-        // Hareket animasyonu kontrolu
-        if (animator != null)
+        // 1. Zombi kontrolü (Kaçış)
+        Transform enemy = GetClosestEnemy();
+        if (enemy != null)
         {
-            bool isRunning = agent.velocity.magnitude > 0.1f;
-            animator.SetBool("IsRun", isRunning);
+            Vector3 fleeDirection = transform.position - enemy.position;
+            Move(fleeDirection);
+            return; // Kaçarken başka bir şey yapma
         }
 
-        // Performans için her frame değil, belli aralıklarla kontrol et
-        if (Time.time > nextCheck)
+        // 2. Rastgele Gezinme (Wander)
+        timer -= Time.deltaTime;
+        if (timer <= 0)
         {
-            nextCheck = Time.time + 0.2f; 
-            CheckPredators();
-        }
-    }
-
-    void CheckPredators()
-    {
-        GameObject[] predators = GameObject.FindGameObjectsWithTag(predatorTag);
-        float closestDist = Mathf.Infinity;
-        Transform closest = null;
-
-        if (predators.Length == 0)
-        {
-             // Sürekli spam olmasın diye sadece ilk seferde veya debug için açılabilir
-             // Debug.LogWarning($"HumanAI: '{predatorTag}' etiketli tehlike bulunamadi!");
-             return;
+            PickNewWanderTarget();
+            timer = changeDirectionInterval;
         }
 
-        foreach (GameObject p in predators)
+        Vector3 directionToTarget = wanderTarget - transform.position;
+        // Hedefe çok yakınsa bekle veya yeni hedef seç
+        if (directionToTarget.magnitude < 0.5f)
         {
-            float d = Vector3.Distance(transform.position, p.transform.position);
-            if (d < closestDist)
-            {
-                closestDist = d;
-                closest = p.transform;
-            }
-        }
-
-        if (closest != null && closestDist < detectionRange)
-        {
-            FleeFrom(closest.position);
-        }
-    }
-
-    void FleeFrom(Vector3 predatorPos)
-    {
-        Vector3 runDir = transform.position - predatorPos;
-        Vector3 newPos = transform.position + runDir.normalized * fleeDistance;
-
-        NavMeshHit hit;
-        // 1. Plan: Direkt ters yöne kaç
-        if (NavMesh.SamplePosition(newPos, out hit, 2f, NavMesh.AllAreas))
-        {
-            agent.SetDestination(hit.position);
+            moveDirection = Vector3.zero;
         }
         else
         {
-            // 2. Plan (Köşe/Kenar Durumu): Eğer dışarı kaçamıyorsan, haritanın ortasına veya rastgele bir yere kaç
-            // Basitçe (0,0,0) noktasına doğru kaçmayı deneyelim (Harita merkezi varsayımı)
-            // Veya rastgele bir yöne kaç
-            Vector3 randomDir = Random.insideUnitSphere * fleeDistance;
-            randomDir.y = 0;
-            Vector3 fallbackPos = transform.position + randomDir;
-            
-            if (NavMesh.SamplePosition(fallbackPos, out hit, 5f, NavMesh.AllAreas))
+            Move(directionToTarget);
+        }
+    }
+
+    private void PickNewWanderTarget()
+    {
+        Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
+        randomDir += transform.position;
+        randomDir.y = transform.position.y; // Yüksekliği koru
+        wanderTarget = randomDir;
+    }
+
+    private Transform GetClosestEnemy()
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position, fearRadius);
+        Transform closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            if (hit.CompareTag(enemyTag))
             {
-                agent.SetDestination(hit.position);
+                float dist = Vector3.Distance(transform.position, hit.transform.position);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closest = hit.transform;
+                }
+            }
+        }
+        return closest;
+    }
+    
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.blue;
+        Gizmos.DrawWireSphere(transform.position, fearRadius);
+    }
+
+    private void OnCollisionEnter(Collision collision)
+    {
+        // Eğer duvara/engele çarparsak hemen yeni yön seç
+        // (Zemin ile çarpışmayı yoksaymak için layer kontrolü yapılabilir veya normaline bakılabilir)
+        // Şimdilik basitçe: Normali yukarı (Y) değilse duvardır.
+        
+        foreach (ContactPoint contact in collision.contacts)
+        {
+            // Eğer yüzeyin normali yukarı bakmıyorsa (yani duvarsa)
+            if (Vector3.Dot(contact.normal, Vector3.up) < 0.5f)
+            {
+                PickNewWanderTarget();
+                break;
             }
         }
     }

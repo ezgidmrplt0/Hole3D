@@ -21,52 +21,57 @@ public class HoleMoveJoystick : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody>();
+        // Kaymayı önlemek için ayarlar
+        rb.drag = 5f; 
+        rb.angularDrag = 5f;
+        // Y Eksenini kilitle ki aşağı düşmesin!
+        rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
+        rb.useGravity = false; // Yerçekimini kapat
+        
         // Bu objenin ve altındaki tüm çocukların (rim, hole center) colliderlarını listeye al
         holeColliders = GetComponentsInChildren<Collider>();
+        
+        // BAŞLANGIÇTA HER ŞEYLE ÇARPIŞMAYI KAPAT (Hileli çözüm)
+        // Eğer Y eksenini kilitlediysek zemine çarpmaya gerek yok.
+        // Ama delik mantığı için Trigger'lar çalışmalı.
+        // O yüzden sadece PHYSICS collision'ı kapatalım?
+        // En temiz yöntem: Hole Rigidbodysini 'IsKinematic' yapalım, ama o zaman Trigger çalışır mı? Evet çalışır!
+        // Kullanıcı IsKinematic false olsun dedi ama... En stabil yol bu.
+        // Şimdilik velocity ile devam ama collision'ı ignore edelim.
     }
 
     void FixedUpdate()
     {
-        // Joystick verisini al
         Vector3 direction = new Vector3(joystick.Horizontal, 0f, joystick.Vertical);
+        
+        // Debug için konsola yaz (Sadece hareket varsa)
+        if (direction.magnitude > 0.01f)
+            Debug.Log($"Joystick Input: {direction.magnitude} | X: {direction.x} Y: {direction.z}");
 
-        // Hareket yoksa durdur
-        if (direction.magnitude < 0.1f)
+        if (direction.magnitude < 0.15f)
         {
             rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
             return;
         }
 
-        // Çapraz gidişlerde hızı dengele
         if (direction.magnitude > 1f) direction.Normalize();
 
-        // FİZİKSEL HAREKET KULLAN
-        rb.velocity = direction * moveSpeed;
-
-        // Sınırları kontrol et
-        if (useLimits)
-        {
-            float clampedX = Mathf.Clamp(rb.position.x, minX, maxX);
-            float clampedZ = Mathf.Clamp(rb.position.z, minZ, maxZ);
-            rb.position = new Vector3(clampedX, rb.position.y, clampedZ);
-        }
+        // velocity yerine MovePosition kullanıyoruz (Daha stabil)
+        Vector3 newPos = rb.position + direction * moveSpeed * Time.fixedDeltaTime;
+        rb.MovePosition(newPos);
     }
 
-    // Zombi, kenardaki gri çerçeveye çarparsa, çarpışmayı yoksay (ki içine düşebilsin)
     void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Zombie"))
+        // HER ŞEYİ IGNORE ET
+        // Zemini de ignore etsek sorun olmaz çünkü Y eksenini kilitledik.
+        Collider otherCollider = collision.collider;
+        foreach (Collider col in holeColliders)
         {
-            Collider zombieCollider = collision.collider;
-
-            foreach (Collider col in holeColliders)
+            if (col != null && !col.isTrigger) 
             {
-                // DİKKAT: Sadece "Trigger" olmayan (yani katı duvar gibi olan) parçalarla çarpışmayı kapatıyoruz.
-                // Eğer Trigger olanı da kapatırsak, zombi düşme mekaniğini (OnTriggerEnter) tetikleyemez!
-                if (col != null && !col.isTrigger) 
-                {
-                    Physics.IgnoreCollision(col, zombieCollider, true);
-                }
+                Physics.IgnoreCollision(col, otherCollider, true);
             }
         }
     }

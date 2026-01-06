@@ -34,10 +34,28 @@ public class SpawnManager : MonoBehaviour
 
     private List<Vector3> spawnedPositions = new List<Vector3>();
 
-    private void Start()
+
+
+    // Removed Start() to prevent auto-spawn. Controlled by LevelManager.
+
+    // Public method called by LevelManager
+    public void SpawnLevel(int humans, int zombies)
     {
-        spawnedPositions.Clear();
+        humanCount = humans;
+        zombieCount = zombies;
         SpawnCharacters();
+    }
+
+    public void ClearScene()
+    {
+        // Find all existing characters and destroy them
+        var humans = GameObject.FindGameObjectsWithTag("Human");
+        foreach (var h in humans) Destroy(h);
+
+        var zombies = GameObject.FindGameObjectsWithTag("Zombie");
+        foreach (var z in zombies) Destroy(z);
+        
+        spawnedPositions.Clear();
     }
 
     private void SpawnCharacters()
@@ -106,6 +124,9 @@ public class SpawnManager : MonoBehaviour
         return true;
     }
 
+    [Tooltip("Offset to add to the ground height when spawning.")]
+    public float spawnHeightOffset = 0f;
+
     private Vector3 GetRandomPosition()
     {
         // Belirtilen alan içinde rastgele X ve Z seç
@@ -117,7 +138,7 @@ public class SpawnManager : MonoBehaviour
         
         if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
         {
-            return hit.point;
+            return hit.point + Vector3.up * spawnHeightOffset;
         }
         
         // Zemin bulunamazsa varsayılan olarak Y=0 (veya sonsuz dönüp kontrol edebiliriz)
@@ -125,7 +146,7 @@ public class SpawnManager : MonoBehaviour
         // Güvenlik için şimdilik Raycast tutmadığında negativeInfinity dönelim.
         // Ancak kullanıcı 'zemin' layer'ını seçmeyi unutursa hiç spawn olmaz.
         // Fallback olarak Y=0.5f verelim.
-        return new Vector3(randomX, 0.5f, randomZ); 
+        return new Vector3(randomX, 0f + spawnHeightOffset, randomZ); 
     }
 
     private void OnDrawGizmosSelected()

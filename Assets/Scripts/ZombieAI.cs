@@ -1,73 +1,81 @@
 using UnityEngine;
-using UnityEngine.AI;
 
-[RequireComponent(typeof(NavMeshAgent))]
-public class ZombieAI : MonoBehaviour
+public class ZombieAI : CharacterAI
 {
-    [Header("Settings")]
-    public float movementSpeed = 3.5f;
-    public string targetTag = "Human";
-    public float updateRate = 0.5f; // Saniyede kaç kez hedef arasın
+    [Header("Behavior")]
+    public string preyTag = "Human";
+    public float detectionRange = 15f;
+    public float wanderDurationAfterCollision = 1.0f;
 
-    private NavMeshAgent agent;
-    private Transform currentTarget;
-    private float nextCheck;
-    private Animator animator;
-
-    void Start()
-    {
-        agent = GetComponent<NavMeshAgent>();
-        agent.speed = movementSpeed;
-        animator = GetComponentInChildren<Animator>();
-        if (animator == null) Debug.LogWarning("ZombieAI: Animator bileseni bulunamadi!");
-    }
+    private float wanderTimer = 0f;
+    private Vector3 wanderDirection;
 
     void Update()
     {
-        // Hareket animasyonu kontrolu
-        if (animator != null)
+        // Eğer çarpışma sonrası serseri modundaysak
+        if (wanderTimer > 0)
         {
-            // Hiz 0.1'den buyukse kosuyor demektir
-            bool isRunning = agent.velocity.magnitude > 0.1f;
-            animator.SetBool("IsRun", isRunning);
-        }
-
-        if (Time.time > nextCheck)
-        {
-            nextCheck = Time.time + updateRate;
-            FindNearestTarget();
-        }
-
-        if (currentTarget != null)
-        {
-            agent.SetDestination(currentTarget.position);
-        }
-    }
-
-    void FindNearestTarget()
-    {
-        GameObject[] targets = GameObject.FindGameObjectsWithTag(targetTag);
-        float closestDist = Mathf.Infinity;
-        Transform closest = null;
-
-        if (targets.Length == 0)
-        {
-            Debug.LogWarning($"ZombieAI: '{targetTag}' etiketli hedef bulunamadi! Sahnedeki Human objelerinin etiketini kontrol edin.");
+            wanderTimer -= Time.deltaTime;
+            Move(wanderDirection);
             return;
         }
 
-        foreach (GameObject t in targets)
+        Transform prey = GetClosestPrey();
+        if (prey != null)
         {
-            float d = Vector3.Distance(transform.position, t.transform.position);
-            if (d < closestDist)
+            Vector3 chaseDirection = prey.position - transform.position;
+            Move(chaseDirection);
+        }
+        else
+        {
+            // Hedef yoksa dur veya rastgele gez (şimdilik dur)
+            rb.velocity = new Vector3(0, rb.velocity.y, 0);
+        }
+    }
+
+    private Transform GetClosestPrey()
+    {
+        // Performans için her frame tüm sahneyi taramak yerine
+        // Sadece yakın çevreyi tarayabiliriz veya global listeden çekeriz.
+        // Şimdilik OverlapSphere. Daha optimize: GameManager'dan liste çekmek.
+        
+        Collider[] hits = Physics.OverlapSphere(transform.position, detectionRange);
+        Transform closest = null;
+        float closestDist = float.MaxValue;
+
+        foreach (var hit in hits)
+        {
+            if (hit.CompareTag(preyTag))
             {
-                closestDist = d;
-                closest = t.transform;
+                float dist = Vector3.Distance(transform.position, hit.transform.position);
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closest = hit.transform;
+                }
             }
         }
+        return closest;
+    }
 
-        currentTarget = closest;
-        if (currentTarget == null)
-            Debug.LogWarning("ZombieAI: Hedef null! (Beklenmedik durum)");
+    private void OnCollisionEnter(Collision collision)
+    {
+        // Duvara çarparsa kısa süre rastgele bir yöne git (sıkışmayı önle)
+        foreach (ContactPoint contact in collision.contacts)
+        {
+            if (Vector3.Dot(contact.normal, Vector3.up) < 0.5f) // Duvarsa
+            {
+                // Duvarın normaline göre yansı veya rastgele dön
+                wanderDirection = Vector3.Reflect(transform.forward, contact.normal);
+                wanderTimer = wanderDurationAfterCollision;
+                break;
+            }
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, detectionRange);
     }
 }

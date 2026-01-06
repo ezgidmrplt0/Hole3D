@@ -3,7 +3,8 @@ using System.Collections;
 
 public class HoleMechanics : MonoBehaviour
 {
-    public string targetTag = "Zombie";
+    // Listeye çevirdik ki hem Zombi hem İnsan girebilsin
+    public System.Collections.Generic.List<string> targetTags = new System.Collections.Generic.List<string> { "Zombie", "Human" };
 
     [Header("Animation Settings")]
     public float fallDuration = 0.5f;
@@ -12,7 +13,8 @@ public class HoleMechanics : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag(targetTag))
+        // Listede var mı kontrol et
+        if (targetTags.Contains(other.tag))
         {
             StartCoroutine(FallAnim(other.gameObject));
         }
@@ -20,7 +22,17 @@ public class HoleMechanics : MonoBehaviour
 
     IEnumerator FallAnim(GameObject victim)
     {
-        // Fizik tamamen kapat
+        // 1. Level Manager'a haber ver (Sadece Zombiyse - veya hedefse)
+        if (victim.CompareTag("Zombie"))
+        {
+             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
+        }
+
+        // 2. AI Scriptini devre dışı bırak (Hareket/Dönüş yapmasın)
+        CharacterAI ai = victim.GetComponent<CharacterAI>();
+        if (ai != null) ai.enabled = false;
+
+        // 2. Fizik tamamen kapat
         Rigidbody rb = victim.GetComponent<Rigidbody>();
         if (rb)
         {
@@ -29,10 +41,14 @@ public class HoleMechanics : MonoBehaviour
             rb.useGravity = false;
         }
 
-        // Collider'ları kapat
+        // 3. Collider'ları kapat
         Collider[] cols = victim.GetComponentsInChildren<Collider>();
         foreach (var c in cols)
             c.enabled = false;
+
+        // 4. Varsa Animator'ı durdur (Koşma animasyonunda kalmasın)
+        Animator anim = victim.GetComponent<Animator>();
+        if (anim != null) anim.enabled = false;
 
         Vector3 startPos = victim.transform.position;
         Vector3 targetPos = new Vector3(

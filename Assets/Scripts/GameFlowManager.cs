@@ -59,6 +59,12 @@ public class GameFlowManager : MonoBehaviour
         // Oyun başlamadıysa ve tıklandıysa
         if (!IsGameActive)
         {
+            // Eğer bir UI elemanına (Buton, Panel vs.) tıklanıyorsa oyunu başlatma!
+            if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
+            // Mobil için (Touch) kontrolü (Telefonda test yaparken UI'a basınca başlamaması için)
+            if (Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
+
             if (Input.GetMouseButtonDown(0))
             {
                 StartGame();

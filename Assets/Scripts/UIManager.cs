@@ -54,4 +54,34 @@ public class UIManager : MonoBehaviour
             levelText.text = "LEVEL " + level;
         }
     }
+    [Header("Panels")]
+    public GameObject marketPanel;
+
+    public void OpenMarket()
+    {
+        if (marketPanel != null)
+        {
+            marketPanel.SetActive(true);
+            // Oyunun geri planını durdurmak isterseniz: Time.timeScale = 0;
+        }
+    }
+
+    public void CloseMarket()
+    {
+        if (marketPanel != null)
+        {
+            marketPanel.SetActive(false);
+            // Time.timeScale = 1;
+        }
+    }
+
+    // Shop butonlarına (Unity Inspector'dan) bu fonksiyonu verip, parametre olarak coin miktarını girebilirsiniz.
+    public void BuyCoinPack(int amount)
+    {
+        if (EconomyManager.Instance != null)
+        {
+            EconomyManager.Instance.AddCoins(amount);
+            // Burada isteğe bağlı olarak satın alma sesi veya efekti eklenebilir.
+        }
+    }
 }

@@ -9,34 +9,41 @@ public class SpawnManager : MonoBehaviour
     [Tooltip("List of Zombie prefabs to spawn.")]
     public List<GameObject> zombiePrefabs;
 
+
+
+    [Header("Spawn Points")]
+    [Tooltip("Drag empty GameObjects here to define where Humans spawn.")]
+    public List<Transform> humanSpawnPoints;
+    [Tooltip("Drag empty GameObjects here to define where Zombies spawn.")]
+    public List<Transform> zombieSpawnPoints;
+
     [Header("Spawn Settings")]
     [Tooltip("Number of humans to spawn.")]
     public int humanCount = 10;
     [Tooltip("Number of zombies to spawn.")]
-    public int zombieCount = 5;
+    public int zombieCount = 20;
+    [Tooltip("Radius around the spawn point to place characters.")]
+    public float spawnRadius = 6f;
 
-    [Header("Spawn Area")]
-    public Vector2 spawnAreaMin = new Vector2(-10, -10);
-    public Vector2 spawnAreaMax = new Vector2(10, 10);
+    [Header("Raycast & Ground")]
     [Tooltip("Y offset for the raycast start position.")]
     public float raycastHeight = 10f;
     [Tooltip("Layer mask to detect ground.")]
     public LayerMask groundLayer;
+    [Tooltip("Offset to add to the ground height when spawning.")]
+    public float spawnHeightOffset = 0f;
+
     [Header("Collision Check")]
     [Tooltip("Layer mask for obstacles to avoid spawning inside.")]
     public LayerMask obstacleLayer;
     [Tooltip("Radius to check for existing objects around spawn point.")]
     public float collisionCheckRadius = 1f;
     [Tooltip("Minimum distance between spawned characters.")]
-    public float minSpawnDistance = 2f;
+    public float minSpawnDistance = 1.5f;
     [Tooltip("Maximum attempts to find a valid position per character.")]
-    public int maxSpawnAttempts = 30; // 10'dan 30'a çıkardık, daha fazla şans tanıyalım
+    public int maxSpawnAttempts = 30;
 
     private List<Vector3> spawnedPositions = new List<Vector3>();
-
-
-
-    // Removed Start() to prevent auto-spawn. Controlled by LevelManager.
 
     // Public method called by LevelManager
     public void SpawnLevel(int humans, int zombies)
@@ -63,17 +70,17 @@ public class SpawnManager : MonoBehaviour
         // Spawn Humans
         for (int i = 0; i < humanCount; i++)
         {
-            SpawnRandomPrefab(humanPrefabs, "Human");
+            SpawnRandomPrefab(humanPrefabs, humanSpawnPoints, "Human");
         }
 
         // Spawn Zombies
         for (int i = 0; i < zombieCount; i++)
         {
-            SpawnRandomPrefab(zombiePrefabs, "Zombie");
+            SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
         }
     }
 
-    private void SpawnRandomPrefab(List<GameObject> prefabs, string debugName)
+    private void SpawnRandomPrefab(List<GameObject> prefabs, List<Transform> spawnPoints, string debugName)
     {
         if (prefabs == null || prefabs.Count == 0)
         {
@@ -81,20 +88,31 @@ public class SpawnManager : MonoBehaviour
             return;
         }
 
+        if (spawnPoints == null || spawnPoints.Count == 0)
+        {
+             Debug.LogWarning($"SpawnManager: No spawn points assigned for {debugName}! Please assign them in the Inspector.");
+             return;
+        }
+
         GameObject selectedPrefab = prefabs[Random.Range(0, prefabs.Count)];
         
         // Try finding a valid position multiple times
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            Vector3 spawnPos = GetRandomPosition();
+            // Listeden rastgele bir nokta seç
+            Transform randomPoint = spawnPoints[Random.Range(0, spawnPoints.Count)];
+            
+            // O noktanın etrafında (spawnRadius kadar) rastgele bir yer bul
+            // Böylece hepsi üst üste binmez
+            Vector3 candidatePos = GetPositionAroundPoint(randomPoint.position, spawnRadius);
 
-            if (spawnPos != Vector3.negativeInfinity)
+            if (candidatePos != Vector3.negativeInfinity)
             {
-                if (IsValidPosition(spawnPos))
+                if (IsValidPosition(candidatePos))
                 {
                     Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    Instantiate(selectedPrefab, spawnPos, randomRotation);
-                    spawnedPositions.Add(spawnPos); // Kaydet
+                    Instantiate(selectedPrefab, candidatePos, randomRotation);
+                    spawnedPositions.Add(candidatePos); // Kaydet
                     return; // Spawn successful, exit method
                 }
             }
@@ -106,13 +124,10 @@ public class SpawnManager : MonoBehaviour
     private bool IsValidPosition(Vector3 position)
     {
         // 1. Engel Kontrolü (Obstacle Layer)
-        // Kürenin merkezini biraz yukarı kaldırıyoruz ki zeminle (Y=0) çakışmasın.
-        // checkPos = (X, Y + Radius + 0.2f, Z) -> Alt noktası Y=0.2f olur.
         Vector3 checkPos = position + Vector3.up * (collisionCheckRadius + 0.2f);
         
         if (Physics.CheckSphere(checkPos, collisionCheckRadius, obstacleLayer))
         {
-            // Debug.Log("Spawn Failed: Hit Obstacle"); // Çok spam yaparsa kapatın
             return false;
         }
 
@@ -121,7 +136,6 @@ public class SpawnManager : MonoBehaviour
         {
             if (Vector3.Distance(position, spawnedPos) < minSpawnDistance)
             {
-                // Debug.Log("Spawn Failed: Too Close to another character");
                 return false;
             }
         }
@@ -129,40 +143,50 @@ public class SpawnManager : MonoBehaviour
         return true;
     }
 
-    [Tooltip("Offset to add to the ground height when spawning.")]
-    public float spawnHeightOffset = 0f;
-
-    private Vector3 GetRandomPosition()
+    private Vector3 GetPositionAroundPoint(Vector3 centerPoint, float radius)
     {
-        // Belirtilen alan içinde rastgele X ve Z seç
-        float randomX = Random.Range(spawnAreaMin.x, spawnAreaMax.x);
-        float randomZ = Random.Range(spawnAreaMin.y, spawnAreaMax.y);
+        // Rastgele bir ofset al (Daire içinde)
+        Vector2 randomCircle = Random.insideUnitCircle * radius;
+        Vector3 targetPos = centerPoint + new Vector3(randomCircle.x, 0, randomCircle.y);
 
-        // Yukarıdan aşağıya Raycast atıp zemini bul
-        Vector3 rayStart = new Vector3(randomX, raycastHeight, randomZ);
+        // Raycast ile zemine oturt
+        // Yüksekten aşağıya bak
+        Vector3 rayStart = new Vector3(targetPos.x, centerPoint.y + raycastHeight, targetPos.z);
         
-        // Eğer Ground Layer seçilmemişse veya 'Nothing' ise direkt varsayılan yüksekliği kullan
         if (groundLayer.value == 0)
         {
-             return new Vector3(randomX, 0f + spawnHeightOffset, randomZ);
+             // Ground layer yoksa referans aldığı transformun Y'sini kullan
+             return new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset, targetPos.z);
         }
 
         if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
         {
-            return hit.point + Vector3.up * spawnHeightOffset;
+            // Yere gömülmeyi önlemek için +0.5f ekliyoruz
+            return hit.point + Vector3.up * (spawnHeightOffset + 0.5f);
         }
         
-        // Eğer Raycast hiçbir şeye çarpmazsa (Boşluktaysa) buraya spawnlama
-        // Return negative infinity to signal retry
         return Vector3.negativeInfinity;
     }
 
     private void OnDrawGizmosSelected()
     {
-        // Spawn alanını editörde çiz
-        Gizmos.color = Color.green;
-        Vector3 center = new Vector3((spawnAreaMin.x + spawnAreaMax.x) / 2, 0, (spawnAreaMin.y + spawnAreaMax.y) / 2);
-        Vector3 size = new Vector3(spawnAreaMax.x - spawnAreaMin.x, 1, spawnAreaMax.y - spawnAreaMin.y);
-        Gizmos.DrawWireCube(center, size);
+        // Spawn noktalarını çiz
+        if (humanSpawnPoints != null)
+        {
+            Gizmos.color = Color.green;
+            foreach (var p in humanSpawnPoints)
+            {
+                if(p != null) Gizmos.DrawWireSphere(p.position, 3f);
+            }
+        }
+
+        if (zombieSpawnPoints != null)
+        {
+            Gizmos.color = Color.red;
+            foreach (var p in zombieSpawnPoints)
+            {
+               if(p != null) Gizmos.DrawWireSphere(p.position, 3f);
+            }
+        }
     }
 }

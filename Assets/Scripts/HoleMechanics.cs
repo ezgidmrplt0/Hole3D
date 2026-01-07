@@ -12,7 +12,7 @@ public class HoleMechanics : MonoBehaviour
 
     [Header("Animation Settings")]
     public float fallDuration = 0.5f;
-    public float sinkDepth = 2f;
+    // public float sinkDepth = 2f; // Removed duplicate
     public float minScale = 0.1f;
 
     // Eski ayarlar temizlendi
@@ -74,8 +74,9 @@ public class HoleMechanics : MonoBehaviour
     }
 
     [Header("Physics Settings")]
-    public float suctionForce = 80f; // Daha güçlü çekelim ki sürüklensin
-    public Collider fallZoneCollider; // ARTIK BU ALANA GİRİNCE DÜŞECEK!
+    public float voidRadius = 1.0f; // Siyah alanın yarıçapı (Scale ile çarpılacak)
+    public float sinkDepth = 3f;
+    // public float suctionForce; // Kaldırıldı
 
     IEnumerator PhysicsFall(GameObject victim)
     {
@@ -86,7 +87,35 @@ public class HoleMechanics : MonoBehaviour
             if (zombieInfo != null && holeLevel < zombieInfo.level) yield break; 
         }
 
-        // --- AŞAMA 1: YAKALAMA & SÜRÜKLEME (DRAG) ---
+        // --- AŞAMA 1: BEKLEME (WAIT FOR VOID) ---
+        // Karakterin AI'sını kapatmıyoruz, yürümeye devam etsin.
+        // Sadece fiziksel olarak "Boşluğa" (Siyah Alana) girdi mi diye kontrol ediyoruz.
+
+        Transform vTransform = victim.transform;
+        
+        while (vTransform != null)
+        {
+            // Mesafeyi ölç (Sadece X-Z düzleminde)
+            float dist = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), 
+                                          new Vector3(vTransform.position.x, 0, vTransform.position.z));
+
+            // Scale arttıkça radius da artmalı
+            float scaledVoidRadius = voidRadius * transform.localScale.x;
+
+            if (dist < scaledVoidRadius)
+            {
+                break; // DÖNGÜYÜ KIR -> AŞAMA 2'ye (DÜŞÜŞ) GEÇ
+            }
+
+            yield return null; 
+        }
+
+        if (vTransform == null) yield break;
+
+        // --- AŞAMA 2: DÜŞÜŞ (FALL) ---
+        // Artık geri dönüş yok. Kontrolü al ve düşür.
+
+        // 1. AI ve Kontrolcüleri Kapat
         CharacterAI ai = victim.GetComponent<CharacterAI>();
         if (ai != null) ai.enabled = false;
 
@@ -94,158 +123,70 @@ public class HoleMechanics : MonoBehaviour
         if (agent != null) agent.enabled = false;
 
         Animator anim = victim.GetComponent<Animator>();
-        if (anim != null) anim.enabled = false;
+        if (anim != null) anim.enabled = false; // Ragdoll etkisi için animasyon durmalı
 
+        // 2. Fizik Sistemini Aç
         Rigidbody rb = victim.GetComponent<Rigidbody>();
         if (rb != null)
         {
             rb.isKinematic = false;
             rb.useGravity = true; 
-            rb.constraints = RigidbodyConstraints.FreezeRotation; 
-            rb.drag = 2f; 
+            rb.constraints = RigidbodyConstraints.None; // Dönebilsin
+            rb.drag = 0.5f;
+            rb.angularVelocity = Random.insideUnitSphere * 5f; // Hafif spin
         }
 
-        // Merkeze Gelene Kadar Çek (FALL ZONE Kontrolü)
-        while (victim != null)
-        {
-            // Belirlenen alanın (Siyahlık) içine girdi mi?
-            // Bounds.Contains 3D bakar, bu yüzden sadece X ve Z'ye bakmak daha güvenli olabilir
-            // Ama collider yeterince yüksekse sorun olmaz.
-            // Daha hassas kontrol: Sadece XZ düzleminde mesafe
-            
-            bool isInside = false;
-            
-            if (fallZoneCollider != null)
-            {
-                // Collider'ın sınırlarına girdiyse
-                // Not: Bounds kutu gibidir, yuvarlak delik için SphereCollider kullanıp distance bakmak daha iyi
-                // Kullanıcının "Area" dediği şeyi tam karşılamak için ClosestPoint kullanıyoruz
-                
-                // Basit Yöntem: Bounds Contains (Kutu)
-                // isInside = fallZoneCollider.bounds.Contains(victim.transform.position);
-
-                // Gelişmiş Yöntem: Merkezden Uzaklık < Collider Yarıçapı (Eğer yuvarlaksa)
-                // Bounds extents x'i yarıçap gibi düşünelim
-                float radius = fallZoneCollider.bounds.extents.x;
-                float dist = Vector3.Distance(transform.position, victim.transform.position);
-                
-                // %80 içe girince düşsün (Kenardan taşmayı önlemek için)
-                if (dist < radius * 0.9f) isInside = true;
-            }
-            else
-            {
-                 // Eğer atama yapılmadıysa varsayılan 1 birim
-                 if (Vector3.Distance(transform.position, victim.transform.position) < 1f) isInside = true;
-            }
-
-            if (isInside)
-            {
-                break; // AŞAMA 2'ye (DÜŞÜŞ) geç!
-            }
-
-            // Merkeze Çek
-            if (rb != null)
-            {
-                Vector3 directionToHole = (transform.position - victim.transform.position);
-                directionToHole.y = 0; 
-                rb.AddForce(directionToHole.normalized * suctionForce * Time.deltaTime, ForceMode.VelocityChange);
-            }
-            
-            yield return null;
-        }
-
-        if (victim == null) yield break;
-
-        // --- AŞAMA 2: DÜŞÜŞ (FALL) ---
-        // Artık deliğin "boşluk" trigger'ının içinde!
-
-        if (rb != null)
-        {
-            rb.constraints = RigidbodyConstraints.None; // Artık yuvarlansın (Tumble)
-            rb.drag = 0.5f; // Hızlı düşsün
-        }
-
-        // ÇARPIŞMA İPTALİ (ZEMİNİ DELME)
-        // Dikkat: Sadece ZEMİNİ (veya etraftaki objeleri) ignore etmeliyiz.
-        // Deliğin kendi çerçevesini (Rim) ignore ETMEMELİYİZ ki ona çarpıp sekelbilsinler.
-        
+        // 3. Yerle Çarpışmayı Kes (Sadece ZEMİN ile!)
+        // Böylece deliğin içine düşebilir ama kenarlarına (Rim) çarpabilir.
         Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
-        Collider[] nearbyCols = Physics.OverlapSphere(victim.transform.position, 3f);
         
-        foreach (var envCol in nearbyCols)
+        // "Ground" veya "Default" layer'ındaki yakındaki objeleri bul
+        // En güvenlisi basit bir OverlapSphere
+        Collider[] nearbyGrounds = Physics.OverlapSphere(vTransform.position, 5f); 
+        
+        foreach (var envCol in nearbyGrounds)
         {
-            // 1. Triggerlar ile işimiz yok
-            if (envCol.isTrigger) continue;
-            
-            // 2. Kurbanın kendisi ise geç
-            if (envCol.transform.root == victim.transform) continue;
-
-            // 3. ÖNEMLİ: Bu obje Deliğin bir parçası mı? (Rim, Çerçeve vb.)
-            // Eğer deliğin parçasıysa IGNORE ETME! Çarpsın.
-            if (envCol.transform.IsChildOf(this.transform)) continue;
-
-            // Kalanlar muhtemelen Zemindir veya diğer engellerdir -> IGNORE ET
-            foreach (var vCol in victimCols) Physics.IgnoreCollision(vCol, envCol, true);
+            // Kendisi değilse ve Deliğin parçası değilse -> Ignore
+            if (envCol.transform.root != vTransform.root && !envCol.transform.IsChildOf(this.transform))
+            {
+                foreach (var vCol in victimCols) Physics.IgnoreCollision(vCol, envCol, true);
+            }
         }
 
-        // Düşüş Simülasyonu
+        // --- AŞAMA 3: DÜŞÜŞ SİMÜLASYONU & YOK ETME ---
         float timer = 0f;
-        while (timer < 2f) 
+        while (timer < 3f && vTransform != null) 
         {
             timer += Time.deltaTime;
 
-            if (rb != null)
+            if (vTransform.position.y < transform.position.y - sinkDepth)
             {
-                // Artık çekmeye gerek yok, yerçekimi halletsin
-                // Ama sağa sola takılmasın diye hafifçe merkezin "X,Z"sine itebiliriz
-                // rb.AddForce(Vector3.down * 20f * Time.deltaTime, ForceMode.VelocityChange);
-                
-                // Ekstra yerçekimi
-                rb.AddForce(Physics.gravity * 2f, ForceMode.Acceleration);
+                break; // Yeterince düştü
             }
-
-            // Yeterince düştü mü?
-            if (victim.transform.position.y < transform.position.y - sinkDepth)
-            {
-                break; 
-            }
-
             yield return null;
         }
 
-        // Yok Etme
-        if (victim != null)
+        // Yok Et ve Puan Ver
+        if (vTransform != null)
         {
-            // --- LEVEL UP & XP SİSTEMİ ---
-            
             if (victim.CompareTag("Zombie"))
             {
-                // Zombi yedik: Ödül!
                 currentXP++;
                 if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
             }
             else if (victim.CompareTag("Human"))
             {
-                // İnsan yedik: Ceza!
-                // Yanlışlıkla insan yersen barın gerilesin.
                 currentXP--;
-                if (currentXP < 0) currentXP = 0; // 0'ın altına düşmesin
-                
-                // İstersen kırmızı yanıp sönme efekti ekle
+                if (currentXP < 0) currentXP = 0;
                 Debug.Log("Human Eaten! XP Penalty.");
             }
 
-            // Level Atla
             if (currentXP >= xpToNextLevel)
             {
                 LevelUp();
             }
             
-            // UI Güncelle (HoleVisuals üzerinden)
-            // progress = (float)currentXP / xpToNextLevel;
-            // Bunu yapabilmek için HoleVisuals'a erişim lazım veya Event fırlatmalı.
-            // En temizi LevelManager üzerinden event göndermek ama şimdilik doğrudan Image referansı alabiliriz.
-            if (visuals != null)
+            if (visuals != null && xpToNextLevel > 0)
             {
                 visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
             }
@@ -271,10 +212,9 @@ public class HoleMechanics : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        if (fallZoneCollider != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireCube(fallZoneCollider.bounds.center, fallZoneCollider.bounds.size);
-        }
+        // Draw Void Radius
+        Gizmos.color = Color.black;
+        float scaledRadius = voidRadius * transform.localScale.x;
+        Gizmos.DrawWireSphere(transform.position, scaledRadius);
     }
 }

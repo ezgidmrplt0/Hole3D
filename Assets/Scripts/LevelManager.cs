@@ -61,16 +61,19 @@ public class LevelManager : MonoBehaviour
 
         LevelData data = levels[currentLevelIndex];
         
+        // Override zombie count based on User Request (1.5x Humans)
+        int desiredZombieCount = (int)(data.humanCount * 1.5f);
+        
         // Reset Progress
         currentZombiesEaten = 0;
-        totalZombiesInLevel = data.zombieCount;
+        totalZombiesInLevel = desiredZombieCount;
         NotifyProgress();
 
         // Setup Scene
         if (spawnManager != null)
         {
             spawnManager.ClearScene();
-            spawnManager.SpawnLevel(data.humanCount, data.zombieCount);
+            spawnManager.SpawnLevel(data.humanCount, desiredZombieCount);
         }
     }
 

@@ -48,51 +48,29 @@ public class CharacterAI : MonoBehaviour
             }
 
             // Eğer bu animatörde yürüme/koşma parametreleri varsa, doğru olan budur!
-            // Veya en azından 'IsRun' varsa yine kullanmaya değer olabilir ama
-            // CrossFade("walk") yapacağımız için state isimleri de önemli.
-            // Şimdilik parametreler var diye varsayıyoruz ki state'ler de vardır.
             if (localHasWalk || localHasRun)
             {
                 animator = anim;
-                isAnimatorValid = true; // Bu animatör bizim sistemle uyumlu!
-                
-                // IsRun varsa kaydet
+                isAnimatorValid = true; 
                 if (localHasIsRun) hasIsRunParam = true;
-                
-                break; // Bulduk, aramayı bitir
+                break; 
             }
         }
 
-        // Eğer uyumlu bir animatör bulamadıysak, ilkiyle yetin ama state değiştirmeye zorlama
+        // Eğer uyumlu bir animatör bulamadıysak, ilkiyle yetin
         if (!isAnimatorValid && allAnimators.Length > 0)
         {
              animator = allAnimators[0];
-             // Warning'i bir kere verelim, spam yapmasın.
-             // Debug.LogWarning($"{gameObject.name}: Uyumlu parametreler bulunamadı (walk/run). Animasyon geçişleri devre dışı.");
-        }
-        else if (allAnimators.Length == 0)
-        {
-             // Debug.LogWarning($"{gameObject.name}: Hiçbir Animator bulunamadı!");
         }
 
         // 1. Remove old NavMeshAgent if present
         UnityEngine.AI.NavMeshAgent navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-        if (navAgent != null)
-        {
-            Destroy(navAgent);
-        }
+        if (navAgent != null) Destroy(navAgent);
 
         // 2. Setup Rigidbody
         rb = GetComponent<Rigidbody>();
-        if (rb == null)
-        {
-            rb = gameObject.AddComponent<Rigidbody>();
-        }
+        if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
         
-        // Rotasyonu ve Y eksenini kilitle (Havaya kalkmayı/tırmanmayı önle)
-        // DÜZELTME: FreezePostionY yapınca havada spawn olurlarsa inemiyorlar.
-        // O yüzden Y pozisyonunu serbest bırakıp Gravity açıyoruz.
-        // Tırmanmayı engellemek için kod içinde Y hızını kısıtlayacağız.
         rb.constraints = RigidbodyConstraints.FreezeRotation; 
         rb.useGravity = true;
 
@@ -106,6 +84,32 @@ public class CharacterAI : MonoBehaviour
             collider.radius = 0.5f;
         }
 
+        // --- PHYSICS FIX: Slippery Material ---
+        // Karakterlerin birbirine veya duvara sürtünüp "tırmanmasını" (havaya kalkmasını) engeller.
+        PhysicMaterial slipperyMat = new PhysicMaterial("SlipperyChar");
+        slipperyMat.dynamicFriction = 0f;
+        slipperyMat.staticFriction = 0f;
+        slipperyMat.bounciness = 0f;
+        slipperyMat.frictionCombine = PhysicMaterialCombine.Minimum;
+        slipperyMat.bounceCombine = PhysicMaterialCombine.Minimum;
+        collider.material = slipperyMat;
+
+        // Daha stabil fizik için ayarlar
+        if (rb != null)
+        {
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+        }
+    }
+
+    protected virtual void LateUpdate()
+    {
+        if (transform.position.sqrMagnitude > 1000000f || 
+            float.IsNaN(transform.position.x) || float.IsNaN(transform.position.y) || float.IsNaN(transform.position.z))
+        {
+             Debug.LogError($"{gameObject.name} panicked (Invalid Position)! Destroying.");
+             Destroy(gameObject);
+        }
     }
 
     protected virtual void OnEnable()
@@ -168,6 +172,9 @@ public class CharacterAI : MonoBehaviour
 
     protected void Move(Vector3 targetDirection, bool isRunning)
     {
+        // Infinity/NaN Check to prevent confusing errors
+        if (float.IsNaN(targetDirection.x) || float.IsNaN(targetDirection.y) || float.IsNaN(targetDirection.z)) return;
+
         // --- Sıkışma Kurtarma Mantığı ---
         if (isEscaping)
         {
@@ -203,17 +210,28 @@ public class CharacterAI : MonoBehaviour
         // Hareketi uygula
         Vector3 velocity = moveDirection * currentSpeed;
         
-        // Y eksenini koru AMA Tırmanmayı Önle!
-        // Eğer yukarı çıkmaya çalışıyorsa (velocity.y > 0) bunu engelle.
-        // Aşağı düşüyorsa (yerçekimi) izin ver.
-        velocity.y = Mathf.Min(rb.velocity.y, 0f);
+        // Y eksenini koru (Fizik motoruna saygı duy)
+        // Düzeltme: Aşağıdaki 'Min(..., 0f)' kısıtlaması, zemin içinden doğan karakterlerin
+        // yukarı fırlayıp kurtulmasını (depenetration) engelliyordu. Bu da sonsuz güç birikimine yol açıyordu.
+        // Artık Y hızına karışmıyoruz, fizik motoru ne derse o.
+        velocity.y = rb.velocity.y;
         
+        // --- CRITICAL SAFETY CHECK ---
+        if (float.IsNaN(velocity.x) || float.IsNaN(velocity.y) || float.IsNaN(velocity.z) || 
+            float.IsInfinity(velocity.x) || float.IsInfinity(velocity.y) || float.IsInfinity(velocity.z))
+        {
+            Debug.LogWarning($"{gameObject.name}: NaN/Infinity Velocity Detected! Resetting.");
+            velocity = Vector3.zero;
+        }
+
         rb.velocity = velocity;
 
-        // Dönüş
-        if (moveDirection.x != 0 || moveDirection.z != 0)
+        // Dönüş (Güvenli)
+        // Vector3.zero veya çok küçük vektörler LookRotation'ı bozar
+        Vector3 lookDir = new Vector3(moveDirection.x, 0, moveDirection.z);
+        if (lookDir.sqrMagnitude > 0.001f)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(new Vector3(moveDirection.x, 0, moveDirection.z));
+            Quaternion targetRotation = Quaternion.LookRotation(lookDir);
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
         }
 

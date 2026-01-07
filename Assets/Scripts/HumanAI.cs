@@ -3,7 +3,7 @@ using UnityEngine;
 public class HumanAI : CharacterAI
 {
     [Header("Behavior")]
-    public float wanderRadius = 10f;
+    public float wanderRadius = 30f;
     public float changeDirectionInterval = 3f;
     public string enemyTag = "Zombie";
     public float fearRadius = 5f;

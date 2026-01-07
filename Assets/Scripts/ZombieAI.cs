@@ -11,7 +11,7 @@ public class ZombieAI : CharacterAI
 
     [Header("Behavior")]
     public string preyTag = "Human";
-    public float detectionRange = 15f;
+    public float detectionRange = 8f;
     public float runTriggerDistance = 8f; // Bu mesafeden yakındaysa KOŞ, uzaksa YÜRÜ
     public float wanderDurationAfterCollision = 1.0f;
 
@@ -19,15 +19,15 @@ public class ZombieAI : CharacterAI
     private Vector3 wanderDirection;
 
     [Header("Roaming")]
-    public float wanderRadius = 15f;
+    public float wanderRadius = 5f;
     public float roamInterval = 4f;
     private Vector3 roamTarget;
     private float roamTimer;
 
     void Start()
     {
-        // Zombi hızını biraz düşürelim (Varsayılan 5 biraz hızlıydı)
-        runSpeed = 3.5f; 
+        // Zombi hızını biraz düşürelim
+        runSpeed = 2.5f; 
         walkSpeed = 1.5f;
 
         // Level Textini Ayarla
@@ -90,10 +90,29 @@ public class ZombieAI : CharacterAI
 
     private void PickNewRoamTarget()
     {
-        Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
-        randomDir += transform.position;
-        randomDir.y = transform.position.y;
-        roamTarget = randomDir;
+        // Önce sahnede insan var mı diye bak (Koku alma duyusu gibi global arama)
+        GameObject[] humans = GameObject.FindGameObjectsWithTag(preyTag);
+
+        if (humans.Length > 0)
+        {
+            // Rastgele bir insan seç ve ona doğru git
+            Transform targetHuman = humans[Random.Range(0, humans.Length)].transform;
+            
+            // Tam üstüne gitmesin, o bölgeye gitsin (Sürü psikolojisi)
+            Vector3 randomOffset = Random.insideUnitSphere * wanderRadius;
+            Vector3 targetPos = targetHuman.position + randomOffset;
+            
+            targetPos.y = transform.position.y;
+            roamTarget = targetPos;
+        }
+        else
+        {
+            // Hiç insan kalmadıysa olduğu yerde gezinmeye devam et
+            Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
+            randomDir += transform.position;
+            randomDir.y = transform.position.y;
+            roamTarget = randomDir;
+        }
     }
 
     private Transform GetClosestPrey()

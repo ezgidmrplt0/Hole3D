@@ -24,7 +24,8 @@ public class LevelManager : MonoBehaviour
     public int totalZombiesInLevel = 0;
 
     // Event for UI updates
-    public System.Action<float> OnProgressUpdated; 
+    public System.Action<float> OnProgressUpdated;
+    public System.Action<int> OnLevelChanged; // New event for level text update
 
     private void Awake()
     {
@@ -61,6 +62,9 @@ public class LevelManager : MonoBehaviour
 
         LevelData data = levels[currentLevelIndex];
         
+        // Notify level change (1-based index for UI)
+        OnLevelChanged?.Invoke(currentLevelIndex + 1);
+
         // Override zombie count based on User Request (1.5x Humans)
         int desiredZombieCount = (int)(data.humanCount * 1.5f);
         
@@ -91,6 +95,12 @@ public class LevelManager : MonoBehaviour
 
     private void NextLevel()
     {
+        // Reward Player
+        if (EconomyManager.Instance != null)
+        {
+            EconomyManager.Instance.AddCoins(20);
+        }
+
         currentLevelIndex++;
         StartLevel();
     }

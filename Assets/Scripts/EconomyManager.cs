@@ -34,6 +34,13 @@ public class EconomyManager : MonoBehaviour
     private void LoadCoins()
     {
         CurrentCoins = PlayerPrefs.GetInt(COIN_PREF_KEY, 0);
+        // TEST: Give coins if 0
+        if (CurrentCoins < 500) 
+        {
+            CurrentCoins = 1000;
+            SaveCoins();
+            Debug.Log("EconomyManager: Added 1000 test coins.");
+        }
     }
 
     private void SaveCoins()

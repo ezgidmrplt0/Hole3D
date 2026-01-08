@@ -224,11 +224,117 @@ public class HoleMechanics : MonoBehaviour
         Debug.Log($"HOLE LEVEL UP! New Level: {holeLevel} | Target Scale: {targetScale.x}");
     }
 
+    private void Update()
+    {
+        // --- MAGNET LOGIC ---
+        if (SkillManager.Instance != null)
+        {
+            if (SkillManager.Instance.IsMagnetUnlocked)
+            {
+                ApplyMagnetEffect();
+            }
+
+            if (SkillManager.Instance.IsRepellentUnlocked)
+            {
+                ApplyRepellentEffect();
+            }
+        }
+    }
+
+    [Header("Magnet Settings")]
+    public float magnetRadius = 8f; // Increased default
+    public float magnetForce = 50f; // Significantly increased
+
+    [Header("Repellent Settings")]
+    public float repellentRadius = 3f;
+    public float repellentForce = 20f;
+
+    void ApplyRepellentEffect()
+    {
+        Collider[] nearby = Physics.OverlapSphere(transform.position, repellentRadius);
+        foreach (var col in nearby)
+        {
+            if (col.CompareTag("Human"))
+            {
+                Rigidbody targetRb = col.GetComponent<Rigidbody>();
+                if (targetRb != null)
+                {
+                    Vector3 direction = (col.transform.position - transform.position).normalized;
+                    direction.y = 0; // Push horizontally
+                    
+                    // Push AWAY
+                    targetRb.AddForce(direction * repellentForce * Time.deltaTime, ForceMode.VelocityChange);
+                }
+            }
+        }
+    }
+
+    void ApplyMagnetEffect()
+    {
+        // 1. Find targets nearby
+        Collider[] nearby = Physics.OverlapSphere(transform.position, magnetRadius);
+        bool foundAny = false;
+
+        foreach (var col in nearby)
+        {
+            // ONLY PULL ZOMBIES (Ignore Humans)
+            if (col.CompareTag("Zombie"))
+            {
+                foundAny = true;
+                
+                // 2. Disable NavMeshAgent so Physics can take over
+                UnityEngine.AI.NavMeshAgent agent = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (agent != null && agent.enabled)
+                {
+                    agent.enabled = false;
+                }
+
+                CharacterAI charAI = col.GetComponent<CharacterAI>();
+                if (charAI != null) charAI.enabled = false; // Stop AI movement logic
+
+                // 3. Apply Force with Heavy Damping (To stop orbiting)
+                Rigidbody targetRb = col.GetComponent<Rigidbody>();
+                if (targetRb != null)
+                {
+                    targetRb.isKinematic = false; 
+
+                    // -- Physics Tweak --
+                    // 1. Apply high drag so they don't overshoot (Orbiting issue)
+                    targetRb.drag = 5f; 
+                    targetRb.angularDrag = 5f;
+
+                    // 2. Kill lateral velocity (Optional, but helps center them)
+                    // Allows them to slide IN, but stops them from sliding PAST
+                    // We can just rely on high drag for now, but let's ensure force is consistent.
+
+                    Vector3 direction = (transform.position - col.transform.position).normalized;
+                    direction.y = 0; // Keep pull horizontal, gravity handles falling
+
+                    // Pull towards hole center
+                    // ForceMode.Force for smooth continuous pull against the drag
+                    targetRb.AddForce(direction * magnetForce, ForceMode.Force);
+                    
+                    // Draw debug line to confirm lock-on
+                    Debug.DrawLine(transform.position, col.transform.position, Color.cyan);
+                }
+            }
+        }
+        
+        // Debug Log only occasionally to avoid spam, or if testing
+        // if (foundAny) Debug.Log("Magnet: Pulling targets...");
+    }
+
     private void OnDrawGizmosSelected()
     {
         // Draw Void Radius
         Gizmos.color = Color.black;
         float scaledRadius = voidRadius * transform.localScale.x;
         Gizmos.DrawWireSphere(transform.position, scaledRadius);
+
+        if (SkillManager.Instance != null && SkillManager.Instance.IsMagnetUnlocked)
+        {
+             Gizmos.color = Color.blue;
+             Gizmos.DrawWireSphere(transform.position, magnetRadius);
+        }
     }
 }

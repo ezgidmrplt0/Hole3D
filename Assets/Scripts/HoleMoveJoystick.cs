@@ -67,7 +67,15 @@ public class HoleMoveJoystick : MonoBehaviour
         if (direction.magnitude > 1f) direction.Normalize();
 
         // velocity yerine MovePosition kullanıyoruz (Daha stabil)
-        Vector3 newPos = rb.position + direction * moveSpeed * Time.fixedDeltaTime;
+        float currentSpeed = moveSpeed;
+        
+        // --- SKILL: SPEED BOOST ---
+        if (SkillManager.Instance != null && SkillManager.Instance.IsSpeedUnlocked)
+        {
+            currentSpeed *= 1.3f; // 30% Boost
+        }
+
+        Vector3 newPos = rb.position + direction * currentSpeed * Time.fixedDeltaTime;
         rb.MovePosition(newPos);
     }
 

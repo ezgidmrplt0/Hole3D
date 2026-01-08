@@ -246,8 +246,8 @@ public class HoleMechanics : MonoBehaviour
     public float magnetForce = 50f; // Significantly increased
 
     [Header("Repellent Settings")]
-    public float repellentRadius = 3f;
-    public float repellentForce = 20f;
+    public float repellentRadius = 5f; // Increased from 3f
+    public float repellentForce = 80f; // Increased from 20f
 
     void ApplyRepellentEffect()
     {
@@ -256,14 +256,26 @@ public class HoleMechanics : MonoBehaviour
         {
             if (col.CompareTag("Human"))
             {
+                // 1. Disable AI so physics can work
+                UnityEngine.AI.NavMeshAgent agent = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                if (agent != null && agent.enabled) agent.enabled = false;
+
+                CharacterAI charAI = col.GetComponent<CharacterAI>();
+                if (charAI != null) charAI.enabled = false;
+
+                // 2. Apply Strong Push Force
                 Rigidbody targetRb = col.GetComponent<Rigidbody>();
                 if (targetRb != null)
                 {
+                    targetRb.isKinematic = false;
+                    
                     Vector3 direction = (col.transform.position - transform.position).normalized;
                     direction.y = 0; // Push horizontally
                     
-                    // Push AWAY
-                    targetRb.AddForce(direction * repellentForce * Time.deltaTime, ForceMode.VelocityChange);
+                    // ForceMode.VelocityChange for instant punchiness
+                    targetRb.AddForce(direction * repellentForce * Time.deltaTime, ForceMode.VelocityChange); // Increased force needs DeltaTime if using high values in Update, or remove DeltaTime for ForceMode.Force
+                    
+                    Debug.DrawLine(transform.position, col.transform.position, Color.magenta);
                 }
             }
         }

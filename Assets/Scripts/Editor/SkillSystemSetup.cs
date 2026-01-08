@@ -90,6 +90,10 @@ public class SkillSystemSetup : EditorWindow
         });
 
         EditorUtility.SetDirty(uiManager);
+        if (!Application.isPlaying)
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(uiManager.gameObject.scene);
+        }
         Debug.Log("Skill System Setup Complete for Magnet, Speed, and Repellent!");
     }
 
@@ -104,24 +108,48 @@ public class SkillSystemSetup : EditorWindow
         Transform slot = content.GetChild(index);
         slot.name = name;
 
-        // Structure: Icon, Text (TMP) [Title], Text (TMP) (1) [Price], Button
+        // Structure (User Defined):
+        // texts[0] -> Price
+        // texts[1] -> Skill Name
+        // Button Text -> "BUY"
+
         TextMeshProUGUI[] texts = slot.GetComponentsInChildren<TextMeshProUGUI>(true);
         Button button = slot.GetComponentInChildren<Button>(true);
 
-        if (texts.Length >= 1) texts[0].text = title;
-        
+        // 1. Set Price (Index 0)
         TextMeshProUGUI priceText = null;
+        if (texts.Length >= 1) 
+        {
+            Undo.RecordObject(texts[0], "Set Price Text");
+            texts[0].text = price + " Gold";
+            priceText = texts[0];
+            EditorUtility.SetDirty(texts[0]); // Explicitly dirty component
+        }
+
+        // 2. Set Skill Name (Index 1)
         if (texts.Length >= 2)
         {
-            priceText = texts[1];
-            texts[1].text = price;
+            Undo.RecordObject(texts[1], "Set Skill Name");
+            texts[1].text = title;
+            EditorUtility.SetDirty(texts[1]);
         }
 
         if (button != null)
         {
+             // 3. Set Button Text to "BUY"
+             TextMeshProUGUI btnText = button.GetComponentInChildren<TextMeshProUGUI>(true);
+             if (btnText != null)
+             {
+                 Undo.RecordObject(btnText, "Set Buy Text");
+                 btnText.text = "BUY";
+                 EditorUtility.SetDirty(btnText);
+             }
+
+             Undo.RecordObject(button, "Wire Button");
              UnityEventTools.RemovePersistentListener(button.onClick, action);
              UnityEventTools.AddPersistentListener(button.onClick, action);
              Debug.Log($"Wired '{title}' Button.");
+             EditorUtility.SetDirty(button);
         }
 
         onAssign?.Invoke(button, priceText);

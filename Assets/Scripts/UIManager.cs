@@ -17,6 +17,12 @@ public class UIManager : MonoBehaviour
             UpdateCoinText(EconomyManager.Instance.CurrentCoins);
         }
 
+        // DEBUG: Check what UIManager thinks is the Price Text
+        if (magnetPriceText != null)
+            Debug.Log($"UIManager Check: magnetPriceText is assigned to '{magnetPriceText.name}' (Should be 'Text (TMP)')");
+        else
+            Debug.LogError("UIManager Check: magnetPriceText is NULL!");
+
         if (LevelManager.Instance != null)
         {
             LevelManager.Instance.OnLevelChanged += UpdateLevelText;
@@ -107,7 +113,7 @@ public class UIManager : MonoBehaviour
             magnetButton.interactable = !unlocked; 
             
             if (magnetPriceText != null)
-                magnetPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.magnetPrice.ToString();
+                magnetPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.magnetPrice.ToString() + " Gold";
         }
 
         // Speed
@@ -117,7 +123,7 @@ public class UIManager : MonoBehaviour
             speedButton.interactable = !unlocked; 
             
             if (speedPriceText != null)
-                speedPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.speedPrice.ToString();
+                speedPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.speedPrice.ToString() + " Gold";
         }
 
         // Repellent
@@ -127,7 +133,7 @@ public class UIManager : MonoBehaviour
             repellentButton.interactable = !unlocked; 
             
             if (repellentPriceText != null)
-                repellentPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.repellentPrice.ToString();
+                repellentPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.repellentPrice.ToString() + " Gold";
         }
     }
 

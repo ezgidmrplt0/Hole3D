@@ -44,6 +44,12 @@ public class HoleMoveJoystick : MonoBehaviour
     {
         // Rigidbody yoksa hareket edemeyiz
         if (rb == null) return;
+        
+        if (joystick == null)
+        {
+            // Fail silently or just return to avoid unused var warning if we don't move
+            return;
+        }
 
         Vector3 direction = new Vector3(joystick.Horizontal, 0f, joystick.Vertical);
         

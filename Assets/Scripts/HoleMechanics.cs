@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections;
 using TMPro;
+using DG.Tweening; // Import DOTween
 
 public class HoleMechanics : MonoBehaviour
 {
@@ -201,13 +202,26 @@ public class HoleMechanics : MonoBehaviour
         currentXP = 0; 
         xpToNextLevel = (int)(xpToNextLevel * 1.5f); 
 
-        // Büyüme Efekti
-        transform.localScale *= 1.2f; 
+        // Büyüme Oranı
+        float growthFactor = 1.2f;
+        float duration = 0.5f;
+
+        // 1. Fiziği/Kendini Büyüt (Animasyonlu)
+        Vector3 targetScale = transform.localScale * growthFactor;
+        transform.DOScale(targetScale, duration).SetEase(Ease.OutElastic);
+        
+        // 2. Görseli Büyüt (Eğer ayrı bir objedeyse)
+        if (visuals != null && visuals.transform.parent != transform)
+        {
+             Vector3 visualTargetScale = visuals.transform.localScale * growthFactor;
+             visuals.transform.DOScale(visualTargetScale, duration).SetEase(Ease.OutElastic);
+        }
+        
         // fallRadius kullanılmıyor, çünkü transform scale edilince collider da büyüyor
         
         UpdateLevelText();
 
-        Debug.Log($"HOLE LEVEL UP! New Level: {holeLevel} | Scale: {transform.localScale.x}");
+        Debug.Log($"HOLE LEVEL UP! New Level: {holeLevel} | Target Scale: {targetScale.x}");
     }
 
     private void OnDrawGizmosSelected()

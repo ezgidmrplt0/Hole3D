@@ -30,6 +30,13 @@ public class GameFlowManager : MonoBehaviour
         if (tapToPlayPanel != null)
         {
             tapToPlayPanel.SetActive(true);
+            
+            // Ensure the panel does not block clicks to buttons behind it (like Market)
+            // And allows clicks to pass through to the GameStart logic
+            CanvasGroup cg = tapToPlayPanel.GetComponent<CanvasGroup>();
+            if (cg == null) cg = tapToPlayPanel.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false; 
+
             IsGameActive = false;
             Time.timeScale = 0f; // Zamanı durdur (Fizik ve hareketler durur)
 

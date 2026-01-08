@@ -75,6 +75,14 @@ public class CharacterAI : MonoBehaviour
         rb.useGravity = true;
 
         // 3. Setup Collider
+        if (transform.position.sqrMagnitude > 1000000f || 
+            float.IsNaN(transform.position.x) || float.IsNaN(transform.position.y) || float.IsNaN(transform.position.z))
+        {
+             Debug.LogError($"CharacterAI: {gameObject.name} initiated at invalid position {transform.position}. Destroying.");
+             Destroy(gameObject);
+             return;
+        }
+
         CapsuleCollider collider = GetComponent<CapsuleCollider>();
         if (collider == null)
         {

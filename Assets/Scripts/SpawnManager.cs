@@ -102,6 +102,8 @@ public class SpawnManager : MonoBehaviour
             // Listeden rastgele bir nokta seç
             Transform randomPoint = spawnPoints[Random.Range(0, spawnPoints.Count)];
             
+            if (randomPoint == null) continue;
+
             // O noktanın etrafında (spawnRadius kadar) rastgele bir yer bul
             // Böylece hepsi üst üste binmez
             Vector3 candidatePos = GetPositionAroundPoint(randomPoint.position, spawnRadius);
@@ -111,9 +113,17 @@ public class SpawnManager : MonoBehaviour
                 if (IsValidPosition(candidatePos))
                 {
                     Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    Instantiate(selectedPrefab, candidatePos, randomRotation);
-                    spawnedPositions.Add(candidatePos); // Kaydet
-                    return; // Spawn successful, exit method
+                    
+                    if (CheckValid(candidatePos))
+                    {
+                        Instantiate(selectedPrefab, candidatePos, randomRotation);
+                        spawnedPositions.Add(candidatePos); // Kaydet
+                        return; // Spawn successful, exit method
+                    }
+                    else
+                    {
+                         Debug.LogError($"SpawnManager: Generated invalid position {candidatePos} for {debugName}");
+                    }
                 }
             }
         }
@@ -145,6 +155,13 @@ public class SpawnManager : MonoBehaviour
 
     private Vector3 GetPositionAroundPoint(Vector3 centerPoint, float radius)
     {
+        // Safety check for centerPoint
+        if (float.IsNaN(centerPoint.x) || float.IsNaN(centerPoint.y) || float.IsNaN(centerPoint.z))
+        {
+            Debug.LogError("SpawnManager: CenterPoint is NaN! Skipping.");
+            return Vector3.negativeInfinity;
+        }
+
         // Rastgele bir ofset al (Daire içinde)
         Vector2 randomCircle = Random.insideUnitCircle * radius;
         Vector3 targetPos = centerPoint + new Vector3(randomCircle.x, 0, randomCircle.y);
@@ -156,16 +173,28 @@ public class SpawnManager : MonoBehaviour
         if (groundLayer.value == 0)
         {
              // Ground layer yoksa referans aldığı transformun Y'sini kullan
-             return new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset, targetPos.z);
+             Vector3 result = new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset, targetPos.z);
+             return CheckValid(result) ? result : Vector3.negativeInfinity;
         }
 
         if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
         {
             // Yere gömülmeyi önlemek için +0.5f ekliyoruz
-            return hit.point + Vector3.up * (spawnHeightOffset + 0.5f);
+            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.5f);
+             return CheckValid(result) ? result : Vector3.negativeInfinity;
         }
         
         return Vector3.negativeInfinity;
+    }
+
+    private bool CheckValid(Vector3 v)
+    {
+        if (float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z) || 
+            float.IsInfinity(v.x) || float.IsInfinity(v.y) || float.IsInfinity(v.z))
+        {
+            return false;
+        }
+        return true;
     }
 
     private void OnDrawGizmosSelected()

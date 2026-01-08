@@ -14,13 +14,12 @@
       "hash": "e35dbd7f157d8fdfac3ea33189f4682101b6e613"
     },
     "com.coplaydev.unity-mcp": {
-      "version": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#v8.6.0",
+      "version": "file:com.coplaydev.unity-mcp",
       "depth": 0,
-      "source": "git",
+      "source": "embedded",
       "dependencies": {
         "com.unity.nuget.newtonsoft-json": "3.0.2"
-      },
-      "hash": "f205f157e6e2df49accd1e467ae172f7ab0555d4"
+      }
     },
     "com.unity.ai.navigation": {
       "version": "1.1.7",

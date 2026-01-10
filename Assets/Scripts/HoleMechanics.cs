@@ -36,8 +36,8 @@ public class HoleMechanics : MonoBehaviour
         // Görselleri bulmaya çalış (Otomatik - Daha Güçlü Arama)
         if (visuals == null)
         {
-            // 1. Önce çocuklara bak (IncludeInactive = true yapalım ki kapalıysa bile bulsun)
-            visuals = GetComponentInChildren<HoleVisuals>(true);
+            // 1. Önce çocuklara bak
+            visuals = GetComponentInChildren<HoleVisuals>();
             
             // 2. Kendine bak
             if (visuals == null) visuals = GetComponent<HoleVisuals>();
@@ -48,7 +48,7 @@ public class HoleMechanics : MonoBehaviour
 
         if (visuals == null)
         {
-            Debug.LogWarning("HoleMechanics: HoleVisuals scripti bulunamadı. Bar güncellenemeyecek ama oyun devam edebilir.");
+            Debug.LogError("HoleMechanics: HoleVisuals scripti bulunamadı! Lütfen Inspectordan 'visuals' kutucuğuna atama yapın.");
         }
         else
         {
@@ -170,42 +170,30 @@ public class HoleMechanics : MonoBehaviour
         // Yok Et ve Puan Ver
         if (vTransform != null)
         {
-            OnVictimConsumed(victim);
-        }
-    }
+            if (victim.CompareTag("Zombie"))
+            {
+                currentXP++;
+                if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
+            }
+            else if (victim.CompareTag("Human"))
+            {
+                currentXP--;
+                if (currentXP < 0) currentXP = 0;
+                Debug.Log("Human Eaten! XP Penalty.");
+            }
 
-    public void OnVictimConsumed(GameObject victim)
-    {
-        if (victim == null) return;
+            if (currentXP >= xpToNextLevel)
+            {
+                LevelUp();
+            }
+            
+            if (visuals != null && xpToNextLevel > 0)
+            {
+                visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
+            }
 
-        bool leveledUp = false;
-
-        if (victim.CompareTag("Zombie"))
-        {
-            currentXP++;
-            if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
+            Destroy(victim);
         }
-        else if (victim.CompareTag("Human"))
-        {
-            currentXP--;
-            if (currentXP < 0) currentXP = 0;
-            Debug.Log("Human Eaten! XP Penalty.");
-        }
-
-        if (currentXP >= xpToNextLevel)
-        {
-            LevelUp();
-            leveledUp = true;
-        }
-        
-        if (visuals != null && xpToNextLevel > 0)
-        {
-            visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
-        }
-
-        // Efekt vs eklenebilir
-        
-        Destroy(victim);
     }
 
     void LevelUp()

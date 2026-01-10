@@ -20,13 +20,6 @@ public class HoleMoveJoystick : MonoBehaviour
 
     void Start()
     {
-        // JOYSTICK OTOMATİK BULMA (Güvenlik)
-        if (joystick == null)
-        {
-            joystick = FindObjectOfType<Joystick>();
-            if (joystick == null) Debug.LogError("HoleMoveJoystick: Sahne de 'Joystick' bulunamadı! Lütfen Canvas'a Joystick ekleyin.");
-        }
-
         rb = GetComponent<Rigidbody>();
         
         // EĞER RIGIDBODY YOKSA EKLE (Otomatik Çözüm)

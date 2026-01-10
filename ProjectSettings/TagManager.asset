@@ -7,7 +7,6 @@ TagManager:
   - Zombie
   - Ground
   - Human
-  - Delete
   layers:
   - Default
   - TransparentFX

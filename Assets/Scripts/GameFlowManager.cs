@@ -66,21 +66,16 @@ public class GameFlowManager : MonoBehaviour
         // Oyun başlamadıysa ve tıklandıysa
         if (!IsGameActive)
         {
-            // Ekrana her dokunuş oyunu başlatsın (UI üzerinde olsun olmasın)
-            // Çünkü TapToPlay yazısı kendisi bir UI elemanı ve tıklamayı engelliyor olabilir.
-            
+            // Eğer bir UI elemanına (Buton, Panel vs.) tıklanıyorsa oyunu başlatma!
+            if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+
+            // Mobil için (Touch) kontrolü (Telefonda test yaparken UI'a basınca başlamaması için)
+            if (Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
+
             if (Input.GetMouseButtonDown(0))
             {
                 StartGame();
             }
-        }
-        else
-        {
-            // OYUN AKTİFKEN UI ELEMANLARI HALA AÇIKSA KAPAT
-            if (tapToPlayPanel != null && tapToPlayPanel.activeSelf) tapToPlayPanel.SetActive(false);
-            
-            // Eğer panel null ise veya panel yoksa bile text'in kendisini bulup kapatalım
-            if (tapToPlayText != null && tapToPlayText.gameObject.activeSelf) tapToPlayText.gameObject.SetActive(false);
         }
     }
 
@@ -88,76 +83,18 @@ public class GameFlowManager : MonoBehaviour
     {
         IsGameActive = true;
         
-        // 1. Panel Referansını Bulmaya Çalış
-        if (tapToPlayPanel == null) FindUIElements();
-
-        // 2. Paneli Kapat
         if (tapToPlayPanel != null)
         {
-            // EĞER panel Canvas'ın kendisiyse (Root) kapatma! Sadece içindekileri kapat.
-            if (tapToPlayPanel.GetComponent<Canvas>() != null)
-            {
-                // Panel aslında Canvasmış, kapatırsak joystick de gider.
-                // Sadece texti kapat.
-                if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
-            }
-            else
-            {
-                tapToPlayPanel.SetActive(false);
-            }
+            tapToPlayPanel.SetActive(false);
         }
 
-        // 3. Text ve El İşaretini (Hand) ayrıca zorla kapat
-        if (tapToPlayText != null) 
+        // Tween'leri temizle (Performans için)
+        if (tapToPlayText != null)
         {
             tapToPlayText.DOKill();
-            tapToPlayText.gameObject.SetActive(false);
         }
 
-        // "Hand" veya "Finger" isimli resimleri bul ve kapat
-        GameObject handIcon = GameObject.Find("Hand");
-        if (handIcon == null) handIcon = GameObject.Find("Finger");
-        if (handIcon == null) handIcon = GameObject.Find("TapIcon");
-        if (handIcon != null) handIcon.SetActive(false);
-
-        Time.timeScale = 1f; 
-        Debug.Log("Game Started! UI elements hidden.");
-    }
-
-    private void FindUIElements()
-    {
-        // 1. TextMeshPro Arama
-        TextMeshProUGUI[] allTexts = FindObjectsOfType<TextMeshProUGUI>(true);
-        foreach (var txt in allTexts)
-        {
-            if (txt.text.ToUpper().Contains("TAP TO PLAY"))
-            {
-                tapToPlayText = txt.transform;
-                
-                // Paneli bulmaya çalış (Ama Canvas olmasın)
-                Transform candidate = txt.transform.parent;
-                if (candidate != null && candidate.GetComponent<Canvas>() == null)
-                {
-                    tapToPlayPanel = candidate.gameObject;
-                }
-                return; 
-            }
-        }
-
-        // 2. Legacy Text Arama (Eğer TMP değilse)
-        UnityEngine.UI.Text[] legacyTexts = FindObjectsOfType<UnityEngine.UI.Text>(true);
-        foreach (var txt in legacyTexts)
-        {
-             if (txt.text.ToUpper().Contains("TAP TO PLAY"))
-            {
-                tapToPlayText = txt.transform;
-                Transform candidate = txt.transform.parent;
-                if (candidate != null && candidate.GetComponent<Canvas>() == null)
-                {
-                    tapToPlayPanel = candidate.gameObject;
-                }
-                return;
-            }
-        }
+        Time.timeScale = 1f; // Zamanı başlat
+        Debug.Log("Game Started!");
     }
 }

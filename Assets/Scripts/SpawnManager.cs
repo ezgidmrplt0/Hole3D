@@ -108,22 +108,14 @@ public class SpawnManager : MonoBehaviour
             // Böylece hepsi üst üste binmez
             Vector3 candidatePos = GetPositionAroundPoint(randomPoint.position, spawnRadius);
 
-            if (candidatePos != Vector3.negativeInfinity)
+            if (CheckValid(candidatePos))
             {
                 if (IsValidPosition(candidatePos))
                 {
                     Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    
-                    if (CheckValid(candidatePos))
-                    {
-                        Instantiate(selectedPrefab, candidatePos, randomRotation);
-                        spawnedPositions.Add(candidatePos); // Kaydet
-                        return; // Spawn successful, exit method
-                    }
-                    else
-                    {
-                         Debug.LogError($"SpawnManager: Generated invalid position {candidatePos} for {debugName}");
-                    }
+                    Instantiate(selectedPrefab, candidatePos, randomRotation);
+                    spawnedPositions.Add(candidatePos); // Kaydet
+                    return; // Spawn successful, exit method
                 }
             }
         }
@@ -133,10 +125,12 @@ public class SpawnManager : MonoBehaviour
 
     private bool IsValidPosition(Vector3 position)
     {
+        if (!CheckValid(position)) return false;
+
         // 1. Engel Kontrolü (Obstacle Layer)
         Vector3 checkPos = position + Vector3.up * (collisionCheckRadius + 0.2f);
         
-        if (Physics.CheckSphere(checkPos, collisionCheckRadius, obstacleLayer))
+        if (obstacleLayer.value != 0 && Physics.CheckSphere(checkPos, collisionCheckRadius, obstacleLayer))
         {
             return false;
         }
@@ -156,9 +150,9 @@ public class SpawnManager : MonoBehaviour
     private Vector3 GetPositionAroundPoint(Vector3 centerPoint, float radius)
     {
         // Safety check for centerPoint
-        if (float.IsNaN(centerPoint.x) || float.IsNaN(centerPoint.y) || float.IsNaN(centerPoint.z))
+        if (!CheckValid(centerPoint))
         {
-            Debug.LogError("SpawnManager: CenterPoint is NaN! Skipping.");
+            Debug.LogError("SpawnManager: CenterPoint is invalid (Infinity/NaN)! Skipping.");
             return Vector3.negativeInfinity;
         }
 

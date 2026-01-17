@@ -75,9 +75,10 @@ public class HoleMechanics : MonoBehaviour
     }
 
     [Header("Physics Settings")]
-    public float voidRadius = 1.0f; // Siyah alanın yarıçapı (Scale ile çarpılacak)
+    public float voidRadius = 1.0f; 
     public float sinkDepth = 3f;
-    // public float suctionForce; // Kaldırıldı
+    public float pullForce = 150f; // New strong pull force
+    public float rotationSpeed = 360f; // Degrees per second
 
     IEnumerator PhysicsFall(GameObject victim)
     {
@@ -88,77 +89,95 @@ public class HoleMechanics : MonoBehaviour
             if (zombieInfo != null && holeLevel < zombieInfo.level) yield break; 
         }
 
-        // --- AŞAMA 1: BEKLEME (WAIT FOR VOID) ---
-        // Karakterin AI'sını kapatmıyoruz, yürümeye devam etsin.
-        // Sadece fiziksel olarak "Boşluğa" (Siyah Alana) girdi mi diye kontrol ediyoruz.
-
         Transform vTransform = victim.transform;
         
+        // --- AŞAMA 1: KENAR KONTROLÜ (BEKLEME) ---
+        // Obje deliğin merkezine (siyah kısmına) tam girene kadar bekle
         while (vTransform != null)
         {
-            // Mesafeyi ölç (Sadece X-Z düzleminde)
-            float dist = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), 
-                                          new Vector3(vTransform.position.x, 0, vTransform.position.z));
+            // Sadece X-Z düzleminde mesafe (Yükseklik önemsiz)
+            float dist = Vector2.Distance(new Vector2(transform.position.x, transform.position.z), 
+                                          new Vector2(vTransform.position.x, vTransform.position.z));
 
-            // Scale arttıkça radius da artmalı
-            float scaledVoidRadius = voidRadius * transform.localScale.x;
+            // Scale arttıkça radius artar. Biraz tolerans (0.8f) ekledik ki tam kenarda düşmesin, hafif içeri girince düşsün.
+            float scaledVoidRadius = voidRadius * transform.localScale.x * 0.9f;
 
             if (dist < scaledVoidRadius)
             {
-                break; // DÖNGÜYÜ KIR -> AŞAMA 2'ye (DÜŞÜŞ) GEÇ
+                break; // Düşüş Başlasın!
             }
-
             yield return null; 
         }
 
         if (vTransform == null) yield break;
 
-        // --- AŞAMA 2: DÜŞÜŞ (FALL) ---
-        // Artık geri dönüş yok. Kontrolü al ve düşür.
-
+        // --- AŞAMA 2: DÜŞÜŞ BAŞLIYOR ---
+        
         // 1. AI ve Kontrolcüleri Kapat
         CharacterAI ai = victim.GetComponent<CharacterAI>();
         if (ai != null) ai.enabled = false;
 
         UnityEngine.AI.NavMeshAgent agent = victim.GetComponent<UnityEngine.AI.NavMeshAgent>();
-        if (agent != null) agent.enabled = false;
-
-        Animator anim = victim.GetComponent<Animator>();
-        if (anim != null) anim.enabled = false; // Ragdoll etkisi için animasyon durmalı
-
-        // 2. Fizik Sistemini Aç
-        Rigidbody rb = victim.GetComponent<Rigidbody>();
-        if (rb != null)
+        if (agent != null) 
         {
-            rb.isKinematic = false;
-            rb.useGravity = true; 
-            rb.constraints = RigidbodyConstraints.None; // Dönebilsin
-            rb.drag = 0.5f;
-            rb.angularVelocity = Random.insideUnitSphere * 5f; // Hafif spin
+            agent.velocity = Vector3.zero; // Anlık durdur
+            agent.Stop();
+            agent.enabled = false;
         }
 
-        // 3. Yerle Çarpışmayı Kes (Sadece ZEMİN ile!)
-        // Böylece deliğin içine düşebilir ama kenarlarına (Rim) çarpabilir.
-        Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
+        Animator anim = victim.GetComponent<Animator>();
+        if (anim != null) 
+        {
+            anim.enabled = false; // Ragdoll aktifleşsin veya donup düşsün.
+            // Eğer "Falling" animasyonu varsa o oynatılabilir: anim.SetTrigger("Fall");
+        }
+
+        // 2. Fizik Motorunu Devreye Sok
+        Rigidbody rb = victim.GetComponent<Rigidbody>();
+        if (rb == null) rb = victim.AddComponent<Rigidbody>(); // Yoksa ekle
+
+        rb.isKinematic = false;
+        rb.useGravity = true; 
+        rb.constraints = RigidbodyConstraints.None;
+        rb.drag = 0f; // Hızlı düşsün
+        rb.angularDrag = 0.5f;
         
-        // "Ground" veya "Default" layer'ındaki yakındaki objeleri bul
-        // En güvenlisi basit bir OverlapSphere
-        Collider[] nearbyGrounds = Physics.OverlapSphere(vTransform.position, 5f); 
+        // Rastgele bir ilk dönüş hızı ver (Tumble)
+        rb.angularVelocity = Random.insideUnitSphere * 10f; 
+
+        // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli)
+        Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
+        Collider[] nearbyGrounds = Physics.OverlapSphere(vTransform.position, 10f, LayerMask.GetMask("Default", "Ground", "Environment")); 
         
         foreach (var envCol in nearbyGrounds)
         {
-            // Kendisi değilse ve Deliğin parçası değilse -> Ignore
+            // Kendisi veya Delik değilse çarpışmayı kapat
             if (envCol.transform.root != vTransform.root && !envCol.transform.IsChildOf(this.transform))
             {
                 foreach (var vCol in victimCols) Physics.IgnoreCollision(vCol, envCol, true);
             }
         }
 
-        // --- AŞAMA 3: DÜŞÜŞ SİMÜLASYONU & YOK ETME ---
+        // 4. KÜÇÜLME EFEKTİ (Girdap etkisi)
+        // Düşerken küçülerek yok olsun
+        vTransform.DOScale(Vector3.zero, 1.0f).SetEase(Ease.InBack);
+
+        // --- AŞAMA 3: AKTİF ÇEKİM GÜCÜ (Physics Loop) ---
         float timer = 0f;
-        while (timer < 3f && vTransform != null) 
+        while (timer < 2f && vTransform != null) 
         {
             timer += Time.deltaTime;
+
+            // Merkeze ve Aşağıya Doğru Çek
+            Vector3 centerBottom = transform.position + Vector3.down * sinkDepth;
+            Vector3 direction = (centerBottom - vTransform.position).normalized;
+            
+            // Yerçekimine ek olarak bizim çekim gücümüz
+            // Mesafe azaldıkça çekim artabilir (Opsiyonel)
+            rb.AddForce(direction * pullForce * Time.deltaTime * 50f, ForceMode.Acceleration);
+            
+            // Sürekli Dönme Torku ekle (Girdap hissi)
+            rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
 
             if (vTransform.position.y < transform.position.y - sinkDepth)
             {
@@ -167,32 +186,39 @@ public class HoleMechanics : MonoBehaviour
             yield return null;
         }
 
-        // Yok Et ve Puan Ver
+        // --- SONUÇ: YOK ET ve PUAN VER ---
         if (vTransform != null)
         {
-            if (victim.CompareTag("Zombie"))
-            {
-                currentXP++;
-                if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
-            }
-            else if (victim.CompareTag("Human"))
-            {
-                currentXP--;
-                if (currentXP < 0) currentXP = 0;
-                Debug.Log("Human Eaten! XP Penalty.");
-            }
+            // Puanlama Mantığı
+            ProcessEatenObject(victim);
 
-            if (currentXP >= xpToNextLevel)
-            {
-                LevelUp();
-            }
-            
-            if (visuals != null && xpToNextLevel > 0)
-            {
-                visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
-            }
-
+            // Efekt (Varsa partikül vs eklenebilir)
             Destroy(victim);
+        }
+    }
+
+    void ProcessEatenObject(GameObject victim)
+    {
+        if (victim.CompareTag("Zombie"))
+        {
+            currentXP++;
+            if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
+        }
+        else if (victim.CompareTag("Human"))
+        {
+            currentXP--; // Ceza
+            if (currentXP < 0) currentXP = 0;
+            // Debug.Log("Human Eaten! Penalty.");
+        }
+
+        if (currentXP >= xpToNextLevel)
+        {
+            LevelUp();
+        }
+        
+        if (visuals != null && xpToNextLevel > 0)
+        {
+            visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
         }
     }
 

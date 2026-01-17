@@ -75,12 +75,11 @@ public class CharacterAI : MonoBehaviour
         rb.useGravity = true;
 
         // 3. Setup Collider
-        if (transform.position.sqrMagnitude > 1000000f || 
-            float.IsNaN(transform.position.x) || float.IsNaN(transform.position.y) || float.IsNaN(transform.position.z))
+        // Invalid position check at startup
+        if (IsPositionInvalid(transform.position))
         {
-             Debug.LogError($"CharacterAI: {gameObject.name} initiated at invalid position {transform.position}. Destroying.");
-             Destroy(gameObject);
-             return;
+             Debug.LogWarning($"CharacterAI: {gameObject.name} initiated at invalid position {transform.position}. Resetting to zero.");
+             transform.position = new Vector3(0, 5f, 0);
         }
 
         CapsuleCollider collider = GetComponent<CapsuleCollider>();
@@ -112,12 +111,18 @@ public class CharacterAI : MonoBehaviour
 
     protected virtual void LateUpdate()
     {
-        if (transform.position.sqrMagnitude > 1000000f || 
-            float.IsNaN(transform.position.x) || float.IsNaN(transform.position.y) || float.IsNaN(transform.position.z))
+        // Safety Check: If flying into void/NaN, reset instead of destroy
+        if (IsPositionInvalid(transform.position))
         {
-             Debug.LogError($"{gameObject.name} panicked (Invalid Position)! Destroying.");
-             Destroy(gameObject);
+             Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting to safe point.");
+             transform.position = new Vector3(0, 2f, 0);
+             if (rb != null) rb.velocity = Vector3.zero;
         }
+    }
+
+    private bool IsPositionInvalid(Vector3 pos)
+    {
+        return pos.sqrMagnitude > 1000000f || float.IsNaN(pos.x) || float.IsNaN(pos.y) || float.IsNaN(pos.z);
     }
 
     protected virtual void OnEnable()
@@ -219,10 +224,13 @@ public class CharacterAI : MonoBehaviour
         Vector3 velocity = moveDirection * currentSpeed;
         
         // Y eksenini koru (Fizik motoruna saygı duy)
-        // Düzeltme: Aşağıdaki 'Min(..., 0f)' kısıtlaması, zemin içinden doğan karakterlerin
-        // yukarı fırlayıp kurtulmasını (depenetration) engelliyordu. Bu da sonsuz güç birikimine yol açıyordu.
-        // Artık Y hızına karışmıyoruz, fizik motoru ne derse o.
-        velocity.y = rb.velocity.y;
+        if (rb != null)
+        {
+             velocity.y = rb.velocity.y;
+             
+             // Check against explosion
+             if (Mathf.Abs(velocity.y) > 50f) velocity.y = 50f; // Limit vertical speed
+        }
         
         // --- CRITICAL SAFETY CHECK ---
         if (float.IsNaN(velocity.x) || float.IsNaN(velocity.y) || float.IsNaN(velocity.z) || 
@@ -232,7 +240,7 @@ public class CharacterAI : MonoBehaviour
             velocity = Vector3.zero;
         }
 
-        rb.velocity = velocity;
+        if (rb != null) rb.velocity = velocity;
 
         // Dönüş (Güvenli)
         // Vector3.zero veya çok küçük vektörler LookRotation'ı bozar
@@ -255,28 +263,17 @@ public class CharacterAI : MonoBehaviour
             // Trigger Mantığı (State takibi ile)
             string targetState = "idle";
             
-            // Eğer CharacterAI "hareket et" diyorsa (moveDirection > 0), animasyon da oynamalı.
-            // Sadece fiziksel hıza (velocity.magnitude) bakarsak, duvara takılınca 0 olur ve idle'a düşer.
-            // Ama biz duvara takılsa bile bacakları çalışsın (moonwalk gibi) isteyebiliriz ki oyuncu takıldığını anlasın.
-            // Veya tam tersi, duvara takılınca dursun. 
-            // Şimdilik sorun "kayarken duruyor görünmesi" ise, velocity yerine 'moveDirection' daha garantidir.
-            
             if (moveDirection.magnitude > 0.01f)
             {
                 targetState = isRunning ? "run" : "walk";
             }
 
-            // State değiştiyse doğrudan o animasyona geçiş yap (CrossFade)
-            // Bu yöntem, Animator'daki okları (Transition) ve 'Has Exit Time' ayarlarını
-            // baypas ederek anında tepki verir. Kayma ve gecikmeyi çözer.
             if (currentAnimState != targetState)
             {
                 currentAnimState = targetState;
                 
-                // Sadece uyumlu animatörlerde geçiş yap (Hata spamını önle)
                 if (isAnimatorValid)
                 {
-                    // 0.2 saniyelik yumuşak geçişle doğrudan animasyonu oynat
                     animator.CrossFadeInFixedTime(targetState, 0.2f);
                 }
             }
@@ -299,7 +296,7 @@ public class CharacterAI : MonoBehaviour
             // 3 birim aşağıda zemin yoksa geri dön
             if (!Physics.Raycast(downRay, 3f, groundLayer))
             {
-                Debug.DrawRay(lookAheadPos + Vector3.up, Vector3.down * 3f, Color.magenta); 
+                // Debug.DrawRay(lookAheadPos + Vector3.up, Vector3.down * 3f, Color.magenta); 
                 return -forward * 2f; 
             }
         }
@@ -308,7 +305,7 @@ public class CharacterAI : MonoBehaviour
         Ray ray = new Ray(origin, forward);
         if (Physics.Raycast(ray, detectionRadius, obstacleLayer))
         {
-            Debug.DrawRay(origin, forward * detectionRadius, Color.red);
+            // Debug.DrawRay(origin, forward * detectionRadius, Color.red);
             
             // Sağa mı sola mı kaçalım?
             if (!Physics.Raycast(origin, transform.right, detectionRadius, obstacleLayer))
@@ -319,7 +316,7 @@ public class CharacterAI : MonoBehaviour
             return -forward; // Geri dön
         }
         
-        Debug.DrawRay(origin, forward * detectionRadius, Color.green);
+        // Debug.DrawRay(origin, forward * detectionRadius, Color.green);
         return Vector3.zero;
     }
 }

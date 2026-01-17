@@ -164,7 +164,11 @@ public class HoleMechanics : MonoBehaviour
 
         // --- AŞAMA 3: AKTİF ÇEKİM GÜCÜ (Physics Loop) ---
         float timer = 0f;
-        while (timer < 2f && vTransform != null) 
+        
+        // 3D Çukur için limitleri ayarla
+        float bottomLimit = transform.position.y - sinkDepth;
+        
+        while (timer < 3f && vTransform != null) 
         {
             timer += Time.deltaTime;
 
@@ -172,16 +176,18 @@ public class HoleMechanics : MonoBehaviour
             Vector3 centerBottom = transform.position + Vector3.down * sinkDepth;
             Vector3 direction = (centerBottom - vTransform.position).normalized;
             
-            // Yerçekimine ek olarak bizim çekim gücümüz
-            // Mesafe azaldıkça çekim artabilir (Opsiyonel)
-            rb.AddForce(direction * pullForce * Time.deltaTime * 50f, ForceMode.Acceleration);
-            
-            // Sürekli Dönme Torku ekle (Girdap hissi)
+            // Güçlü Çekim
+            rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
             rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
 
-            if (vTransform.position.y < transform.position.y - sinkDepth)
+            // Çukurun dibine yaklaştı mı?
+            if (vTransform.position.y < bottomLimit + 0.5f) // Dibe yaklaştı
             {
-                break; // Yeterince düştü
+                // Kullanıcının isteği: "0.1 salise sonra yok olsun"
+                // Önce küçültelim ki "yok oluş" pop diye olmasın
+                vTransform.DOScale(Vector3.zero, 0.1f);
+                yield return new WaitForSeconds(0.1f);
+                break; // Ve döngü biter -> Destroy çağrılır
             }
             yield return null;
         }

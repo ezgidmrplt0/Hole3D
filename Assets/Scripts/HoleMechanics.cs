@@ -27,6 +27,7 @@ public class HoleMechanics : MonoBehaviour
     public HoleVisuals visuals;
     
     private Collider[] holeCols;
+    private HoleMaskController maskController;
 
     private void Start()
     {
@@ -58,6 +59,13 @@ public class HoleMechanics : MonoBehaviour
 
         // Texti güncelle
         UpdateLevelText();
+
+        maskController = GetComponent<HoleMaskController>();
+        if (maskController != null)
+        {
+            // Initial radius based on scale
+            maskController.SetRadius(voidRadius * transform.localScale.x);
+        }
     }
 
     private void UpdateLevelText()
@@ -247,6 +255,13 @@ public class HoleMechanics : MonoBehaviour
         {
              Vector3 visualTargetScale = visuals.transform.localScale * growthFactor;
              visuals.transform.DOScale(visualTargetScale, duration).SetEase(Ease.OutElastic);
+        }
+
+        // 3. Shader Radius Güncelle (Masker)
+        if (maskController != null)
+        {
+            float targetRadius = voidRadius * targetScale.x;
+            DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, duration).SetEase(Ease.OutElastic);
         }
         
         // fallRadius kullanılmıyor, çünkü transform scale edilince collider da büyüyor

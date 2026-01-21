@@ -90,12 +90,15 @@ public class HoleMechanics : MonoBehaviour
 
     IEnumerator PhysicsFall(GameObject victim)
     {
-        // --- LEVEL KONTROLÜ ---
+        // --- LEVEL KONTROLÜ İPTAL ---
+        // Kullanıcı isteği: Büyük zombiler de yensin ve çok XP versin.
+        /*
         if (victim.CompareTag("Zombie"))
         {
             ZombieAI zombieInfo = victim.GetComponent<ZombieAI>();
             if (zombieInfo != null && holeLevel < zombieInfo.level) yield break; 
         }
+        */
 
         Transform vTransform = victim.transform;
         
@@ -215,16 +218,27 @@ public class HoleMechanics : MonoBehaviour
     {
         if (victim.CompareTag("Zombie"))
         {
-            currentXP++;
+            int gainedXP = 1;
+            ZombieAI zombieAI = victim.GetComponent<ZombieAI>();
+            if (zombieAI != null)
+            {
+                gainedXP = zombieAI.level; // Level kadar XP ver
+            }
+            currentXP += gainedXP;
+            
+            // Floating Text (+XP Green)
+            SpawnFloatingText("+" + gainedXP, Color.green);
+
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
         }
         else if (victim.CompareTag("Human"))
         {
             currentXP--; // Ceza
             if (currentXP < 0) currentXP = 0;
-            // Debug.Log("Human Eaten! Penalty.");
+            
+            // Floating Text (-1 Red)
+            SpawnFloatingText("-1", Color.red);
         }
-
         if (currentXP >= xpToNextLevel)
         {
             LevelUp();
@@ -234,6 +248,26 @@ public class HoleMechanics : MonoBehaviour
         {
             visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
         }
+    }
+
+    void SpawnFloatingText(string text, Color color)
+    {
+        GameObject go = new GameObject("FloatingXP");
+        go.transform.position = transform.position + Vector3.up * 2f; // Deliğin biraz üstünde
+        
+        // Canvas Ekle (World Space)
+        Canvas canvas = go.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+        
+        // Scale
+        RectTransform rect = go.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(5, 2);
+        rect.localScale = Vector3.one * 0.1f; // Yazı boyutu
+
+        // Floating Logic
+        FloatingText ft = go.AddComponent<FloatingText>();
+        ft.Setup(text, color);
     }
 
     void LevelUp()

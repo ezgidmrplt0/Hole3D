@@ -6,8 +6,9 @@ public class ZombieAI : CharacterAI
     [Header("Level Info")]
     public int level = 1;
     public int currentXP = 0;
-    public int xpToNextLevel = 10; // 10 tane yediğinde level atlasın
+    public int xpToNextLevel = 1; // 1 tane yiyince level atlar
     public TMP_Text levelText;
+    private Transform camTransform;
 
     [Header("Behavior")]
     public string preyTag = "Human";
@@ -26,22 +27,91 @@ public class ZombieAI : CharacterAI
 
     void Start()
     {
+        camTransform = Camera.main.transform;
+        
+        // Inspector'dan ne gelirse gelsin, kural olarak 1 insan = 1 level olsun
+        xpToNextLevel = 1; 
+
         // Zombi hızını biraz düşürelim
         runSpeed = 2.5f; 
         walkSpeed = 1.5f;
 
-        // Level Textini Ayarla
-        if (levelText != null) 
+        // UI Yoksa Otomatik Oluştur
+        if (levelText == null)
         {
-            levelText.text = level.ToString(); 
-            // Text her zaman kameraya baksın istiyorsan Update'e kod ekleyebiliriz ama şimdilik sabit
+            CreateLevelUI();
         }
+
+        UpdateLevelText();
         
         PickNewRoamTarget();
     }
 
+    void CreateLevelUI()
+    {
+        // Canvas Oluştur (World Space)
+        GameObject canvasObj = new GameObject("LevelCanvas");
+        canvasObj.transform.SetParent(this.transform);
+        canvasObj.transform.localPosition = new Vector3(0, 2.5f, 0); // Kafanın üstü
+        
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = Camera.main;
+
+        // Canvas Scaler (veya manuel scale) - World Space olduğu için çok küçük olmalı
+        RectTransform rect = canvasObj.GetComponent<RectTransform>();
+
+        rect.sizeDelta = new Vector2(5, 2); // Daha geniş yap ki sığsın
+        rect.localScale = Vector3.one * 0.05f; 
+
+        // Text Oluştur
+        GameObject textObj = new GameObject("LevelText");
+        textObj.transform.SetParent(canvasObj.transform);
+        textObj.transform.localPosition = Vector3.zero;
+        textObj.transform.localRotation = Quaternion.identity;
+
+        levelText = textObj.AddComponent<TextMeshProUGUI>();
+        levelText.alignment = TextAlignmentOptions.Center;
+        levelText.fontSize = 12; 
+        levelText.color = Color.red;
+        levelText.fontStyle = FontStyles.Bold;
+        levelText.enableWordWrapping = false;
+        levelText.overflowMode = TextOverflowModes.Overflow; // Taşarsa da göster
+        
+        // Rect ayarları
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.sizeDelta = Vector2.zero;
+        textRect.localScale = Vector3.one;
+    }
+
+    void UpdateLevelText()
+    {
+        if (levelText != null) 
+        {
+            if (level <= 1)
+            {
+                levelText.text = "";
+            }
+            else
+            {
+                // Level 2 -> +1
+                // Level 3 -> +2
+                levelText.text = "+" + (level - 1);
+            }
+        }
+    }
+
     void Update()
     {
+        // Text Kameraya Baksın (Billboard)
+        if (levelText != null && camTransform != null)
+        {
+            // Basit Billboard: Kameranın rotasyonunu kopyala
+            levelText.transform.parent.rotation = camTransform.rotation;
+        }
+
         // Eğer çarpışma sonrası serseri modundaysak
         if (wanderTimer > 0)
         {
@@ -158,7 +228,7 @@ public class ZombieAI : CharacterAI
                 currentXP = 0; // Sıfırla veya devret
                 // xpToNextLevel += 5; // İstersen zorluğu artırabilirsin
 
-                if (levelText != null) levelText.text = level.ToString();
+                if (levelText != null) UpdateLevelText();
                 
                 // Sadece Level Atladığında Büyüsün (Opsiyonel, yoksa her yediğinde mi büyüsün?)
                 // Kullanıcı "her yediğinde büyüsün" demedi, "10 insan yediklerinde level atlasınlar" dedi.

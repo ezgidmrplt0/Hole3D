@@ -71,19 +71,19 @@ public class SkillSystemSetup : EditorWindow
              return;
         }
 
-        SetupSlot(contentTransform, 0, "Panel_Magnet", "MAGNET", "500", uiManager.BuyMagnet, (btn, txt) => 
+        SetupSlot(contentTransform, 0, "Panel_Magnet", "MAGNET", "100", uiManager.UpgradeMagnet, (btn, txt) => 
         {
             uiManager.magnetButton = btn;
             uiManager.magnetPriceText = txt;
         });
 
-        SetupSlot(contentTransform, 1, "Panel_Speed", "SPEED", "750", uiManager.BuySpeed, (btn, txt) => 
+        SetupSlot(contentTransform, 1, "Panel_Speed", "SPEED", "100", uiManager.UpgradeSpeed, (btn, txt) => 
         {
             uiManager.speedButton = btn;
             uiManager.speedPriceText = txt;
         });
 
-        SetupSlot(contentTransform, 2, "Panel_Repellent", "REPELLENT", "1000", uiManager.BuyRepellent, (btn, txt) => 
+        SetupSlot(contentTransform, 2, "Panel_Repellent", "REPELLENT", "100", uiManager.UpgradeRepellent, (btn, txt) => 
         {
             uiManager.repellentButton = btn;
             uiManager.repellentPriceText = txt;

@@ -307,32 +307,31 @@ public class HoleMechanics : MonoBehaviour
 
     private void Update()
     {
-        // --- MAGNET LOGIC ---
+        // --- SKILL EFFECTS ---
         if (SkillManager.Instance != null)
         {
-            if (SkillManager.Instance.IsMagnetUnlocked)
+            if (SkillManager.Instance.IsMagnetActive)
             {
                 ApplyMagnetEffect();
             }
 
-            if (SkillManager.Instance.IsRepellentUnlocked)
+            if (SkillManager.Instance.IsRepellentActive)
             {
                 ApplyRepellentEffect();
             }
         }
     }
 
-    [Header("Magnet Settings")]
-    public float magnetRadius = 8f; // Increased default
-    public float magnetForce = 50f; // Significantly increased
-
-    [Header("Repellent Settings")]
-    public float repellentRadius = 5f; // Increased from 3f
-    public float repellentForce = 80f; // Increased from 20f
+    // Skill değerleri artık SkillManager'dan dinamik olarak alınıyor
+    // Eski sabit değerler kaldırıldı
 
     void ApplyRepellentEffect()
     {
-        Collider[] nearby = Physics.OverlapSphere(transform.position, repellentRadius);
+        // Dinamik değerleri SkillManager'dan al
+        float radius = SkillManager.Instance.GetRepellentRadius();
+        float force = SkillManager.Instance.GetRepellentForce();
+        
+        Collider[] nearby = Physics.OverlapSphere(transform.position, radius);
         foreach (var col in nearby)
         {
             if (col.CompareTag("Human"))
@@ -354,7 +353,7 @@ public class HoleMechanics : MonoBehaviour
                     direction.y = 0; // Push horizontally
                     
                     // ForceMode.VelocityChange for instant punchiness
-                    targetRb.AddForce(direction * repellentForce * Time.deltaTime, ForceMode.VelocityChange); // Increased force needs DeltaTime if using high values in Update, or remove DeltaTime for ForceMode.Force
+                    targetRb.AddForce(direction * force * Time.deltaTime, ForceMode.VelocityChange);
                     
                     Debug.DrawLine(transform.position, col.transform.position, Color.magenta);
                 }
@@ -364,17 +363,18 @@ public class HoleMechanics : MonoBehaviour
 
     void ApplyMagnetEffect()
     {
+        // Dinamik değerleri SkillManager'dan al
+        float radius = SkillManager.Instance.GetMagnetRadius();
+        float force = SkillManager.Instance.GetMagnetForce();
+        
         // 1. Find targets nearby
-        Collider[] nearby = Physics.OverlapSphere(transform.position, magnetRadius);
-        bool foundAny = false;
+        Collider[] nearby = Physics.OverlapSphere(transform.position, radius);
 
         foreach (var col in nearby)
         {
             // ONLY PULL ZOMBIES (Ignore Humans)
             if (col.CompareTag("Zombie"))
             {
-                foundAny = true;
-                
                 // 2. Disable NavMeshAgent so Physics can take over
                 UnityEngine.AI.NavMeshAgent agent = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
                 if (agent != null && agent.enabled)
@@ -396,25 +396,18 @@ public class HoleMechanics : MonoBehaviour
                     targetRb.drag = 5f; 
                     targetRb.angularDrag = 5f;
 
-                    // 2. Kill lateral velocity (Optional, but helps center them)
-                    // Allows them to slide IN, but stops them from sliding PAST
-                    // We can just rely on high drag for now, but let's ensure force is consistent.
-
                     Vector3 direction = (transform.position - col.transform.position).normalized;
                     direction.y = 0; // Keep pull horizontal, gravity handles falling
 
                     // Pull towards hole center
                     // ForceMode.Force for smooth continuous pull against the drag
-                    targetRb.AddForce(direction * magnetForce, ForceMode.Force);
+                    targetRb.AddForce(direction * force, ForceMode.Force);
                     
                     // Draw debug line to confirm lock-on
                     Debug.DrawLine(transform.position, col.transform.position, Color.cyan);
                 }
             }
         }
-        
-        // Debug Log only occasionally to avoid spam, or if testing
-        // if (foundAny) Debug.Log("Magnet: Pulling targets...");
     }
 
     private void OnDrawGizmosSelected()
@@ -424,10 +417,16 @@ public class HoleMechanics : MonoBehaviour
         float scaledRadius = voidRadius * transform.localScale.x;
         Gizmos.DrawWireSphere(transform.position, scaledRadius);
 
-        if (SkillManager.Instance != null && SkillManager.Instance.IsMagnetUnlocked)
+        if (SkillManager.Instance != null && SkillManager.Instance.IsMagnetActive)
         {
              Gizmos.color = Color.blue;
-             Gizmos.DrawWireSphere(transform.position, magnetRadius);
+             Gizmos.DrawWireSphere(transform.position, SkillManager.Instance.GetMagnetRadius());
+        }
+        
+        if (SkillManager.Instance != null && SkillManager.Instance.IsRepellentActive)
+        {
+             Gizmos.color = Color.magenta;
+             Gizmos.DrawWireSphere(transform.position, SkillManager.Instance.GetRepellentRadius());
         }
     }
 }

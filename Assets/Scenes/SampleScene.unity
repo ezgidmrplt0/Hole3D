@@ -307,9 +307,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 569f9a1bad44129629474e3820a14651, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  magnetPrice: 10
-  speedPrice: 10
-  repellentPrice: 10
+  magnetBasePrice: 100
+  speedBasePrice: 100
+  repellentBasePrice: 100
+  priceMultiplier: 1.5
+  magnetBaseRadius: 2
+  magnetRadiusPerLevel: 0.8
+  magnetBaseForce: 5
+  magnetForcePerLevel: 5
+  speedBonusPerLevel: 0.05
+  repellentBaseRadius: 1.5
+  repellentRadiusPerLevel: 0.5
+  repellentBaseForce: 10
+  repellentForcePerLevel: 8
 --- !u!4 &419618936
 Transform:
   m_ObjectHideFlags: 0
@@ -415,10 +425,13 @@ MonoBehaviour:
   marketPanel: {fileID: 1314362222}
   magnetButton: {fileID: 1486384442}
   magnetPriceText: {fileID: 1852650946}
+  magnetLevelText: {fileID: 0}
   speedButton: {fileID: 1334455651}
   speedPriceText: {fileID: 1147485799}
+  speedLevelText: {fileID: 0}
   repellentButton: {fileID: 72304562}
   repellentPriceText: {fileID: 1842850314}
+  repellentLevelText: {fileID: 0}
 --- !u!114 &467509986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -962,10 +975,6 @@ MonoBehaviour:
   sinkDepth: 3
   pullForce: 150
   rotationSpeed: 360
-  magnetRadius: 8
-  magnetForce: 50
-  repellentRadius: 5
-  repellentForce: 80
 --- !u!114 &832010506
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2787,7 +2796,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -2799,7 +2808,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: BuyRepellent
+      value: UpgradeRepellent
       objectReference: {fileID: 0}
     - target: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
@@ -2807,7 +2816,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: 
+      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 3867504052634363592, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_AnchorMax.y
@@ -2829,6 +2838,10 @@ PrefabInstance:
       propertyPath: m_text
       value: REPELLENT
       objectReference: {fileID: 0}
+    - target: {fileID: 4013926568335878661, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_text
+      value: UPGRADE
+      objectReference: {fileID: 0}
     - target: {fileID: 4721203307161323000, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -2849,13 +2862,21 @@ PrefabInstance:
       propertyPath: m_text
       value: 500 Gold
       objectReference: {fileID: 0}
+    - target: {fileID: 4882138982048403806, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_text
+      value: UPGRADE
+      objectReference: {fileID: 0}
+    - target: {fileID: 5257824151712847728, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_text
+      value: UPGRADE
+      objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -2867,7 +2888,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: BuySpeed
+      value: UpgradeSpeed
       objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
@@ -2875,7 +2896,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: 
+      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 5804629564211049168, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text
@@ -2891,7 +2912,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Mode
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
@@ -2903,7 +2924,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_MethodName
-      value: BuyMagnet
+      value: UpgradeMagnet
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_TargetAssemblyTypeName
@@ -2911,7 +2932,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
-      value: 
+      value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
     - target: {fileID: 6643907888300381702, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Name
@@ -2926,7 +2947,9 @@ PrefabInstance:
       value: Store
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 9114379747540095765, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+    - {fileID: 6680547156528355185, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ef94f707182732b4fb45389fc2da750f, type: 3}

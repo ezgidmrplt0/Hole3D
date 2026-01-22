@@ -95,12 +95,15 @@ public class UIManager : MonoBehaviour
     [Header("Skill UI")]
     public UnityEngine.UI.Button magnetButton;
     public TextMeshProUGUI magnetPriceText;
+    public TextMeshProUGUI magnetLevelText;
 
     public UnityEngine.UI.Button speedButton;
     public TextMeshProUGUI speedPriceText;
+    public TextMeshProUGUI speedLevelText;
 
     public UnityEngine.UI.Button repellentButton;
     public TextMeshProUGUI repellentPriceText;
+    public TextMeshProUGUI repellentLevelText;
 
     private void UpdateSkillUI()
     {
@@ -109,60 +112,78 @@ public class UIManager : MonoBehaviour
         // Magnet
         if (magnetButton != null)
         {
-            bool unlocked = SkillManager.Instance.IsMagnetUnlocked;
-            magnetButton.interactable = !unlocked; 
+            int level = SkillManager.Instance.MagnetLevel;
+            int price = SkillManager.Instance.GetMagnetUpgradePrice();
+            bool isMaxLevel = price < 0;
+            
+            magnetButton.interactable = !isMaxLevel;
             
             if (magnetPriceText != null)
-                magnetPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.magnetPrice.ToString() + " Gold";
+                magnetPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
+            
+            if (magnetLevelText != null)
+                magnetLevelText.text = "Lv." + level;
         }
 
         // Speed
         if (speedButton != null)
         {
-            bool unlocked = SkillManager.Instance.IsSpeedUnlocked;
-            speedButton.interactable = !unlocked; 
+            int level = SkillManager.Instance.SpeedLevel;
+            int price = SkillManager.Instance.GetSpeedUpgradePrice();
+            bool isMaxLevel = price < 0;
+            
+            speedButton.interactable = !isMaxLevel;
             
             if (speedPriceText != null)
-                speedPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.speedPrice.ToString() + " Gold";
+                speedPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
+            
+            if (speedLevelText != null)
+                speedLevelText.text = "Lv." + level;
         }
 
         // Repellent
         if (repellentButton != null)
         {
-            bool unlocked = SkillManager.Instance.IsRepellentUnlocked;
-            repellentButton.interactable = !unlocked; 
+            int level = SkillManager.Instance.RepellentLevel;
+            int price = SkillManager.Instance.GetRepellentUpgradePrice();
+            bool isMaxLevel = price < 0;
+            
+            repellentButton.interactable = !isMaxLevel;
             
             if (repellentPriceText != null)
-                repellentPriceText.text = unlocked ? "OWNED" : SkillManager.Instance.repellentPrice.ToString() + " Gold";
+                repellentPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
+            
+            if (repellentLevelText != null)
+                repellentLevelText.text = "Lv." + level;
         }
     }
 
     // Assign to Button OnClick
-    public void BuyMagnet()
+    public void UpgradeMagnet()
     {
-        Debug.Log("UIManager: BuyMagnet clicked.");
+        Debug.Log("UIManager: UpgradeMagnet clicked.");
 
         if (SkillManager.Instance == null) return;
 
-        if (SkillManager.Instance.UnlockMagnet())
+        if (SkillManager.Instance.UpgradeMagnet())
         {
             UpdateSkillUI();
         }
     }
 
-    public void BuySpeed()
+    public void UpgradeSpeed()
     {
-        Debug.Log("UIManager: BuySpeed clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.UnlockSpeed())
+        Debug.Log("UIManager: UpgradeSpeed clicked.");
+        if (SkillManager.Instance != null && SkillManager.Instance.UpgradeSpeed())
         {
             UpdateSkillUI();
         }
     }
 
-    public void BuyRepellent()
+    public void UpgradeRepellent()
     {
-        Debug.Log("UIManager: BuyRepellent clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.UnlockRepellent())
+        Debug.Log("UIManager: UpgradeRepellent clicked.");
+        if (SkillManager.Instance != null && SkillManager.Instance.UpgradeRepellent())
         {
             UpdateSkillUI();
         }

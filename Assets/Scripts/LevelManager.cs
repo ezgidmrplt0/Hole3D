@@ -4,6 +4,7 @@ using System.Collections.Generic;
 [System.Serializable]
 public struct LevelData
 {
+    public GameObject mapPrefab; // Prefab of the environment for this level
     public int zombieCount;
     public int humanCount;
 }
@@ -26,6 +27,8 @@ public class LevelManager : MonoBehaviour
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
     public System.Action<int> OnLevelChanged; // New event for level text update
+
+    private GameObject currentMapInstance;
 
     private void Awake()
     {
@@ -64,6 +67,29 @@ public class LevelManager : MonoBehaviour
         
         // Notify level change (1-based index for UI)
         OnLevelChanged?.Invoke(currentLevelIndex + 1);
+
+        // --- MAP SWITCHING LOGIC ---
+        if (currentMapInstance != null)
+        {
+            Destroy(currentMapInstance);
+        }
+
+        if (data.mapPrefab != null)
+        {
+            // Spawn at fixed Y position as per user request
+            currentMapInstance = Instantiate(data.mapPrefab, new Vector3(0, 4.54f, 0), Quaternion.identity);
+            
+            // Notify SpawnManager about the new map
+            if (spawnManager != null)
+            {
+                spawnManager.UpdateSpawnPoints(currentMapInstance.transform);
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"Level {currentLevelIndex + 1} has no Map Prefab assigned! Make sure to assign one.");
+        }
+        // ---------------------------
 
         // Override zombie count based on User Request (1.5x Humans)
         int desiredZombieCount = (int)(data.humanCount * 1.5f);

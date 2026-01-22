@@ -48,7 +48,7 @@ public class GodotToUnityBridge : EditorWindow
         
         var mechanics = holePlayer.GetComponent<HoleMechanics>() ?? holePlayer.AddComponent<HoleMechanics>();
         var maskController = holePlayer.GetComponent<HoleMaskController>() ?? holePlayer.AddComponent<HoleMaskController>();
-        maskController.groundMaterial = groundMat;
+        // maskController.groundMaterial = groundMat; // Removed as per Global Shader refactor
 
         // 3. Find or Create Hole_Rim
         Transform rimTrans = holePlayer.transform.Find("Hole_Rim");
@@ -161,7 +161,7 @@ public class GodotToUnityBridge : EditorWindow
         Joystick joystick = Object.FindObjectOfType<Joystick>();
         if (joystick != null) joystickMover.joystick = joystick;
 
-        maskController.InitializeMaterial();
+        // maskController.InitializeMaterial(); // Removed as per Global Shader refactor
         maskController.SetRadius(mechanics.voidRadius * holePlayer.transform.localScale.x);
 
         Selection.activeGameObject = holePlayer;

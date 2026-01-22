@@ -4,8 +4,7 @@ Shader "Custom/HoleMaskGround"
     {
         _Color ("Main Color", Color) = (1,1,1,1)
         _MainTex ("Base (RGB)", 2D) = "white" {}
-        _HolePos ("Hole Position", Vector) = (0,0,0,0)
-        _HoleRadius ("Hole Radius", Float) = 0.5
+        // _HolePos and _HoleRadius are now Global Shader Properties set by HoleMaskController
     }
     SubShader
     {

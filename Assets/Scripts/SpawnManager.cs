@@ -65,6 +65,101 @@ public class SpawnManager : MonoBehaviour
         spawnedPositions.Clear();
     }
 
+    public void UpdateSpawnPoints(Transform mapRoot)
+    {
+        if (mapRoot == null) return;
+
+        // 1. Try to find explicit containers
+        Transform humanContainer = mapRoot.Find("SpawnPoints/Humans");
+        Transform zombieContainer = mapRoot.Find("SpawnPoints/Zombies");
+
+        // Clear previous references
+        if (humanSpawnPoints == null) humanSpawnPoints = new List<Transform>();
+        else humanSpawnPoints.Clear();
+
+        if (zombieSpawnPoints == null) zombieSpawnPoints = new List<Transform>();
+        else zombieSpawnPoints.Clear();
+
+        // 2. Populate if found
+        if (humanContainer != null)
+        {
+            foreach (Transform t in humanContainer) humanSpawnPoints.Add(t);
+        }
+        
+        if (zombieContainer != null)
+        {
+            foreach (Transform t in zombieContainer) zombieSpawnPoints.Add(t);
+        }
+
+        // 3. Fallback: Use Map Bounds (Floor) if list is empty
+        if (humanSpawnPoints.Count == 0 || zombieSpawnPoints.Count == 0)
+        {
+            Debug.Log("SpawnManager: Explicit spawn points not found. Generating dynamic points from Map Bounds...");
+            GenerateDynamicSpawnPoints(mapRoot);
+        }
+        
+        Debug.Log($"SpawnManager: Initialized with {humanSpawnPoints.Count} Human points and {zombieSpawnPoints.Count} Zombie points.");
+    }
+
+    private void GenerateDynamicSpawnPoints(Transform mapRoot)
+    {
+        // Try to find "Floor" or "Ground"
+        Transform floor = mapRoot.Find("Floor");
+        if (floor == null) floor = mapRoot.Find("Ground");
+        
+        Bounds bounds = new Bounds(Vector3.zero, new Vector3(10, 1, 10)); // Default fallback
+        if (floor != null)
+        {
+            Renderer r = floor.GetComponent<Renderer>();
+            if (r != null) bounds = r.bounds;
+            else 
+            {
+                 Collider c = floor.GetComponent<Collider>();
+                 if (c != null) bounds = c.bounds;
+            }
+        }
+        else
+        {
+             // Try to infer from MapRoot children
+             Renderer[] renderers = mapRoot.GetComponentsInChildren<Renderer>();
+             if (renderers.Length > 0)
+             {
+                 bounds = renderers[0].bounds;
+                 for (int i=1; i<renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+             }
+        }
+
+        // Create temporary spawn points
+        GameObject dynamicRoot = new GameObject("DynamicSpawnPoints_Temp");
+        dynamicRoot.transform.SetParent(mapRoot);
+        
+        // Generate X points
+        int pointsToGenerate = 10;
+        
+        for (int i = 0; i < pointsToGenerate; i++)
+        {
+            // Human Point
+            GameObject hInfo = new GameObject($"HumanSpawn_{i}");
+            hInfo.transform.SetParent(dynamicRoot.transform);
+            hInfo.transform.position = GetRandomPosInBounds(bounds);
+            humanSpawnPoints.Add(hInfo.transform);
+
+            // Zombie Point
+            GameObject zInfo = new GameObject($"ZombieSpawn_{i}");
+            zInfo.transform.SetParent(dynamicRoot.transform);
+            zInfo.transform.position = GetRandomPosInBounds(bounds);
+            zombieSpawnPoints.Add(zInfo.transform);
+        }
+    }
+
+    private Vector3 GetRandomPosInBounds(Bounds b)
+    {
+        // Shrink bounds slightly to avoid edge items
+        float x = Random.Range(b.min.x * 0.8f, b.max.x * 0.8f);
+        float z = Random.Range(b.min.z * 0.8f, b.max.z * 0.8f);
+        return new Vector3(x, b.center.y + 0.5f, z);
+    }
+
     private void SpawnCharacters()
     {
         // Spawn Humans

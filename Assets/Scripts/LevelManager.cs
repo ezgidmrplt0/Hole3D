@@ -77,7 +77,7 @@ public class LevelManager : MonoBehaviour
         if (data.mapPrefab != null)
         {
             // Spawn at fixed Y position as per user request
-            currentMapInstance = Instantiate(data.mapPrefab, new Vector3(0, 4.54f, 0), Quaternion.identity);
+            currentMapInstance = Instantiate(data.mapPrefab, new Vector3(0, 0, 0), Quaternion.identity);
             
             // Notify SpawnManager about the new map
             if (spawnManager != null)

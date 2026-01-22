@@ -358,10 +358,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   levels:
+  - mapPrefab: {fileID: 7615183845656541237, guid: 02081be08af10b177a0a47886fae95ef, type: 3}
+    zombieCount: 5
+    humanCount: 10
   - mapPrefab: {fileID: 1812219942606499623, guid: fa1aa8789b2bd45b9a7c9e78f3a475ca, type: 3}
     zombieCount: 5
     humanCount: 10
-  - mapPrefab: {fileID: 7615183845656541237, guid: 02081be08af10b177a0a47886fae95ef, type: 3}
+  - mapPrefab: {fileID: 1405171653587201525, guid: 48bfda540f2bc071b803812a89fd07df, type: 3}
     zombieCount: 5
     humanCount: 10
   currentLevelIndex: 0

@@ -63,6 +63,14 @@ public class CharacterAI : MonoBehaviour
              animator = allAnimators[0];
         }
 
+        // --- GROUND LAYER GÜVENLİK ---
+        // Eğer kullanıcı Ground Layer'ı seçmeyi unuttuysa, "Everything" yaparak her şeye basmasını sağla.
+        if (groundLayer == 0 || groundLayer == LayerMask.NameToLayer("Nothing"))
+        {
+            groundLayer = ~0; // Everything
+        }
+
+
         // 1. Remove old NavMeshAgent if present
         UnityEngine.AI.NavMeshAgent navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (navAgent != null) Destroy(navAgent);
@@ -73,8 +81,13 @@ public class CharacterAI : MonoBehaviour
         
         rb.constraints = RigidbodyConstraints.FreezeRotation; 
         rb.useGravity = true;
+        
+        // Stabilize Physics
+        rb.drag = 1f; 
+        rb.angularDrag = 10f;
 
-        // 3. Setup Collider
+
+        // 3. Setup Collider (Zombilerin içine gömülmemesi için)
         // Invalid position check at startup
         if (IsPositionInvalid(transform.position))
         {
@@ -86,9 +99,15 @@ public class CharacterAI : MonoBehaviour
         if (collider == null)
         {
             collider = gameObject.AddComponent<CapsuleCollider>();
-            collider.height = 2f;
-            collider.center = new Vector3(0, 1f, 0);
-            collider.radius = 0.5f;
+            // Genelde modellerin pivotu ayak olduğu için Center Y = Height/2 olmalı.
+            collider.height = 1.8f;
+            collider.center = new Vector3(0, 0.9f, 0); // Tam yukarı kaldır
+            collider.radius = 0.3f; // Biraz incelt
+        }
+        else
+        {
+            // Var olan collider'ı da düzelt
+            if (collider.center.y < 0.5f) collider.center = new Vector3(collider.center.x, 0.9f, collider.center.z);
         }
 
         // --- PHYSICS FIX: Slippery Material ---
@@ -111,12 +130,27 @@ public class CharacterAI : MonoBehaviour
 
     protected virtual void LateUpdate()
     {
-        // Safety Check: If flying into void/NaN, reset instead of destroy
+        // 1. Invalid Position Check
         if (IsPositionInvalid(transform.position))
         {
-             Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting to safe point.");
+             Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting.");
              transform.position = new Vector3(0, 2f, 0);
              if (rb != null) rb.velocity = Vector3.zero;
+        }
+
+        // 2. FALLING CHECK (Yere Düşme Koruması)
+        // Eğer karakter haritanın altına düşerse, onu hemen yukarı ışınla.
+        if (transform.position.y < -2f)
+        {
+            // Yere düştü! Kurtar.
+            // Zemin ile çakışmayı önlemek için bayağı yukarı (2 metre) kaldırıyoruz.
+            // Yerçekimi ile doğal düşsün.
+            transform.position = new Vector3(transform.position.x, 2f, transform.position.z);
+            if (rb != null) 
+            {
+                rb.velocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
         }
     }
 

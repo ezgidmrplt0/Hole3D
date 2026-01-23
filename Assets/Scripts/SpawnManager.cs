@@ -181,57 +181,87 @@ public class SpawnManager : MonoBehaviour
 
     private void SpawnZombiesClustered()
     {
-        if (zombiePrefabs == null || zombiePrefabs.Count == 0) return;
-        if (zombieSpawnPoints == null || zombieSpawnPoints.Count == 0) return;
+        if (zombiePrefabs == null || zombiePrefabs.Count == 0) 
+        {
+            Debug.LogWarning("SpawnManager: No Zombie Prefabs assigned!");
+            return;
+        }
 
-        // 1. Pick a SINGLE random center point for the horde
-        Transform centerPoint = zombieSpawnPoints[Random.Range(0, zombieSpawnPoints.Count)];
-        if (centerPoint == null) return;
+        Vector3 hordeCenter = Vector3.zero;
 
-        float hordeRadius = 2.5f; // Tight cluster
-        float hordeMinDistance = 0.6f; // Very close to each other
-        int attemptsPerZombie = 20;
+        // 1. Merkez Noktası Belirle
+        // Eğer spawn points varsa birini seç
+        if (zombieSpawnPoints != null && zombieSpawnPoints.Count > 0)
+        {
+            Transform t = zombieSpawnPoints[Random.Range(0, zombieSpawnPoints.Count)];
+            if (t != null) hordeCenter = t.position;
+        }
+        else
+        {
+            // Spawn point yoksa haritanın direkt ortasını (veya hafif önünü) al
+            Debug.Log("SpawnManager: No spawn points for Horde. Using Map Center.");
+            hordeCenter = new Vector3(0, 0, 5); // Hafif ileri
+        }
+
+        Debug.Log($"SpawnManager: Horde Center selected at {hordeCenter}");
+
+        // Ayarlar: 30 Zombi için 2.5f yarıçap çok dar olabilir. Genişletiyoruz.
+        float hordeRadius = 8f; 
+        float minSeparation = 0.8f; 
+        int attemptsPerZombie = 30;
 
         for (int i = 0; i < zombieCount; i++)
         {
             GameObject selectedPrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Count)];
-            
             bool spawned = false;
+
             for (int attempt = 0; attempt < attemptsPerZombie; attempt++)
             {
-                // Get point in small circle around center
-                Vector3 candidatePos = GetPositionAroundPoint(centerPoint.position, hordeRadius);
+                // Daire içinde rastgele nokta
+                Vector2 rnd = Random.insideUnitCircle * hordeRadius;
+                Vector3 candidatePos = hordeCenter + new Vector3(rnd.x, 0, rnd.y);
 
-                if (CheckValid(candidatePos))
+                // Yüksekliği ayarla (Raycast veya Fallback)
+                Vector3 finalPos = GetPositionAroundPoint(candidatePos, 0.1f); 
+                // Not: GetPositionAroundPoint zaten yükseklik ayarlıyor ve 'CheckValid' yapıyor.
+
+                if (CheckValid(finalPos))
                 {
-                    // Custom tight overlap check
-                    if (IsPositionClear(candidatePos, hordeMinDistance))
+                    // Şurada zombi var mı diye bak (Basit mesafe kontrolü)
+                    if (IsPositionSafeForHorde(finalPos, minSeparation))
                     {
-                        Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                        Instantiate(selectedPrefab, candidatePos, randomRotation);
-                        spawnedPositions.Add(candidatePos);
+                        Quaternion rot = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                        Instantiate(selectedPrefab, finalPos, rot);
+                        spawnedPositions.Add(finalPos);
                         spawned = true;
                         break;
                     }
                 }
             }
-            if (!spawned) Debug.LogWarning("SpawnManager: Could not squeeze zombie into horde!");
+
+            // Eğer normal yolla yer bulamazsak ZORLA SPAWN ET (Fallback)
+            // Zombisiz kalmaktansa iç içe girmesi iyidir.
+            if (!spawned)
+            {
+                Vector2 rnd = Random.insideUnitCircle * hordeRadius;
+                Vector3 forcedPos = hordeCenter + new Vector3(rnd.x, 0, rnd.y);
+                Vector3 finalForced = GetPositionAroundPoint(forcedPos, 0f);
+                
+                if (!CheckValid(finalForced)) finalForced = forcedPos; // Son çare
+
+                Instantiate(selectedPrefab, finalForced, Quaternion.identity);
+                spawnedPositions.Add(finalForced);
+                Debug.Log("SpawnManager: Force spawned zombie (crowded area).");
+            }
         }
         
-        Debug.Log($"SpawnManager: Spawning {zombieCount} zombies in HORDE MODE at {centerPoint.name}");
+        Debug.Log($"SpawnManager: Spawning {zombieCount} zombies in HORDE MODE complete.");
     }
 
-    // Helper for custom distance check
-    private bool IsPositionClear(Vector3 pos, float minDist)
+    // Horde modu için daha hafif, sadece diğer zombileri kontrol eden güvenli alan
+    private bool IsPositionSafeForHorde(Vector3 pos, float minDist)
     {
-         // 1. Obstacle Check
-         Vector3 checkPos = pos + Vector3.up * 0.5f;
-         if (obstacleLayer.value != 0 && Physics.CheckSphere(checkPos, collisionCheckRadius * 0.5f, obstacleLayer)) // Reduced radius
-         {
-             return false;
-         }
-
-         // 2. Distance Check
+         // Sadece diğer spawnlanmış objelere bak, duvarlara vs çok takılma (Horde kaosu için)
          foreach (Vector3 spawnedPos in spawnedPositions)
          {
              if (Vector3.Distance(pos, spawnedPos) < minDist) return false;
@@ -321,25 +351,30 @@ public class SpawnManager : MonoBehaviour
         Vector2 randomCircle = Random.insideUnitCircle * radius;
         Vector3 targetPos = centerPoint + new Vector3(randomCircle.x, 0, randomCircle.y);
 
-        // Raycast ile zemine oturt
+        // --- RAYCAST ILE ZEMINE OTURT ---
         // Yüksekten aşağıya bak
         Vector3 rayStart = new Vector3(targetPos.x, centerPoint.y + raycastHeight, targetPos.z);
         
-        if (groundLayer.value == 0)
-        {
-             // Ground layer yoksa referans aldığı transformun Y'sini kullan
-             Vector3 result = new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset, targetPos.z);
-             return CheckValid(result) ? result : Vector3.negativeInfinity;
-        }
+        // Geçici Maske Mantığı: Eğer Ground Layer ayarlanmamışsa, her şeyi zemin kabul et (~0)
+        LayerMask activeMask = groundLayer;
+        if (activeMask.value == 0) activeMask = ~0; // Everything
 
-        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, groundLayer))
+        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, activeMask))
         {
-            // Yere gömülmeyi önlemek için +0.5f ekliyoruz
-            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.5f);
-             return CheckValid(result) ? result : Vector3.negativeInfinity;
+            // Zemin bulundu! Tam üstüne koy.
+            // Yere gömülmeyi önlemek için +0.9f (CharacterAI'de ayarladığımız Center offseti gibi)
+            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.9f);
+            return CheckValid(result) ? result : Vector3.negativeInfinity;
         }
-        
-        return Vector3.negativeInfinity;
+        else
+        {
+             // --- FALLBACK (ZEMİN BULUNAMADI) ---
+             // Eğer raycast zemin bulamazsa (Collider yoksa veya tag hatası varsa),
+             // hiç spawn etmemek yerine referans noktasının (centerPoint) hizasında spawn et.
+             // Böylece oyuncu "Zombiler yok" demez, en azından havada veya zeminde belirirler.
+             Vector3 fallbackResult = new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset + 0.9f, targetPos.z);
+             return CheckValid(fallbackResult) ? fallbackResult : Vector3.negativeInfinity;
+        }
     }
 
     private bool CheckValid(Vector3 v)

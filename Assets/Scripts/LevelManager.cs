@@ -52,6 +52,9 @@ public class LevelManager : MonoBehaviour
         StartLevel();
     }
 
+    [Header("Special Levels")]
+    public GameObject simplePlanePrefab; // Kullanıcı dilerse buraya kendi plane prefabını atabilir
+
     public void StartLevel()
     {
         if (levels == null || levels.Count == 0)
@@ -60,68 +63,127 @@ public class LevelManager : MonoBehaviour
             return;
         }
 
-        // Loop back if we run out of levels
-        if (currentLevelIndex >= levels.Count)
-        {
-            Debug.Log("All levels completed! Looping back to 0.");
-            currentLevelIndex = 0;
-        }
-
-        LevelData data = levels[currentLevelIndex];
+        // --- INFINITE LEVEL LOGIC ---
+        int actualLevelNumber = currentLevelIndex + 1;
         
-        // Notify level change (1-based index for UI)
-        OnLevelChanged?.Invoke(currentLevelIndex + 1);
+        // Notify level change
+        OnLevelChanged?.Invoke(actualLevelNumber);
+
+        // --- LEVEL TYPE DETERMINATION ---
+        bool isSpecialHordeLevel = (actualLevelNumber % 3 == 0);
+        
+        GameObject mapToSpawn = null;
+        int desiredZombieCount = 0;
+        int desiredHumanCount = 0;
+        bool isHordeMode = false;
+
+        if (isSpecialHordeLevel)
+        {
+            // --- SPECIAL LEVEL (Her 3 Levelde Bir) ---
+            // "Sadece Plane olsun, 30 zombi olsun, dip dibe (Horde) olsun"
+            Debug.Log($"*** SPECIAL LEVEL {actualLevelNumber} *** -> Horde Mode Active!");
+            
+            mapToSpawn = simplePlanePrefab; // Varsa prefab, yoksa null (aşağıda createPrimitive yaparız)
+            
+            desiredZombieCount = 30; // Sabit 30 zombi
+            desiredHumanCount = 0;   // İnsan yok
+            isHordeMode = true;      // Dip dibe spawn
+        }
+        else
+        {
+            // --- NORMAL LEVEL ---
+            LevelData data = levels[currentLevelIndex % levels.Count];
+            mapToSpawn = data.mapPrefab;
+
+            // Zombi Sayısı (Level * 5)
+            desiredZombieCount = actualLevelNumber * 5;
+            desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
+            isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
+            
+            Debug.Log($"Level {actualLevelNumber}: Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
+        }
 
         // --- MAP SWITCHING LOGIC ---
+        // Önce temizlik: Eğer eski harita varsa yok et veya kapat
         if (currentMapInstance != null)
         {
-            Destroy(currentMapInstance);
+            // Eğer mevcut harita bizim değişmez sahnemiz ise (Special Plane), onu YOK ETME, sadece KAPAT.
+            if (currentMapInstance == simplePlanePrefab)
+            {
+                currentMapInstance.SetActive(false);
+            }
+            else
+            {
+                // Normal bir level kopyası ise tamamen yok et
+                Destroy(currentMapInstance);
+            }
+            currentMapInstance = null;
         }
 
-        if (data.mapPrefab != null)
+        // Yeni haritayı oluştur veya aç
+        if (isSpecialHordeLevel)
         {
-            // Spawn at fixed Y position as per user request
-            currentMapInstance = Instantiate(data.mapPrefab, new Vector3(0, 0, 0), Quaternion.identity);
-            
-            // Notify SpawnManager about the new map
-            if (spawnManager != null)
+             // --- SPECIAL LEVEL: SAHNEDEKİ OBJEYİ AÇ ---
+             if (simplePlanePrefab != null)
+             {
+                 currentMapInstance = simplePlanePrefab;
+                 currentMapInstance.SetActive(true); // Sadece görünür yap
+                 
+                 // Pozisyonunu ve rotasyonunu elleme, sahnede nasılsa öyle kalsın.
+                 Debug.Log("Special Level: Sahnedeki Plan objesi aktif edildi.");
+             }
+             else
+             {
+                 Debug.LogError("HATA: LevelManager -> 'Simple Plane Prefab' boş! Lütfen SAHNEDEKİ objeyi buraya sürükleyin.");
+             }
+        }
+        else if (mapToSpawn != null)
+        {
+            // --- NORMAL LEVEL: PREFABDAN KOPYA OLUŞTUR ---
+            // Orijinal Prefab rotasyonunu koru!
+            currentMapInstance = Instantiate(mapToSpawn, Vector3.zero, mapToSpawn.transform.rotation);
+        }
+        else
+        {
+             Debug.LogWarning($"Level {actualLevelNumber} has no Map Prefab assigned!");
+        }
+
+        // --- GÜVENLİK VE AYARLAR ---
+        if (currentMapInstance != null)
+        {
+            // 1. ZORUNLU TAG VE LAYER AYARI
+            // Bu kısım mecburi çünkü Tag olmazsa zombiler spawn olmaz.
+            // Ama yeni obje EKLEMİYORUZ, sadece mevcut olana etiket basıyoruz.
+            if (!currentMapInstance.CompareTag("Ground")) currentMapInstance.tag = "Ground";
+            currentMapInstance.layer = LayerMask.NameToLayer("Default");
+
+            // Alt objeleri de etiketle (Renderer'ı olanları)
+            foreach (Transform child in currentMapInstance.GetComponentsInChildren<Transform>())
             {
-                spawnManager.UpdateSpawnPoints(currentMapInstance.transform);
+                if (child.GetComponent<Collider>() != null)
+                {
+                    child.tag = "Ground";
+                }
             }
         }
-        else
-        {
-            Debug.LogWarning($"Level {currentLevelIndex + 1} has no Map Prefab assigned! Make sure to assign one.");
-        }
-        // ---------------------------
-
-        // Override zombie count based on User Request
-        int desiredZombieCount;
-
-        if (data.isHordeLevel)
-        {
-            // Horde Level: Random count between 30 and 60
-            desiredZombieCount = Random.Range(30, 61); // 61 is exclusive, so max is 60
-            Debug.Log($"Horde Mode Activated! Spawning {desiredZombieCount} zombies.");
-        }
-        else
-        {
-            // Normal Level: Use Inspector value or Fallback
-            desiredZombieCount = data.zombieCount;
-            if (desiredZombieCount <= 0) desiredZombieCount = (int)(data.humanCount * 1.5f);
-        }
         
+        // --- SETUP SPAWN MANAGER ---
+        // Notify SpawnManager about the new map (bounds calculation)
+        if (spawnManager != null && currentMapInstance != null)
+        {
+            spawnManager.UpdateSpawnPoints(currentMapInstance.transform);
+        }
+
         // Reset Progress
         currentZombiesEaten = 0;
         totalZombiesInLevel = desiredZombieCount;
         NotifyProgress();
 
-        // Setup Scene
+        // Spawn Enemies
         if (spawnManager != null)
         {
             spawnManager.ClearScene();
-            // Pass the Horde Mode flag!
-            spawnManager.SpawnLevel(data.humanCount, desiredZombieCount, data.isHordeLevel);
+            spawnManager.SpawnLevel(desiredHumanCount, desiredZombieCount, isHordeMode);
         }
     }
 
@@ -133,11 +195,20 @@ public class LevelManager : MonoBehaviour
         if (currentZombiesEaten >= totalZombiesInLevel)
         {
             Debug.Log("Level Complete!");
-            Invoke(nameof(NextLevel), 2f); // Delay for effect
+            // Invoke'u kaldırdık, UI kontrolüne devrettik
+            if (GameFlowManager.Instance != null)
+            {
+                GameFlowManager.Instance.ShowLevelComplete();
+            }
+            else
+            {
+                // Fallback (UI Manager yoksa eski usül devam)
+                Invoke(nameof(NextLevel), 2f);
+            }
         }
     }
 
-    private void NextLevel()
+    public void NextLevel()
     {
         // Reward Player
         if (EconomyManager.Instance != null)

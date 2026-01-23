@@ -60,11 +60,17 @@ public class HoleMechanics : MonoBehaviour
         // Texti güncelle
         UpdateLevelText();
 
-        maskController = GetComponent<HoleMaskController>();
         if (maskController != null)
         {
             // Initial radius based on scale
             maskController.SetRadius(voidRadius * transform.localScale.x);
+        }
+        
+        // --- AUTO-ADD OBSTRUCTION FADER ---
+        // Kullanıcı isteği: objelerin içinden geçerken transparan olması
+        if (GetComponent<ObstructionFader>() == null)
+        {
+            gameObject.AddComponent<ObstructionFader>();
         }
     }
 
@@ -132,7 +138,7 @@ public class HoleMechanics : MonoBehaviour
         if (agent != null) 
         {
             agent.velocity = Vector3.zero; // Anlık durdur
-            agent.Stop();
+            agent.isStopped = true;
             agent.enabled = false;
         }
 

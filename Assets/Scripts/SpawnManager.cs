@@ -46,13 +46,6 @@ public class SpawnManager : MonoBehaviour
     private List<Vector3> spawnedPositions = new List<Vector3>();
 
     // Public method called by LevelManager
-    public void SpawnLevel(int humans, int zombies)
-    {
-        humanCount = humans;
-        zombieCount = zombies;
-        SpawnCharacters();
-    }
-
     public void ClearScene()
     {
         // Find all existing characters and destroy them
@@ -160,20 +153,93 @@ public class SpawnManager : MonoBehaviour
         return new Vector3(x, b.center.y + 0.5f, z);
     }
 
-    private void SpawnCharacters()
+    public void SpawnLevel(int humans, int zombies, bool isHordeMode = false)
     {
-        // Spawn Humans
+        humanCount = humans;
+        zombieCount = zombies;
+        
+        // Spawn Humans (Always normal)
         for (int i = 0; i < humanCount; i++)
         {
             SpawnRandomPrefab(humanPrefabs, humanSpawnPoints, "Human");
         }
 
         // Spawn Zombies
-        for (int i = 0; i < zombieCount; i++)
+        if (isHordeMode)
         {
-            SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
+            SpawnZombiesClustered();
+        }
+        else
+        {
+            // Normal Spawn
+            for (int i = 0; i < zombieCount; i++)
+            {
+                SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
+            }
         }
     }
+
+    private void SpawnZombiesClustered()
+    {
+        if (zombiePrefabs == null || zombiePrefabs.Count == 0) return;
+        if (zombieSpawnPoints == null || zombieSpawnPoints.Count == 0) return;
+
+        // 1. Pick a SINGLE random center point for the horde
+        Transform centerPoint = zombieSpawnPoints[Random.Range(0, zombieSpawnPoints.Count)];
+        if (centerPoint == null) return;
+
+        float hordeRadius = 2.5f; // Tight cluster
+        float hordeMinDistance = 0.6f; // Very close to each other
+        int attemptsPerZombie = 20;
+
+        for (int i = 0; i < zombieCount; i++)
+        {
+            GameObject selectedPrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Count)];
+            
+            bool spawned = false;
+            for (int attempt = 0; attempt < attemptsPerZombie; attempt++)
+            {
+                // Get point in small circle around center
+                Vector3 candidatePos = GetPositionAroundPoint(centerPoint.position, hordeRadius);
+
+                if (CheckValid(candidatePos))
+                {
+                    // Custom tight overlap check
+                    if (IsPositionClear(candidatePos, hordeMinDistance))
+                    {
+                        Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+                        Instantiate(selectedPrefab, candidatePos, randomRotation);
+                        spawnedPositions.Add(candidatePos);
+                        spawned = true;
+                        break;
+                    }
+                }
+            }
+            if (!spawned) Debug.LogWarning("SpawnManager: Could not squeeze zombie into horde!");
+        }
+        
+        Debug.Log($"SpawnManager: Spawning {zombieCount} zombies in HORDE MODE at {centerPoint.name}");
+    }
+
+    // Helper for custom distance check
+    private bool IsPositionClear(Vector3 pos, float minDist)
+    {
+         // 1. Obstacle Check
+         Vector3 checkPos = pos + Vector3.up * 0.5f;
+         if (obstacleLayer.value != 0 && Physics.CheckSphere(checkPos, collisionCheckRadius * 0.5f, obstacleLayer)) // Reduced radius
+         {
+             return false;
+         }
+
+         // 2. Distance Check
+         foreach (Vector3 spawnedPos in spawnedPositions)
+         {
+             if (Vector3.Distance(pos, spawnedPos) < minDist) return false;
+         }
+         return true;
+    }
+
+    /* REMOVED OLD SpawnCharacters to avoid duplication, logic moved to SpawnLevel */
 
     private void SpawnRandomPrefab(List<GameObject> prefabs, List<Transform> spawnPoints, string debugName)
     {

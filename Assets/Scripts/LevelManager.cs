@@ -7,6 +7,9 @@ public struct LevelData
     public GameObject mapPrefab; // Prefab of the environment for this level
     public int zombieCount;
     public int humanCount;
+    
+    [Header("Special Modes")]
+    public bool isHordeLevel; // Eğer true ise, zombiler dip dibe (Horde) olarak spawn olur
 }
 
 public class LevelManager : MonoBehaviour
@@ -27,6 +30,7 @@ public class LevelManager : MonoBehaviour
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
     public System.Action<int> OnLevelChanged; // New event for level text update
+    public System.Action<int> OnZombieCountChanged; // Event for Zombie Counter UI
 
     private GameObject currentMapInstance;
 
@@ -91,8 +95,21 @@ public class LevelManager : MonoBehaviour
         }
         // ---------------------------
 
-        // Override zombie count based on User Request (1.5x Humans)
-        int desiredZombieCount = (int)(data.humanCount * 1.5f);
+        // Override zombie count based on User Request
+        int desiredZombieCount;
+
+        if (data.isHordeLevel)
+        {
+            // Horde Level: Random count between 30 and 60
+            desiredZombieCount = Random.Range(30, 61); // 61 is exclusive, so max is 60
+            Debug.Log($"Horde Mode Activated! Spawning {desiredZombieCount} zombies.");
+        }
+        else
+        {
+            // Normal Level: Use Inspector value or Fallback
+            desiredZombieCount = data.zombieCount;
+            if (desiredZombieCount <= 0) desiredZombieCount = (int)(data.humanCount * 1.5f);
+        }
         
         // Reset Progress
         currentZombiesEaten = 0;
@@ -103,7 +120,8 @@ public class LevelManager : MonoBehaviour
         if (spawnManager != null)
         {
             spawnManager.ClearScene();
-            spawnManager.SpawnLevel(data.humanCount, desiredZombieCount);
+            // Pass the Horde Mode flag!
+            spawnManager.SpawnLevel(data.humanCount, desiredZombieCount, data.isHordeLevel);
         }
     }
 
@@ -137,6 +155,11 @@ public class LevelManager : MonoBehaviour
         {
             float progress = (float)currentZombiesEaten / totalZombiesInLevel;
             OnProgressUpdated?.Invoke(progress);
+            
+            // Update Zombie Counter (Remaining Quantity)
+            int remaining = totalZombiesInLevel - currentZombiesEaten;
+            if (remaining < 0) remaining = 0;
+            OnZombieCountChanged?.Invoke(remaining);
         }
     }
 }

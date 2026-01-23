@@ -6,6 +6,10 @@ public class UIManager : MonoBehaviour
     [Header("UI References")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI levelText;
+    
+    [Header("Zombie Counter")]
+    public GameObject zombieCounterPanel;
+    public TextMeshProUGUI zombieCounterText;
 
     private void Start()
     {
@@ -17,17 +21,20 @@ public class UIManager : MonoBehaviour
             UpdateCoinText(EconomyManager.Instance.CurrentCoins);
         }
 
-        // DEBUG: Check what UIManager thinks is the Price Text
-        if (magnetPriceText != null)
-            Debug.Log($"UIManager Check: magnetPriceText is assigned to '{magnetPriceText.name}' (Should be 'Text (TMP)')");
-        else
-            Debug.LogError("UIManager Check: magnetPriceText is NULL!");
-
         if (LevelManager.Instance != null)
         {
             LevelManager.Instance.OnLevelChanged += UpdateLevelText;
+            LevelManager.Instance.OnZombieCountChanged += UpdateZombieCounter; // Subscribe to Zombie Count
+            
             // Force update initial value (add 1 because index is 0-based)
             UpdateLevelText(LevelManager.Instance.currentLevelIndex + 1);
+            
+            // Initial Zombie Count update will happen when LevelManager calls StartLevel -> NotifyProgress
+            // But if we missed it (Start order), we should manually check
+             if (LevelManager.Instance.totalZombiesInLevel > 0)
+            {
+                UpdateZombieCounter(LevelManager.Instance.totalZombiesInLevel - LevelManager.Instance.currentZombiesEaten);
+            }
         }
     }
 
@@ -42,6 +49,7 @@ public class UIManager : MonoBehaviour
         if (LevelManager.Instance != null)
         {
             LevelManager.Instance.OnLevelChanged -= UpdateLevelText;
+            LevelManager.Instance.OnZombieCountChanged -= UpdateZombieCounter;
         }
     }
 
@@ -59,6 +67,17 @@ public class UIManager : MonoBehaviour
         {
             levelText.text = "LEVEL " + level;
         }
+    }
+    
+    private void UpdateZombieCounter(int count)
+    {
+        if (zombieCounterText != null)
+        {
+            zombieCounterText.text = count.ToString();
+        }
+        
+        // Opsiyonel: Eğer 0 olursa paneli gizle veya efekt yap
+        // if (count <= 0 && zombieCounterPanel != null) zombieCounterPanel.SetActive(false);
     }
     [Header("Panels")]
     public GameObject marketPanel;

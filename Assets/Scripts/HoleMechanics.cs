@@ -56,6 +56,19 @@ public class HoleMechanics : MonoBehaviour
             // Bulduysak barı başlangıç durumuna (0) getir veya mevcut XP durumunu yansıt
             visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
         }
+        
+        // MaskController'ı bul (Shader'a radius gönderen script)
+        if (maskController == null)
+        {
+            maskController = GetComponentInChildren<HoleMaskController>();
+            if (maskController == null) maskController = GetComponent<HoleMaskController>();
+            if (maskController == null) maskController = FindObjectOfType<HoleMaskController>();
+        }
+        
+        if (maskController == null)
+        {
+            Debug.LogWarning("HoleMechanics: HoleMaskController bulunamadı! Deliğin iç kısmı büyümeyebilir.");
+        }
 
         // Texti güncelle
         UpdateLevelText();

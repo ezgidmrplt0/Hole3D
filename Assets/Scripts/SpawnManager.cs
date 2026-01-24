@@ -24,6 +24,12 @@ public class SpawnManager : MonoBehaviour
     public int zombieCount = 20;
     [Tooltip("Radius around the spawn point to place characters.")]
     public float spawnRadius = 6f;
+    
+    [Header("Ground Detection")]
+    [Tooltip("Zemin Y seviyesi (otomatik bulunur)")]
+    public float groundY = 0f;
+    private bool groundYDetected = false;
+    private Bounds currentSpawnBounds; // Spawn sınırları
 
     [Header("Raycast & Ground")]
     [Tooltip("Y offset for the raycast start position.")]
@@ -61,6 +67,9 @@ public class SpawnManager : MonoBehaviour
     public void UpdateSpawnPoints(Transform mapRoot)
     {
         if (mapRoot == null) return;
+        
+        // Zemin seviyesini bul
+        DetectGroundY(mapRoot);
 
         // 1. Try to find explicit containers
         Transform humanContainer = mapRoot.Find("SpawnPoints/Humans");
@@ -96,31 +105,51 @@ public class SpawnManager : MonoBehaviour
 
     private void GenerateDynamicSpawnPoints(Transform mapRoot)
     {
-        // Try to find "Floor" or "Ground"
+        // Try to find "Floor" or "Ground" or "Plane"
         Transform floor = mapRoot.Find("Floor");
         if (floor == null) floor = mapRoot.Find("Ground");
+        if (floor == null) floor = mapRoot.Find("Plane");
+        if (floor == null) floor = mapRoot.Find("Hole_Compatible_Floor");
         
-        Bounds bounds = new Bounds(Vector3.zero, new Vector3(10, 1, 10)); // Default fallback
+        // Global arama
+        if (floor == null)
+        {
+            GameObject floorObj = GameObject.Find("Floor");
+            if (floorObj == null) floorObj = GameObject.Find("Plane");
+            if (floorObj == null) floorObj = GameObject.Find("Hole_Compatible_Floor");
+            if (floorObj != null) floor = floorObj.transform;
+        }
+        
+        Bounds bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20)); // Default fallback
+        
         if (floor != null)
         {
+            // Floor/Plane bulundu - sadece onun bounds'unu kullan
             Renderer r = floor.GetComponent<Renderer>();
-            if (r != null) bounds = r.bounds;
+            if (r != null) 
+            {
+                bounds = r.bounds;
+                Debug.Log($"[SpawnManager] Floor bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
+            }
             else 
             {
-                 Collider c = floor.GetComponent<Collider>();
-                 if (c != null) bounds = c.bounds;
+                Collider c = floor.GetComponent<Collider>();
+                if (c != null) 
+                {
+                    bounds = c.bounds;
+                    Debug.Log($"[SpawnManager] Floor collider bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
+                }
             }
         }
         else
         {
-             // Try to infer from MapRoot children
-             Renderer[] renderers = mapRoot.GetComponentsInChildren<Renderer>();
-             if (renderers.Length > 0)
-             {
-                 bounds = renderers[0].bounds;
-                 for (int i=1; i<renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
-             }
+            // Floor bulunamadı - uyarı ver ve küçük alan kullan
+            Debug.LogWarning("[SpawnManager] Floor/Plane bulunamadı! Varsayılan küçük alan kullanılıyor.");
+            bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20));
         }
+        
+        // Bounds'u kaydet (spawn sırasında sınır kontrolü için)
+        currentSpawnBounds = bounds;
 
         // Create temporary spawn points
         GameObject dynamicRoot = new GameObject("DynamicSpawnPoints_Temp");
@@ -147,10 +176,18 @@ public class SpawnManager : MonoBehaviour
 
     private Vector3 GetRandomPosInBounds(Bounds b)
     {
-        // Shrink bounds slightly to avoid edge items
-        float x = Random.Range(b.min.x * 0.8f, b.max.x * 0.8f);
-        float z = Random.Range(b.min.z * 0.8f, b.max.z * 0.8f);
-        return new Vector3(x, b.center.y + 0.5f, z);
+        // Bounds'u %20 küçült (kenarlardan uzak dur)
+        float shrinkFactor = 0.8f;
+        
+        float halfExtentX = b.extents.x * shrinkFactor;
+        float halfExtentZ = b.extents.z * shrinkFactor;
+        
+        float x = Random.Range(b.center.x - halfExtentX, b.center.x + halfExtentX);
+        float z = Random.Range(b.center.z - halfExtentZ, b.center.z + halfExtentZ);
+        
+        // groundY bulunduysa onu kullan, yoksa bounds'un minimum Y değerini kullan
+        float y = groundYDetected ? groundY : b.min.y;
+        return new Vector3(x, y + 0.5f, z);
     }
 
     public void SpawnLevel(int humans, int zombies, bool isHordeMode = false)
@@ -189,24 +226,29 @@ public class SpawnManager : MonoBehaviour
 
         Vector3 hordeCenter = Vector3.zero;
 
-        // 1. Merkez Noktası Belirle
-        // Eğer spawn points varsa birini seç
-        if (zombieSpawnPoints != null && zombieSpawnPoints.Count > 0)
+        // 1. Merkez Noktası Belirle - Bounds'un merkezini kullan
+        if (currentSpawnBounds.size.sqrMagnitude > 0.1f)
+        {
+            // Bounds merkezini kullan (en güvenli)
+            hordeCenter = new Vector3(currentSpawnBounds.center.x, groundY, currentSpawnBounds.center.z);
+        }
+        else if (zombieSpawnPoints != null && zombieSpawnPoints.Count > 0)
         {
             Transform t = zombieSpawnPoints[Random.Range(0, zombieSpawnPoints.Count)];
             if (t != null) hordeCenter = t.position;
         }
         else
         {
-            // Spawn point yoksa haritanın direkt ortasını (veya hafif önünü) al
-            Debug.Log("SpawnManager: No spawn points for Horde. Using Map Center.");
-            hordeCenter = new Vector3(0, 0, 5); // Hafif ileri
+            // Spawn point yoksa haritanın direkt ortasını al
+            Debug.Log("SpawnManager: No spawn points for Horde. Using origin.");
+            hordeCenter = new Vector3(0, groundY, 0);
         }
 
         Debug.Log($"SpawnManager: Horde Center selected at {hordeCenter}");
 
-        // Ayarlar: 30 Zombi için 2.5f yarıçap çok dar olabilir. Genişletiyoruz.
-        float hordeRadius = 8f; 
+        // Ayarlar: Horde radius'u bounds'a göre ayarla
+        float maxRadius = Mathf.Min(currentSpawnBounds.extents.x, currentSpawnBounds.extents.z) * 0.6f;
+        float hordeRadius = Mathf.Max(8f, maxRadius); // En az 8, ama bounds'tan büyük olmasın
         float minSeparation = 0.8f; 
         int attemptsPerZombie = 30;
 
@@ -220,6 +262,9 @@ public class SpawnManager : MonoBehaviour
                 // Daire içinde rastgele nokta
                 Vector2 rnd = Random.insideUnitCircle * hordeRadius;
                 Vector3 candidatePos = hordeCenter + new Vector3(rnd.x, 0, rnd.y);
+                
+                // Sınır kontrolü
+                candidatePos = ClampToBounds(candidatePos);
 
                 // Yüksekliği ayarla (Raycast veya Fallback)
                 Vector3 finalPos = GetPositionAroundPoint(candidatePos, 0.1f); 
@@ -350,8 +395,21 @@ public class SpawnManager : MonoBehaviour
         // Rastgele bir ofset al (Daire içinde)
         Vector2 randomCircle = Random.insideUnitCircle * radius;
         Vector3 targetPos = centerPoint + new Vector3(randomCircle.x, 0, randomCircle.y);
+        
+        // --- SINIR KONTROLÜ ---
+        // Pozisyonu spawn bounds içinde tut
+        targetPos = ClampToBounds(targetPos);
 
-        // --- RAYCAST ILE ZEMINE OTURT ---
+        // --- ZEMIN SEVİYESİNE OTURT ---
+        // Eğer groundY tespit edilmişse, doğrudan onu kullan
+        if (groundYDetected)
+        {
+            // Karakter yüksekliği için +0.1f offset (ayaklar zemine bassın)
+            Vector3 result = new Vector3(targetPos.x, groundY + spawnHeightOffset + 0.1f, targetPos.z);
+            return CheckValid(result) ? result : Vector3.negativeInfinity;
+        }
+        
+        // --- FALLBACK: RAYCAST ILE ZEMINE OTURT ---
         // Yüksekten aşağıya bak
         Vector3 rayStart = new Vector3(targetPos.x, centerPoint.y + raycastHeight, targetPos.z);
         
@@ -362,19 +420,33 @@ public class SpawnManager : MonoBehaviour
         if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, activeMask))
         {
             // Zemin bulundu! Tam üstüne koy.
-            // Yere gömülmeyi önlemek için +0.9f (CharacterAI'de ayarladığımız Center offseti gibi)
-            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.9f);
+            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.1f);
             return CheckValid(result) ? result : Vector3.negativeInfinity;
         }
         else
         {
              // --- FALLBACK (ZEMİN BULUNAMADI) ---
-             // Eğer raycast zemin bulamazsa (Collider yoksa veya tag hatası varsa),
-             // hiç spawn etmemek yerine referans noktasının (centerPoint) hizasında spawn et.
-             // Böylece oyuncu "Zombiler yok" demez, en azından havada veya zeminde belirirler.
-             Vector3 fallbackResult = new Vector3(targetPos.x, centerPoint.y + spawnHeightOffset + 0.9f, targetPos.z);
+             // groundY varsa onu kullan, yoksa centerPoint.y kullan
+             float fallbackY = groundYDetected ? groundY : centerPoint.y;
+             Vector3 fallbackResult = new Vector3(targetPos.x, fallbackY + spawnHeightOffset + 0.1f, targetPos.z);
              return CheckValid(fallbackResult) ? fallbackResult : Vector3.negativeInfinity;
         }
+    }
+    
+    private Vector3 ClampToBounds(Vector3 pos)
+    {
+        // Eğer bounds ayarlanmamışsa (size 0), pozisyonu olduğu gibi döndür
+        if (currentSpawnBounds.size.sqrMagnitude < 0.1f) return pos;
+        
+        // %80 küçültülmüş bounds içinde tut
+        float shrink = 0.8f;
+        float halfX = currentSpawnBounds.extents.x * shrink;
+        float halfZ = currentSpawnBounds.extents.z * shrink;
+        
+        float clampedX = Mathf.Clamp(pos.x, currentSpawnBounds.center.x - halfX, currentSpawnBounds.center.x + halfX);
+        float clampedZ = Mathf.Clamp(pos.z, currentSpawnBounds.center.z - halfZ, currentSpawnBounds.center.z + halfZ);
+        
+        return new Vector3(clampedX, pos.y, clampedZ);
     }
 
     private bool CheckValid(Vector3 v)
@@ -385,6 +457,71 @@ public class SpawnManager : MonoBehaviour
             return false;
         }
         return true;
+    }
+    
+    private void DetectGroundY(Transform mapRoot)
+    {
+        // 1. Önce "Floor", "Plane", "Ground" isimli objeyi ara
+        string[] floorNames = { "Floor", "Plane", "Ground", "Hole_Compatible_Floor" };
+        
+        foreach (string name in floorNames)
+        {
+            Transform floor = mapRoot.Find(name);
+            if (floor != null)
+            {
+                groundY = floor.position.y;
+                groundYDetected = true;
+                Debug.Log($"[SpawnManager] Zemin bulundu: {name} | Y = {groundY}");
+                return;
+            }
+        }
+        
+        // 2. Sahnede global ara
+        foreach (string name in floorNames)
+        {
+            GameObject floor = GameObject.Find(name);
+            if (floor != null)
+            {
+                groundY = floor.transform.position.y;
+                groundYDetected = true;
+                Debug.Log($"[SpawnManager] Zemin bulundu (Global): {name} | Y = {groundY}");
+                return;
+            }
+        }
+        
+        // 3. Ground tag'li obje ara
+        GameObject[] groundObjects = GameObject.FindGameObjectsWithTag("Ground");
+        if (groundObjects.Length > 0)
+        {
+            // En düşük Y değerine sahip olanı seç (Gerçek zemin)
+            float lowestY = float.MaxValue;
+            foreach (var go in groundObjects)
+            {
+                if (go.transform.position.y < lowestY)
+                {
+                    lowestY = go.transform.position.y;
+                }
+            }
+            groundY = lowestY;
+            groundYDetected = true;
+            Debug.Log($"[SpawnManager] Zemin bulundu (Tag): Y = {groundY}");
+            return;
+        }
+        
+        // 4. Bulunamadı - Raycast ile dene
+        RaycastHit hit;
+        if (Physics.Raycast(Vector3.up * 50f, Vector3.down, out hit, 100f))
+        {
+            groundY = hit.point.y;
+            groundYDetected = true;
+            Debug.Log($"[SpawnManager] Zemin bulundu (Raycast): Y = {groundY}");
+            return;
+        }
+        
+        // 5. Hiçbir şey bulunamadı
+        groundY = 0f;
+        groundYDetected = false;
+        Debug.LogWarning("[SpawnManager] Zemin bulunamadı! Varsayılan Y = 0 kullanılıyor.");
     }
 
     private void OnDrawGizmosSelected()

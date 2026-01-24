@@ -69,6 +69,10 @@ public class CharacterAI : MonoBehaviour
         {
             groundLayer = ~0; // Everything
         }
+        
+        // --- ZEMIN SEVİYESİNİ OTOMATIK BUL ---
+        // Plane'in Y değerini bul (Genelde 0 ama farklı olabilir)
+        DetectGroundLevel();
 
 
         // 1. Remove old NavMeshAgent if present
@@ -128,6 +132,17 @@ public class CharacterAI : MonoBehaviour
         }
     }
 
+    [Header("Ground Check")]
+    [Tooltip("Karakterin olması gereken zemin Y seviyesi (Plane Y değeri)")]
+    public float expectedGroundY = 0f;
+    [Tooltip("Bu değerden fazla yüksekteyse itilmeye başlar")]
+    public float heightTolerance = 0.5f;
+    [Tooltip("İtilme kuvveti")]
+    public float pushForce = 3f;
+    
+    private Vector3 pushDirection;
+    private float pushTimer = 0f;
+
     protected virtual void LateUpdate()
     {
         // 1. Invalid Position Check
@@ -143,8 +158,6 @@ public class CharacterAI : MonoBehaviour
         if (transform.position.y < -2f)
         {
             // Yere düştü! Kurtar.
-            // Zemin ile çakışmayı önlemek için bayağı yukarı (2 metre) kaldırıyoruz.
-            // Yerçekimi ile doğal düşsün.
             transform.position = new Vector3(transform.position.x, 2f, transform.position.z);
             if (rb != null) 
             {
@@ -152,11 +165,81 @@ public class CharacterAI : MonoBehaviour
                 rb.angularVelocity = Vector3.zero;
             }
         }
+        
+        // 3. YÜKSEKTE KALMA KONTROLÜ
+        // Eğer karakter zemin seviyesinden yüksekteyse ve altında düzgün zemin yoksa, it
+        float currentHeight = transform.position.y;
+        if (currentHeight > expectedGroundY + heightTolerance)
+        {
+            // Altında gerçek zemin (plane) var mı kontrol et
+            RaycastHit hit;
+            bool hasGroundBelow = Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 2f, groundLayer);
+            
+            // Eğer altında zemin yok VEYA zemin çok aşağıda (yani bir objenin üstündeyiz)
+            if (!hasGroundBelow || hit.point.y > expectedGroundY + heightTolerance)
+            {
+                // Rastgele bir yöne it
+                if (pushTimer <= 0f)
+                {
+                    // Yeni rastgele yön belirle
+                    pushDirection = new Vector3(Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f)).normalized;
+                    pushTimer = 0.5f; // 0.5 saniye aynı yöne it
+                }
+                
+                pushTimer -= Time.deltaTime;
+                
+                // İtme uygula
+                if (rb != null)
+                {
+                    rb.AddForce(pushDirection * pushForce, ForceMode.Acceleration);
+                }
+                else
+                {
+                    transform.position += pushDirection * pushForce * Time.deltaTime;
+                }
+            }
+        }
     }
 
     private bool IsPositionInvalid(Vector3 pos)
     {
         return pos.sqrMagnitude > 1000000f || float.IsNaN(pos.x) || float.IsNaN(pos.y) || float.IsNaN(pos.z);
+    }
+    
+    private void DetectGroundLevel()
+    {
+        // Yukarıdan aşağıya raycast at, en alttaki düz zemini bul
+        RaycastHit hit;
+        Vector3 rayStart = transform.position + Vector3.up * 10f; // Yukarıdan başla
+        
+        // "Ground" tag'li veya "floor/plane" isimli objeyi bul
+        if (Physics.Raycast(rayStart, Vector3.down, out hit, 50f))
+        {
+            string hitName = hit.collider.name.ToLower();
+            
+            // Eğer floor, plane veya ground içeriyorsa, bu zemin seviyesidir
+            if (hitName.Contains("floor") || hitName.Contains("plane") || hit.collider.CompareTag("Ground"))
+            {
+                expectedGroundY = hit.point.y;
+                return;
+            }
+        }
+        
+        // Alternatif: Sahnedeki "Floor" veya "Plane" objesini ara
+        GameObject floor = GameObject.Find("Floor");
+        if (floor == null) floor = GameObject.Find("Plane");
+        if (floor == null) floor = GameObject.Find("Ground");
+        if (floor == null) floor = GameObject.Find("Hole_Compatible_Floor");
+        
+        if (floor != null)
+        {
+            expectedGroundY = floor.transform.position.y;
+        }
+        else
+        {
+            // Bulunamadı, varsayılan 0 kullan
+            expectedGroundY = 0f;
+        }
     }
 
     protected virtual void OnEnable()

@@ -14,6 +14,9 @@ public class ObstructionFader : MonoBehaviour
     public bool fadeOnContact = true; // Temasta şeffaflaşsın mı?
     public float contactRadiusMultiplier = 1.5f; // Deliğin boyutuyla çarpılır (Yakınlık mesafesi)
 
+    [Header("Debug")]
+    public bool showDebugLogs = true; // Debug logları aç/kapa
+
     private Transform cameraTransform;
     private Transform myTransform;
     
@@ -38,9 +41,11 @@ public class ObstructionFader : MonoBehaviour
         if (Camera.main != null)
         {
             cameraTransform = Camera.main.transform;
+            if (showDebugLogs) Debug.Log($"[ObstructionFader] ✓ Başlatıldı. Kamera: {cameraTransform.name}");
         }
         else
         {
+            Debug.LogError("[ObstructionFader] ✗ Camera.main bulunamadı! Script devre dışı.");
             this.enabled = false;
             return;
         }
@@ -68,12 +73,28 @@ public class ObstructionFader : MonoBehaviour
         // QueryTriggerInteraction.Ignore -> Triggerlara (Coin, XP vb) çarpmasın, sadece katı objelere (duvar, çatı) çarpsın.
         RaycastHit[] hits = Physics.RaycastAll(startPos, direction, distance, layerMask, QueryTriggerInteraction.Ignore);
         
+        if (showDebugLogs && Time.frameCount % 60 == 0) // Her saniye bir log
+        {
+            Debug.Log($"[ObstructionFader] Raycast: {hits.Length} obje bulundu. Mesafe: {distance:F1}m");
+        }
+        
+        // Debug çizgisi (Scene view'da görünür)
+        Debug.DrawRay(startPos, direction.normalized * distance, hits.Length > 0 ? Color.red : Color.green);
+        
         foreach (RaycastHit hit in hits)
         {
             // Filtreleme: Zemin mi? Oyuncu mu?
-            if (IsIgnored(hit.collider.gameObject)) continue;
+            if (IsIgnored(hit.collider.gameObject)) 
+            {
+                if (showDebugLogs && Time.frameCount % 60 == 0)
+                    Debug.Log($"[ObstructionFader] → Yoksayıldı (Raycast): {hit.collider.name}");
+                continue;
+            }
             
-            Renderer r = hit.collider.GetComponent<Renderer>();
+            if (showDebugLogs)
+                Debug.Log($"[ObstructionFader] ★ Engel bulundu (Raycast): {hit.collider.name}");
+            
+            Renderer r = GetRendererFromCollider(hit.collider);
             AddRendererToFrame(r);
         }
 
@@ -85,12 +106,23 @@ public class ObstructionFader : MonoBehaviour
             // OverlapSphere de Everything maskesiyle
             Collider[] contacts = Physics.OverlapSphere(myTransform.position, radius, layerMask);
             
+            if (showDebugLogs && Time.frameCount % 60 == 0)
+                Debug.Log($"[ObstructionFader] OverlapSphere: {contacts.Length} obje, Radius: {radius:F1}m");
+            
             foreach (Collider col in contacts)
             {
                 if (col.isTrigger) continue; // Triggerları (Coin vs) yoksay
-                if (IsIgnored(col.gameObject)) continue;
+                if (IsIgnored(col.gameObject)) 
+                {
+                    if (showDebugLogs && Time.frameCount % 60 == 0)
+                        Debug.Log($"[ObstructionFader] → Yoksayıldı (Contact): {col.name}");
+                    continue;
+                }
 
-                Renderer r = col.GetComponent<Renderer>();
+                if (showDebugLogs)
+                    Debug.Log($"[ObstructionFader] ★ Temas engeli: {col.name}");
+
+                Renderer r = GetRendererFromCollider(col);
                 AddRendererToFrame(r);
             }
         }
@@ -122,19 +154,45 @@ public class ObstructionFader : MonoBehaviour
         if (obj == gameObject || obj.transform.root == transform.root) return true;
         if (obj.CompareTag("Player")) return true;
         
-        // 2. UI ve Water (Genelde transparan olmamalı)
+        // 2. Zombi ve İnsanlar (Karakterler transparan olmasın)
+        if (obj.CompareTag("Zombie") || obj.CompareTag("Human")) return true;
+        // Karakterlerin çocuk objeleri de olabilir (mesh vs), root'a bak
+        Transform root = obj.transform.root;
+        if (root.CompareTag("Zombie") || root.CompareTag("Human")) return true;
+        
+        // 3. UI ve Water (Genelde transparan olmamalı)
         if (obj.layer == LayerMask.NameToLayer("UI")) return true;
         if (obj.layer == LayerMask.NameToLayer("Water")) return true;
         
-        // 3. ZEMİN KONTROLÜ (Ground)
-        // Layer veya Tag "Ground" / "Floor" ise
-        if (obj.layer == LayerMask.NameToLayer("Ground")) return true;
-        if (obj.CompareTag("Ground") || obj.CompareTag("Floor")) return true;
-
-        // 4. İSİM KONTROLÜ (Assetlerden gelen isimsiz zeminler için)
-        // İsmi "Ground", "Floor", "Terrain" içerenleri zemin say
-        string name = obj.name.ToLower();
-        if (name.Contains("ground") || name.Contains("floor") || name.Contains("terrain")) return true;
+        // 4. ZEMİN KONTROLÜ - Sadece GERÇEK zeminler (Yatay düz yüzeyler)
+        // Ground tag'i yetersiz çünkü LevelManager her şeye Ground atıyor
+        // Bunun yerine isim kontrolü + collider yönü kontrolü yapalım
+        string nameLower = obj.name.ToLower();
+        
+        // Sadece "floor" veya "plane" içeren isimleri zemin say (Daha dar kapsam)
+        // "ground" kelimesi çok genel, onu kaldırıyoruz
+        if (nameLower.Contains("floor") || nameLower.Contains("plane") || nameLower.Contains("terrain"))
+        {
+            return true;
+        }
+        
+        // 5. Deliğin altındaki zemini yoksay (Y pozisyonuna göre)
+        // Eğer obje deliğin altındaysa ve yatay bir yüzeyse, zemin demektir
+        if (obj.transform.position.y < myTransform.position.y - 0.5f)
+        {
+            // Yatay yüzey kontrolü: Collider'ın boyutlarına bak
+            Collider col = obj.GetComponent<Collider>();
+            if (col != null)
+            {
+                Vector3 size = col.bounds.size;
+                // Yatay/düz bir obje: X ve Z boyutu Y boyutundan çok büyükse
+                if (size.x > size.y * 3 && size.z > size.y * 3)
+                {
+                    if (showDebugLogs) Debug.Log($"[ObstructionFader] Zemin tespit edildi (boyut): {obj.name}");
+                    return true;
+                }
+            }
+        }
         
         return false;
     }
@@ -145,6 +203,8 @@ public class ObstructionFader : MonoBehaviour
         {
             if (!fadedRenderers.ContainsKey(r))
             {
+                if (showDebugLogs)
+                    Debug.Log($"[ObstructionFader] ✓ Fade başlatılıyor: {r.name} | Material: {r.material?.name ?? "NULL"}");
                 CacheAndFade(r);
             }
             if (!hitRenderersThisFrame.Contains(r))
@@ -153,10 +213,36 @@ public class ObstructionFader : MonoBehaviour
             }
         }
     }
+    
+    // Collider'dan Renderer bulmaya çalış (Çocuklara da bak)
+    private Renderer GetRendererFromCollider(Collider col)
+    {
+        if (col == null) return null;
+        
+        // 1. Önce kendi üzerinde ara
+        Renderer r = col.GetComponent<Renderer>();
+        if (r != null) return r;
+        
+        // 2. Çocuklarda ara (Character modelleri için)
+        r = col.GetComponentInChildren<Renderer>();
+        if (r != null) return r;
+        
+        // 3. Parent'ta ara (Bazı prefablarda collider child'da olabilir)
+        r = col.GetComponentInParent<Renderer>();
+        
+        return r;
+    }
 
     private void CacheAndFade(Renderer r)
     {
         Material mat = r.material;
+        
+        if (mat == null)
+        {
+            Debug.LogWarning($"[ObstructionFader] ✗ {r.name} için Material NULL!");
+            return;
+        }
+        
         MaterialModeData data = new MaterialModeData();
         data.material = mat;
         
@@ -168,6 +254,9 @@ public class ObstructionFader : MonoBehaviour
         
         // URP Kontrolü
         data.isURP = mat.HasProperty("_BaseColor");
+        
+        if (showDebugLogs)
+            Debug.Log($"[ObstructionFader] Material Info: {mat.name} | URP: {data.isURP} | Shader: {mat.shader.name} | OriginalAlpha: {data.originalAlpha}");
 
         if (mat.HasProperty("_Mode")) data.originalMode = (int)mat.GetFloat("_Mode");
         if (mat.HasProperty("_SrcBlend")) data.originalSrcBlend = mat.GetInt("_SrcBlend");
@@ -182,6 +271,9 @@ public class ObstructionFader : MonoBehaviour
         // Tween Alpha
         Color targetColor = col;
         targetColor.a = fadeAlpha;
+        
+        if (showDebugLogs)
+            Debug.Log($"[ObstructionFader] Alpha değişiyor: {col.a} → {fadeAlpha}");
         
         if (data.isURP)
             mat.DOColor(targetColor, "_BaseColor", fadeDuration);

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 8123549367177908667}
   - component: {fileID: 398329327605622516}
   - component: {fileID: 3318124760390300752}
-  m_Layer: 6
+  m_Layer: 0
   m_Name: Hole_Compatible_Floor
   m_TagString: Ground
   m_Icon: {fileID: 0}

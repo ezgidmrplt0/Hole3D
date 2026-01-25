@@ -234,6 +234,9 @@ public class LevelManager : MonoBehaviour
             spawnManager.ClearScene();
             spawnManager.SpawnLevel(desiredHumanCount, desiredZombieCount, isHordeMode);
             
+            // --- Start Skill Pickup Spawning ---
+            spawnManager.StartSkillSpawning();
+            
             // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
             // Sometimes spawn fails (no space), so we count them from scene
             // Note: This is heavy but accurate.
@@ -334,6 +337,12 @@ public class LevelManager : MonoBehaviour
     private void FinishLevel()
     {
         Debug.Log("Level Complete! (Post-Fever)");
+        
+        // Stop skill pickup spawning
+        if (spawnManager != null)
+        {
+            spawnManager.StopSkillSpawning();
+        }
             
         if (GameFlowManager.Instance != null)
         {

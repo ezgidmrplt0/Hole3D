@@ -154,19 +154,7 @@ public class HoleMechanics : MonoBehaviour
         // Listede var mı kontrol et veya Fever Mode aktif mi
         if (canEat)
         {
-            // --- LEVEL CHECK ---
-            // Zombiyse ve leveli bendekinden büyükse yeme!
-            // Fever modunda level kontrolü YOKTUR, her şeyi yer.
-            if (!isFeverMode && other.CompareTag("Zombie"))
-            {
-                ZombieAI z = other.GetComponent<ZombieAI>();
-                if (z != null && z.level > holeLevel)
-                {
-                    // Yiyemiyorsak geri bildirim (Titret, ses çal vs.)
-                    return; 
-                }
-            }
-
+            // Level kontrolü kaldırıldı - Hole her zaman tüm zombileri yiyebilir
             StartCoroutine(PhysicsFall(other.gameObject));
         }
     }
@@ -448,7 +436,14 @@ public class HoleMechanics : MonoBehaviour
         // YENİ: İnsanı yiyince sadece level manager'a bildir (Fail condition için)
         else if (victim.CompareTag("Human"))
         {
-             if (LevelManager.Instance != null) LevelManager.Instance.OnHumanEaten();
+            // XP Cezası
+            currentXP--;
+            if (currentXP < 0) currentXP = 0;
+            
+            // Floating Text (-1 Red)
+            SpawnFloatingText("-1", Color.red);
+            
+            if (LevelManager.Instance != null) LevelManager.Instance.OnHumanEaten();
         }
         else if (isFeverMode)
         {
@@ -523,6 +518,10 @@ public class HoleMechanics : MonoBehaviour
         Debug.Log($"HOLE LEVEL UP! New Level: {holeLevel} | Target Scale: {targetScale.x}");
     }
 
+    [Header("Shield Visual")]
+    public GameObject shieldVisualEffect; // Inspector'dan ata (yeşil halo/ring prefab)
+    private bool wasShieldActive = false;
+
     private void Update()
     {
         // --- SKILL EFFECTS ---
@@ -532,52 +531,26 @@ public class HoleMechanics : MonoBehaviour
             {
                 ApplyMagnetEffect();
             }
-
-            if (SkillManager.Instance.IsRepellentActive)
+            
+            // Shield görsel efekti
+            bool shieldNow = SkillManager.Instance.IsShieldActive;
+            if (shieldNow != wasShieldActive)
             {
-                ApplyRepellentEffect();
+                wasShieldActive = shieldNow;
+                if (shieldVisualEffect != null)
+                {
+                    shieldVisualEffect.SetActive(shieldNow);
+                }
+                
+                if (shieldNow)
+                {
+                    Debug.Log("[HoleMechanics] Shield aktif! Tüm zombileri yiyebilirsin!");
+                }
             }
         }
     }
 
     // Skill değerleri artık SkillManager'dan dinamik olarak alınıyor
-    // Eski sabit değerler kaldırıldı
-
-    void ApplyRepellentEffect()
-    {
-        // Dinamik değerleri SkillManager'dan al
-        float radius = SkillManager.Instance.GetRepellentRadius();
-        float force = SkillManager.Instance.GetRepellentForce();
-        
-        Collider[] nearby = Physics.OverlapSphere(transform.position, radius);
-        foreach (var col in nearby)
-        {
-            if (col.CompareTag("Human"))
-            {
-                // 1. Disable AI so physics can work
-                UnityEngine.AI.NavMeshAgent agent = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
-                if (agent != null && agent.enabled) agent.enabled = false;
-
-                CharacterAI charAI = col.GetComponent<CharacterAI>();
-                if (charAI != null) charAI.enabled = false;
-
-                // 2. Apply Strong Push Force
-                Rigidbody targetRb = col.GetComponent<Rigidbody>();
-                if (targetRb != null)
-                {
-                    targetRb.isKinematic = false;
-                    
-                    Vector3 direction = (col.transform.position - transform.position).normalized;
-                    direction.y = 0; // Push horizontally
-                    
-                    // ForceMode.VelocityChange for instant punchiness
-                    targetRb.AddForce(direction * force * Time.deltaTime, ForceMode.VelocityChange);
-                    
-                    Debug.DrawLine(transform.position, col.transform.position, Color.magenta);
-                }
-            }
-        }
-    }
 
     void ApplyMagnetEffect()
     {

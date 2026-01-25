@@ -141,7 +141,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    [Header("Skill UI")]
+    [Header("Skill Upgrade UI (Store)")]
     public UnityEngine.UI.Button magnetButton;
     public TextMeshProUGUI magnetPriceText;
     public TextMeshProUGUI magnetLevelText;
@@ -150,9 +150,19 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI speedPriceText;
     public TextMeshProUGUI speedLevelText;
 
-    public UnityEngine.UI.Button repellentButton;
-    public TextMeshProUGUI repellentPriceText;
-    public TextMeshProUGUI repellentLevelText;
+    public UnityEngine.UI.Button shieldButton;  // Repellent -> Shield olarak değişti
+    public TextMeshProUGUI shieldPriceText;
+    public TextMeshProUGUI shieldLevelText;
+    
+    [Header("Active Skill Indicator (In-Game)")]
+    public GameObject activeSkillPanel;
+    public UnityEngine.UI.Image activeSkillIcon;
+    public TextMeshProUGUI activeSkillTimerText;
+    
+    [Header("Skill Icons")]
+    public Sprite magnetIcon;
+    public Sprite speedIcon;
+    public Sprite shieldIcon;
 
     private void UpdateSkillUI()
     {
@@ -161,11 +171,11 @@ public class UIManager : MonoBehaviour
         // Magnet
         if (magnetButton != null)
         {
-            int level = SkillManager.Instance.MagnetLevel;
-            int price = SkillManager.Instance.GetMagnetUpgradePrice();
+            int level = SkillManager.Instance.MagnetUpgradeLevel;
+            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Magnet);
             bool isMaxLevel = price < 0;
             
-            magnetButton.interactable = !isMaxLevel;
+            magnetButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Magnet);
             
             if (magnetPriceText != null)
                 magnetPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
@@ -177,11 +187,11 @@ public class UIManager : MonoBehaviour
         // Speed
         if (speedButton != null)
         {
-            int level = SkillManager.Instance.SpeedLevel;
-            int price = SkillManager.Instance.GetSpeedUpgradePrice();
+            int level = SkillManager.Instance.SpeedUpgradeLevel;
+            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Speed);
             bool isMaxLevel = price < 0;
             
-            speedButton.interactable = !isMaxLevel;
+            speedButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Speed);
             
             if (speedPriceText != null)
                 speedPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
@@ -190,20 +200,75 @@ public class UIManager : MonoBehaviour
                 speedLevelText.text = "Lv." + level;
         }
 
-        // Repellent
-        if (repellentButton != null)
+        // Shield
+        if (shieldButton != null)
         {
-            int level = SkillManager.Instance.RepellentLevel;
-            int price = SkillManager.Instance.GetRepellentUpgradePrice();
+            int level = SkillManager.Instance.ShieldUpgradeLevel;
+            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Shield);
             bool isMaxLevel = price < 0;
             
-            repellentButton.interactable = !isMaxLevel;
+            shieldButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Shield);
             
-            if (repellentPriceText != null)
-                repellentPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
+            if (shieldPriceText != null)
+                shieldPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
             
-            if (repellentLevelText != null)
-                repellentLevelText.text = "Lv." + level;
+            if (shieldLevelText != null)
+                shieldLevelText.text = "Lv." + level;
+        }
+    }
+    
+    private void Update()
+    {
+        // Aktif skill göstergesini güncelle
+        UpdateActiveSkillIndicator();
+    }
+    
+    private void UpdateActiveSkillIndicator()
+    {
+        if (SkillManager.Instance == null || activeSkillPanel == null) return;
+        
+        // En uzun süre kalan aktif skill'i bul
+        SkillType? activeSkill = null;
+        float maxTime = 0f;
+        
+        foreach (SkillType type in System.Enum.GetValues(typeof(SkillType)))
+        {
+            if (SkillManager.Instance.IsSkillActive(type))
+            {
+                float remaining = SkillManager.Instance.GetRemainingTime(type);
+                if (remaining > maxTime)
+                {
+                    maxTime = remaining;
+                    activeSkill = type;
+                }
+            }
+        }
+        
+        if (activeSkill.HasValue)
+        {
+            activeSkillPanel.SetActive(true);
+            
+            // İkon ayarla
+            if (activeSkillIcon != null)
+            {
+                activeSkillIcon.sprite = activeSkill.Value switch
+                {
+                    SkillType.Magnet => magnetIcon,
+                    SkillType.Speed => speedIcon,
+                    SkillType.Shield => shieldIcon,
+                    _ => null
+                };
+            }
+            
+            // Timer göster
+            if (activeSkillTimerText != null)
+            {
+                activeSkillTimerText.text = maxTime.ToString("F1") + "s";
+            }
+        }
+        else
+        {
+            activeSkillPanel.SetActive(false);
         }
     }
 
@@ -214,7 +279,7 @@ public class UIManager : MonoBehaviour
 
         if (SkillManager.Instance == null) return;
 
-        if (SkillManager.Instance.UpgradeMagnet())
+        if (SkillManager.Instance.TryUpgrade(SkillType.Magnet))
         {
             UpdateSkillUI();
         }
@@ -223,23 +288,41 @@ public class UIManager : MonoBehaviour
     public void UpgradeSpeed()
     {
         Debug.Log("UIManager: UpgradeSpeed clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.UpgradeSpeed())
+        if (SkillManager.Instance != null && SkillManager.Instance.TryUpgrade(SkillType.Speed))
         {
             UpdateSkillUI();
         }
     }
 
-    public void UpgradeRepellent()
+    public void UpgradeShield()  // Eski: UpgradeRepellent
     {
-        Debug.Log("UIManager: UpgradeRepellent clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.UpgradeRepellent())
+        Debug.Log("UIManager: UpgradeShield clicked.");
+        if (SkillManager.Instance != null && SkillManager.Instance.TryUpgrade(SkillType.Shield))
         {
             UpdateSkillUI();
         }
     }
+    
+    // Eski API uyumluluk (Scene'de Repellent butonu varsa çalışsın)
+    public void UpgradeRepellent() => UpgradeShield();
 
     private void OnEnable()
     {
         UpdateSkillUI();
+        
+        // Skill değişikliklerini dinle
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.OnUpgradesChanged += UpdateSkillUI;
+        }
+    }
+    
+    private void OnDisable()
+    {
+        // Event'ten çık (Memory leak önleme)
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.OnUpgradesChanged -= UpdateSkillUI;
+        }
     }
 }

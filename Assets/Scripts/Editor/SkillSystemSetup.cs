@@ -83,10 +83,10 @@ public class SkillSystemSetup : EditorWindow
             uiManager.speedPriceText = txt;
         });
 
-        SetupSlot(contentTransform, 2, "Panel_Repellent", "REPELLENT", "100", uiManager.UpgradeRepellent, (btn, txt) => 
+        SetupSlot(contentTransform, 2, "Panel_Shield", "SHIELD", "100", uiManager.UpgradeShield, (btn, txt) => 
         {
-            uiManager.repellentButton = btn;
-            uiManager.repellentPriceText = txt;
+            uiManager.shieldButton = btn;
+            uiManager.shieldPriceText = txt;
         });
 
         EditorUtility.SetDirty(uiManager);
@@ -94,7 +94,7 @@ public class SkillSystemSetup : EditorWindow
         {
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(uiManager.gameObject.scene);
         }
-        Debug.Log("Skill System Setup Complete for Magnet, Speed, and Repellent!");
+        Debug.Log("Skill System Setup Complete for Magnet, Speed, and Shield!");
     }
 
     private static void SetupSlot(Transform content, int index, string name, string title, string price, UnityEngine.Events.UnityAction action, System.Action<Button, TextMeshProUGUI> onAssign)

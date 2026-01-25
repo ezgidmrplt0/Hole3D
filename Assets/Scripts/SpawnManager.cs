@@ -557,6 +557,147 @@ public class SpawnManager : MonoBehaviour
         Debug.LogWarning("[SpawnManager] Zemin bulunamadı! Varsayılan Y = 0 kullanılıyor.");
     }
 
+    // ========== SKILL PICKUP SPAWN SYSTEM ==========
+    [Header("Skill Pickup Settings")]
+    [Tooltip("Skill Pickup Prefab (Unity'de oluşturulmalı)")]
+    public GameObject skillPickupPrefab;
+    [Tooltip("Minimum spawn aralığı (saniye)")]
+    public float skillSpawnMinInterval = 15f;
+    [Tooltip("Maximum spawn aralığı (saniye)")]
+    public float skillSpawnMaxInterval = 30f;
+    [Tooltip("Aynı anda mapte olabilecek max skill sayısı")]
+    public int maxSkillPickupsOnMap = 2;
+    
+    private float nextSkillSpawnTime;
+    private List<GameObject> activeSkillPickups = new List<GameObject>();
+    private bool skillSpawningEnabled = false;
+    
+    public void StartSkillSpawning()
+    {
+        skillSpawningEnabled = true;
+        ScheduleNextSkillSpawn();
+        Debug.Log("[SpawnManager] Skill pickup spawning started.");
+    }
+    
+    public void StopSkillSpawning()
+    {
+        skillSpawningEnabled = false;
+        
+        // Mevcut pickup'ları temizle
+        foreach (var pickup in activeSkillPickups)
+        {
+            if (pickup != null) Destroy(pickup);
+        }
+        activeSkillPickups.Clear();
+        Debug.Log("[SpawnManager] Skill pickup spawning stopped.");
+    }
+    
+    void Update()
+    {
+        // Skill spawn kontrolü
+        if (skillSpawningEnabled && Time.time >= nextSkillSpawnTime)
+        {
+            TrySpawnSkillPickup();
+            ScheduleNextSkillSpawn();
+        }
+        
+        // Null referansları temizle (yutulmuş veya timeout olmuş pickup'lar)
+        activeSkillPickups.RemoveAll(p => p == null);
+    }
+    
+    void ScheduleNextSkillSpawn()
+    {
+        nextSkillSpawnTime = Time.time + Random.Range(skillSpawnMinInterval, skillSpawnMaxInterval);
+    }
+    
+    void TrySpawnSkillPickup()
+    {
+        // Max limite ulaşıldı mı?
+        if (activeSkillPickups.Count >= maxSkillPickupsOnMap)
+        {
+            Debug.Log("[SpawnManager] Max skill pickups on map, skipping spawn.");
+            return;
+        }
+        
+        // Prefab var mı?
+        if (skillPickupPrefab == null)
+        {
+            Debug.LogWarning("[SpawnManager] Skill Pickup Prefab atanmamış!");
+            return;
+        }
+        
+        // Rastgele skill tipi seç
+        SkillType randomSkill = (SkillType)Random.Range(0, 3);
+        
+        // Spawn pozisyonu bul
+        Vector3 spawnPos = FindSkillSpawnPosition();
+        
+        if (spawnPos == Vector3.zero)
+        {
+            Debug.LogWarning("[SpawnManager] Skill pickup için uygun pozisyon bulunamadı.");
+            return;
+        }
+        
+        // Spawn!
+        GameObject pickup = Instantiate(skillPickupPrefab, spawnPos, Quaternion.identity);
+        
+        // Skill tipini ayarla
+        SkillPickup skillComponent = pickup.GetComponent<SkillPickup>();
+        if (skillComponent != null)
+        {
+            skillComponent.skillType = randomSkill;
+        }
+        
+        activeSkillPickups.Add(pickup);
+        Debug.Log($"[SpawnManager] Skill Pickup spawned: {randomSkill} at {spawnPos}");
+    }
+    
+    Vector3 FindSkillSpawnPosition()
+    {
+        int maxAttempts = 20;
+        
+        for (int i = 0; i < maxAttempts; i++)
+        {
+            Vector3 candidatePos;
+            
+            // Bounds varsa kullan
+            if (currentSpawnBounds.size.sqrMagnitude > 0.1f)
+            {
+                candidatePos = GetRandomPosInBounds(currentSpawnBounds);
+            }
+            else
+            {
+                // Fallback: Rastgele pozisyon
+                candidatePos = new Vector3(Random.Range(-15f, 15f), groundY + 1f, Random.Range(-15f, 15f));
+            }
+            
+            // Yüksekliği ayarla (zeminden 1m yukarı)
+            candidatePos.y = groundY + 1f;
+            
+            // Engel kontrolü
+            if (!Physics.CheckSphere(candidatePos, 1f, obstacleLayer))
+            {
+                // Diğer pickup'lara yakın mı?
+                bool tooClose = false;
+                foreach (var existingPickup in activeSkillPickups)
+                {
+                    if (existingPickup != null && Vector3.Distance(existingPickup.transform.position, candidatePos) < 5f)
+                    {
+                        tooClose = true;
+                        break;
+                    }
+                }
+                
+                if (!tooClose)
+                {
+                    return candidatePos;
+                }
+            }
+        }
+        
+        return Vector3.zero; // Bulunamadı
+    }
+
     private void OnDrawGizmosSelected()
     {
         // Spawn noktalarını çiz
@@ -575,6 +716,16 @@ public class SpawnManager : MonoBehaviour
             foreach (var p in zombieSpawnPoints)
             {
                if(p != null) Gizmos.DrawWireSphere(p.position, 3f);
+            }
+        }
+        
+        // Aktif skill pickup'ları çiz
+        if (activeSkillPickups != null)
+        {
+            Gizmos.color = Color.cyan;
+            foreach (var p in activeSkillPickups)
+            {
+                if(p != null) Gizmos.DrawWireSphere(p.transform.position, 1f);
             }
         }
     }

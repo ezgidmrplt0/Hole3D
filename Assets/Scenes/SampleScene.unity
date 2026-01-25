@@ -127,17 +127,6 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 6413215610911626620, guid: 0c67cd333a1020d429e682990ff7a84d, type: 3}
   m_PrefabInstance: {fileID: 1107896484}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &72304562 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 3860353970773232133, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
-  m_PrefabInstance: {fileID: 2105522666}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &161005259
 GameObject:
   m_ObjectHideFlags: 0
@@ -592,19 +581,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 569f9a1bad44129629474e3820a14651, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  magnetBasePrice: 100
-  speedBasePrice: 100
-  repellentBasePrice: 100
-  priceMultiplier: 1.5
+  magnetBaseDuration: 8
   magnetBaseRadius: 2
-  magnetRadiusPerLevel: 0.8
   magnetBaseForce: 5
-  magnetForcePerLevel: 5
+  magnetRadiusPerLevel: 0.5
+  magnetForcePerLevel: 2
+  speedBaseDuration: 6
+  speedBaseMultiplier: 1.5
   speedBonusPerLevel: 0.05
-  repellentBaseRadius: 1.5
-  repellentRadiusPerLevel: 0.5
-  repellentBaseForce: 10
-  repellentForcePerLevel: 8
+  shieldBaseDuration: 10
+  shieldDurationPerLevel: 1
+  baseUpgradePrice: 100
+  priceMultiplier: 1.5
 --- !u!4 &419618936
 Transform:
   m_ObjectHideFlags: 0
@@ -723,9 +711,15 @@ MonoBehaviour:
   speedButton: {fileID: 1334455651}
   speedPriceText: {fileID: 1147485799}
   speedLevelText: {fileID: 0}
-  repellentButton: {fileID: 72304562}
-  repellentPriceText: {fileID: 1842850314}
-  repellentLevelText: {fileID: 0}
+  shieldButton: {fileID: 0}
+  shieldPriceText: {fileID: 0}
+  shieldLevelText: {fileID: 0}
+  activeSkillPanel: {fileID: 0}
+  activeSkillIcon: {fileID: 0}
+  activeSkillTimerText: {fileID: 0}
+  magnetIcon: {fileID: 0}
+  speedIcon: {fileID: 0}
+  shieldIcon: {fileID: 0}
 --- !u!114 &467509986
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1422,6 +1416,7 @@ MonoBehaviour:
   currentXP: 0
   xpToNextLevel: 5
   visuals: {fileID: 832010503}
+  xpParticles: {fileID: 0}
   isFeverMode: 0
   voidRadius: 1
   sinkDepth: 3
@@ -2759,6 +2754,10 @@ MonoBehaviour:
   collisionCheckRadius: 1
   minSpawnDistance: 2
   maxSpawnAttempts: 100
+  skillPickupPrefab: {fileID: 2933762385178985932, guid: 31f646d3a1f275e5e900f8f75a1cb75e, type: 3}
+  skillSpawnMinInterval: 15
+  skillSpawnMaxInterval: 30
+  maxSkillPickupsOnMap: 2
 --- !u!4 &1517328784
 Transform:
   m_ObjectHideFlags: 0
@@ -3314,17 +3313,6 @@ RectTransform:
   m_AnchoredPosition: {x: -538, y: -171}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1842850314 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 6941230924454282834, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
-  m_PrefabInstance: {fileID: 2105522666}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &1852650946 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4814124641577564252, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
@@ -3773,7 +3761,7 @@ PrefabInstance:
     - target: {fileID: 28094224140048823, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: -3092956421908063085, guid: 9165684ccdf1afe45b06edbd1d7632ea, type: 3}
+      objectReference: {fileID: -7314038943984137149, guid: 888bc6c3bee4a644894eb075d8d389f5, type: 3}
     - target: {fileID: 562767056694314035, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Name
       value: Panel_Magnet

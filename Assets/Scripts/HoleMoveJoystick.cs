@@ -103,9 +103,9 @@ public class HoleMoveJoystick : MonoBehaviour
 
         Vector3 direction = new Vector3(joystick.Horizontal, 0f, joystick.Vertical);
         
-        // Debug için konsola yaz (Sadece hareket varsa)
-        if (direction.magnitude > 0.01f)
-            Debug.Log($"Joystick Input: {direction.magnitude} | X: {direction.x} Y: {direction.z}");
+        // Debug için konsola yaz (Sadece hareket varsa) - KAPATILDI (Performans için)
+        // if (direction.magnitude > 0.01f)
+        //     Debug.Log($"Joystick Input: {direction.magnitude} | X: {direction.x} Y: {direction.z}");
 
         if (direction.magnitude < 0.15f)
         {

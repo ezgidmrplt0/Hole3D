@@ -211,7 +211,39 @@ public class SpawnManager : MonoBehaviour
             // Normal Spawn
             for (int i = 0; i < zombieCount; i++)
             {
-                SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
+                GameObject newZombie = SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
+                
+                // --- LEVEL ASSIGNMENT ---
+                // Eğer oyun leveli 3'ten büyükse, level ilerledikçe artan oranda güçlü zombi gelsin
+                if (newZombie != null)
+                {
+                    int gameLevel = 1;
+                    if (LevelManager.Instance != null) gameLevel = LevelManager.Instance.currentLevelIndex + 1;
+
+                    if (gameLevel > 3)
+                    {
+                        // Formül: Level 4'te %15 başla, her levelde %5 artır. Max %70.
+                        // Örn: Lvl 4 -> %15, Lvl 10 -> %45, Lvl 20 -> %70
+                        float chance = 0.15f + ((gameLevel - 3) * 0.05f);
+                        chance = Mathf.Clamp(chance, 0f, 0.7f);
+
+                        if (Random.value < chance)
+                        {
+                            // Level ne kadar yüksekse, zombinin Level 3 olma şansı da artsın
+                            // Basitçe: 2 ile (GameLevel/5 + 2) arasında. 
+                            // Ancak şimdilik sadece 2 ve 3 var.
+                            // Çok ileride belki Level 4 zombiler de gelir.
+                            
+                            int maxZombieLvl = 3;
+                            if (gameLevel > 10) maxZombieLvl = 4; // Level 10'dan sonra devasa lvl 4 zombiler
+                            
+                            int randomLevel = Random.Range(2, maxZombieLvl + 1); 
+                            
+                            ZombieAI zAI = newZombie.GetComponent<ZombieAI>();
+                            if (zAI != null) zAI.SetLevel(randomLevel);
+                        }
+                    }
+                }
             }
         }
     }
@@ -316,18 +348,18 @@ public class SpawnManager : MonoBehaviour
 
     /* REMOVED OLD SpawnCharacters to avoid duplication, logic moved to SpawnLevel */
 
-    private void SpawnRandomPrefab(List<GameObject> prefabs, List<Transform> spawnPoints, string debugName)
+    private GameObject SpawnRandomPrefab(List<GameObject> prefabs, List<Transform> spawnPoints, string debugName)
     {
         if (prefabs == null || prefabs.Count == 0)
         {
             Debug.LogWarning($"SpawnManager: No prefabs assigned for {debugName}!");
-            return;
+            return null;
         }
 
         if (spawnPoints == null || spawnPoints.Count == 0)
         {
              Debug.LogWarning($"SpawnManager: No spawn points assigned for {debugName}! Please assign them in the Inspector.");
-             return;
+             return null;
         }
 
         GameObject selectedPrefab = prefabs[Random.Range(0, prefabs.Count)];
@@ -349,14 +381,15 @@ public class SpawnManager : MonoBehaviour
                 if (IsValidPosition(candidatePos))
                 {
                     Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    Instantiate(selectedPrefab, candidatePos, randomRotation);
+                    GameObject instance = Instantiate(selectedPrefab, candidatePos, randomRotation);
                     spawnedPositions.Add(candidatePos); // Kaydet
-                    return; // Spawn successful, exit method
+                    return instance; // Spawn successful, return obj
                 }
             }
         }
 
         Debug.LogWarning($"SpawnManager: Could not find valid position for {debugName} after {maxSpawnAttempts} attempts.");
+        return null;
     }
 
     private bool IsValidPosition(Vector3 position)

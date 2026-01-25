@@ -10,6 +10,7 @@ public class GameFlowManager : MonoBehaviour
     public GameObject tapToPlayPanel;
     public Transform tapToPlayText; // Text'in transformu (Scale efekti için)
     public Transform tapToNextLevelText; // Level geçiş yazısı
+    public Transform tapToRetryText; // Retry yazısı
 
     public bool IsGameActive { get; private set; } = false;
     private bool isLevelCompleteState = false; // Hangi moddayız? (Start vs Next Level)
@@ -78,6 +79,10 @@ public class GameFlowManager : MonoBehaviour
                     // Manual Transition (Skip Timer)
                     CancelInvoke(nameof(TriggerNextLevel));
                     TriggerNextLevel();
+                }
+                else if (isRetryState)
+                {
+                    RestartLevel();
                 }
                 else
                 {
@@ -161,6 +166,56 @@ public class GameFlowManager : MonoBehaviour
         }
     }
 
+    public void ShowRetry()
+    {
+        if (IsLevelTransitioning) return;
+        
+        // Retry State -> Farklı bir state gibi davranabilir ama basitlik için 
+        // Level Transition mantığını kullanacağız (Inputu engellemek için)
+        // Ama isLevelCompleteState = false kalacak ki tıklandığında StartGame değil RestartGame çalışsın.
+        // Hatta en temizi:
+        
+        IsLevelTransitioning = true; // Inputları kilitle (Update içinde özel kontrol ekleyeceğiz)
+        isRetryState = true; // Yeni flag
+        
+        IsGameActive = false;
+        Time.timeScale = 0f; // Oyunu durdur
+
+        if (tapToPlayPanel != null)
+        {
+            tapToPlayPanel.SetActive(true);
+            if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
+            if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
+            
+            if (tapToRetryText != null) 
+            {
+                tapToRetryText.gameObject.SetActive(true);
+                AnimateText(tapToRetryText);
+            }
+        }
+    }
+
+    private bool isRetryState = false;
+
+    public void RestartLevel()
+    {
+        // Reset flags
+        IsLevelTransitioning = false;
+        isRetryState = false;
+        isLevelCompleteState = false;
+        
+        // Reset UI
+        if (tapToRetryText != null) tapToRetryText.gameObject.SetActive(false);
+        if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
+        
+        // Restart Logic via LevelManager
+        if (LevelManager.Instance != null) LevelManager.Instance.RestartCurrentLevel();
+        
+        // Start Game Immediately (or show TapToPlay again? User said "Retry textim çalışacak tıkladığımda o level tekrar oynanacak")
+        // Genelde direkt başlar.
+        StartGame();
+    }
+
     public void StartGame()
     {
         IsGameActive = true;
@@ -173,6 +228,7 @@ public class GameFlowManager : MonoBehaviour
         // Tween'leri temizle (Performans için)
         if (tapToPlayText != null) tapToPlayText.DOKill();
         if (tapToNextLevelText != null) tapToNextLevelText.DOKill();
+        if (tapToRetryText != null) tapToRetryText.DOKill();
 
         Time.timeScale = 1f; // Zamanı başlat
         Debug.Log("Game Started!");

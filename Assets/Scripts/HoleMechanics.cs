@@ -8,6 +8,19 @@ public class HoleMechanics : MonoBehaviour
     // Listeye çevirdik ki hem Zombi hem İnsan girebilsin
     public System.Collections.Generic.List<string> targetTags = new System.Collections.Generic.List<string> { "Zombie", "Human" };
 
+    [Header("Feedback Effects")]
+    public float shakeDuration = 0.15f;
+    public float shakeStrength = 0.4f;
+    public int shakeVibrato = 20;
+    [Tooltip("Art arda yeme sayılabilmesi için gereken maksimum süre (saniye)")]
+    public float comboTimeWindow = 0.8f;
+    [Tooltip("En az kaçıncı comboda ekran sallanmaya başlasın?")]
+    public int minComboShake = 2; // 2. ve sonraki seri yiyişlerde salla
+    
+    private float lastEatTime = -10f;
+    private int currentCombo = 0;
+    private Camera mainCam;
+
     [Header("UI")]
     public TMP_Text levelText;
 
@@ -31,6 +44,8 @@ public class HoleMechanics : MonoBehaviour
 
     private void Start()
     {
+        mainCam = Camera.main;
+
         // Deliğin kendi colliderlarını (Siyah kısım, çerçeve vb.) hafızaya al
         holeCols = GetComponentsInChildren<Collider>();
 
@@ -97,6 +112,18 @@ public class HoleMechanics : MonoBehaviour
         // Listede var mı kontrol et
         if (targetTags.Contains(other.tag))
         {
+            // --- LEVEL CHECK ---
+            // Zombiyse ve leveli bendekinden büyükse yeme!
+            if (other.CompareTag("Zombie"))
+            {
+                ZombieAI z = other.GetComponent<ZombieAI>();
+                if (z != null && z.level > holeLevel)
+                {
+                    // Yiyemiyorsak geri bildirim (Titret, ses çal vs.)
+                    return; 
+                }
+            }
+
             StartCoroutine(PhysicsFall(other.gameObject));
         }
     }
@@ -248,9 +275,41 @@ public class HoleMechanics : MonoBehaviour
             // Floating Text (+XP Green)
             SpawnFloatingText("+" + gainedXP, Color.green);
 
+            // Floating Text (+XP Green)
+            SpawnFloatingText("+" + gainedXP, Color.green);
+
+            // --- COMBO VIBRATION (SERİ YEME) ---
+            // Eğer son zombiden bu yana geçen süre az ise combo yap
+            if (Time.time - lastEatTime < comboTimeWindow)
+            {
+                currentCombo++;
+            }
+            else
+            {
+                currentCombo = 1; // Süre geçtiyse sıfırla (bu yeni serinin ilk elemanı)
+            }
+            lastEatTime = Time.time;
+
+            // Eğer combo sayısı yeterliyse salla (2 ve daha fazlası)
+            if (currentCombo >= minComboShake)
+            {
+                 if (mainCam != null)
+                {
+                    // Şiddeti combo arttıkça hafif artırabiliriz (Opsiyonel, şimdilik sabit)
+                    mainCam.transform.DOComplete(); 
+                    mainCam.transform.DOShakePosition(shakeDuration, shakeStrength, shakeVibrato);
+                }
+            }
+
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
         }
         // Human condition removed as per user request (Counter only for Zombies)
+        // YENİ: İnsanı yiyince sadece level manager'a bildir (Fail condition için)
+        if (victim.CompareTag("Human"))
+        {
+             if (LevelManager.Instance != null) LevelManager.Instance.OnHumanEaten();
+        }
+
         if (currentXP >= xpToNextLevel)
         {
             LevelUp();

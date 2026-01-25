@@ -10,6 +10,9 @@ public class UIManager : MonoBehaviour
     [Header("Zombie Counter")]
     public GameObject zombieCounterPanel;
     public TextMeshProUGUI zombieCounterText;
+    
+    [Header("Human Counter")]
+    public TextMeshProUGUI humanCounterText;
 
     private void Start()
     {
@@ -35,6 +38,10 @@ public class UIManager : MonoBehaviour
             {
                 UpdateZombieCounter(LevelManager.Instance.totalZombiesInLevel - LevelManager.Instance.currentZombiesEaten);
             }
+
+            // Subscribe to Human Count
+            LevelManager.Instance.OnHumanCountChanged += UpdateHumanCounter;
+            UpdateHumanCounter(LevelManager.Instance.currentHumansEaten);
         }
     }
 
@@ -50,6 +57,7 @@ public class UIManager : MonoBehaviour
         {
             LevelManager.Instance.OnLevelChanged -= UpdateLevelText;
             LevelManager.Instance.OnZombieCountChanged -= UpdateZombieCounter;
+            LevelManager.Instance.OnHumanCountChanged -= UpdateHumanCounter;
         }
     }
 
@@ -78,6 +86,28 @@ public class UIManager : MonoBehaviour
         
         // Opsiyonel: Eğer 0 olursa paneli gizle veya efekt yap
         // if (count <= 0 && zombieCounterPanel != null) zombieCounterPanel.SetActive(false);
+        // Opsiyonel: Eğer 0 olursa paneli gizle veya efekt yap
+        // if (count <= 0 && zombieCounterPanel != null) zombieCounterPanel.SetActive(false);
+    }
+
+    private void UpdateHumanCounter(int count)
+    {
+        if (humanCounterText != null)
+        {
+            // Kullanıcı isteği: 5'ten geriye saysın (Kalan Hak)
+            // Bunun için LevelManager'dan Max Limit'i bilmemiz lazım.
+            // İdeal yol: LevelManager'dan count değişimiyle birlikte bu veriyi almak veya doğrudan erişmek.
+            
+            int remaining = 0;
+            if (LevelManager.Instance != null)
+            {
+                remaining = LevelManager.Instance.maxHumanLimit - count;
+            }
+            
+            if (remaining < 0) remaining = 0;
+            
+            humanCounterText.text = remaining.ToString();
+        }
     }
     [Header("Panels")]
     public GameObject marketPanel;

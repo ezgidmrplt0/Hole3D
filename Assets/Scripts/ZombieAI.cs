@@ -47,6 +47,20 @@ public class ZombieAI : CharacterAI
         PickNewRoamTarget();
     }
 
+    public void SetLevel(int newLevel)
+    {
+        level = newLevel;
+        
+        // Scale'i level ile orantılı artır
+        // Level 1: 1.0x
+        // Level 2: 1.5x
+        // Level 3: 2.0x
+        float scaleFactor = 1.0f + ((level - 1) * 0.5f);
+        transform.localScale = Vector3.one * scaleFactor;
+
+        UpdateLevelText();
+    }
+
     void CreateLevelUI()
     {
         // Canvas Oluştur (World Space)

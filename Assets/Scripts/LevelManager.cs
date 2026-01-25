@@ -26,11 +26,16 @@ public class LevelManager : MonoBehaviour
     [Header("Runtime Info")]
     public int currentZombiesEaten = 0;
     public int totalZombiesInLevel = 0;
+    
+    [Header("Human Limit Settings")]
+    public int maxHumanLimit = 5;
+    public int currentHumansEaten = 0;
 
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
     public System.Action<int> OnLevelChanged; // New event for level text update
     public System.Action<int> OnZombieCountChanged; // Event for Zombie Counter UI
+    public System.Action<int> OnHumanCountChanged; // New Event for Human Counter UI
 
     private GameObject currentMapInstance;
 
@@ -50,10 +55,48 @@ public class LevelManager : MonoBehaviour
     private void Start()
     {
         StartLevel();
+        StartCoroutine(SafetyCheckLoop());
     }
 
     [Header("Special Levels")]
     public GameObject simplePlanePrefab; // Kullanıcı dilerse buraya kendi plane prefabını atabilir
+
+    // --- SAFETY CHECK ---
+    // Eğer zombiler bir şekilde (yutulmadan) yok olursa oyun tıkanmasın diye
+    // Sahnede hiç zombi kalmadıysa leveli bitir.
+    System.Collections.IEnumerator SafetyCheckLoop()
+    {
+        while (true)
+        {
+            yield return new WaitForSeconds(1.0f); // Her 1 saniyede bir kontrol et
+
+            if (totalZombiesInLevel > 0 && !GameFlowManager.Instance.IsLevelTransitioning)
+            {
+                // Sahnedeki gerçek zombileri say
+                int currentRealCount = GameObject.FindGameObjectsWithTag("Zombie").Length;
+                
+                // Eğer sahnede hiç zombi kalmadıysa ama biz hala oyun devam ediyor sanıyorsak
+                if (currentRealCount == 0)
+                {
+                    Debug.Log("LevelManager: Safety Check -> No zombies left! Forcing Level Complete.");
+                    
+                    // UI Count Update (0 olarak göster)
+                    OnZombieCountChanged?.Invoke(0);
+                    
+                    // Level Complete
+                    if (GameFlowManager.Instance != null)
+                    {
+                        GameFlowManager.Instance.ShowLevelComplete();
+                    }
+                    else
+                    {
+                        CancelInvoke(nameof(NextLevel));
+                        Invoke(nameof(NextLevel), 2f);
+                    }
+                }
+            }
+        }
+    }
 
     public void StartLevel()
     {
@@ -192,14 +235,47 @@ public class LevelManager : MonoBehaviour
 
         // Reset Progress (After spawn to get real count)
         currentZombiesEaten = 0;
+        currentHumansEaten = 0; // Reset Human Count
+        
         NotifyProgress();
+        // Update Human UI Immediately (0)
+        OnHumanCountChanged?.Invoke(currentHumansEaten);
+    }
+
+    public void OnHumanEaten()
+    {
+        currentHumansEaten++;
+        OnHumanCountChanged?.Invoke(currentHumansEaten); // UI Update
+
+        if (currentHumansEaten >= maxHumanLimit)
+        {
+            Debug.Log("Game Over! Too many humans eaten.");
+            if (GameFlowManager.Instance != null)
+            {
+                GameFlowManager.Instance.ShowRetry();
+            }
+        }
+    }
+
+    public void RestartCurrentLevel()
+    {
+        // Level indexini artırmadan aynı leveli tekrar başlat
+        StartLevel();
     }
 
     public void OnZombieEaten()
     {
         currentZombiesEaten++;
-        NotifyProgress();
+        NotifyProgress(); // UI güncelle
 
+        // Bu kontrolü SafetyLoop da yapıyor ama anlık tepki için burada da dursun.
+        // Ancak > yerine >= kontrolü çoktan yapıldığı için burayı basitleştiriyoruz.
+        
+        CheckLevelComplete(); // Tek bir yerde kontrol
+    }
+
+    private void CheckLevelComplete()
+    {
         if (currentZombiesEaten >= totalZombiesInLevel)
         {
             // Already triggered?

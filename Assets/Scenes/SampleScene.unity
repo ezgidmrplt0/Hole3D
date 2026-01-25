@@ -2538,7 +2538,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1314362223
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3769,6 +3769,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1314362223}
     m_Modifications:
+    - target: {fileID: 28094224140048823, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -3092956421908063085, guid: 9165684ccdf1afe45b06edbd1d7632ea, type: 3}
     - target: {fileID: 562767056694314035, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Name
       value: Panel_Magnet
@@ -3776,6 +3780,18 @@ PrefabInstance:
     - target: {fileID: 875708274243200303, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text
       value: 750 Gold
+      objectReference: {fileID: 0}
+    - target: {fileID: 1222734750418897370, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.89675
+      objectReference: {fileID: 0}
+    - target: {fileID: 1222734750418897370, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.90286624
+      objectReference: {fileID: 0}
+    - target: {fileID: 1222734750418897370, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 11
       objectReference: {fileID: 0}
     - target: {fileID: 1286639318525122693, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_AnchorMax.y
@@ -3997,6 +4013,10 @@ PrefabInstance:
       propertyPath: m_text
       value: UPGRADE
       objectReference: {fileID: 0}
+    - target: {fileID: 4051947355032409634, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 1535325516486818496, guid: bd6ebf661ce04ab4599d54cda1928984, type: 3}
     - target: {fileID: 4721203307161323000, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -4017,6 +4037,10 @@ PrefabInstance:
       propertyPath: m_text
       value: 500 Gold
       objectReference: {fileID: 0}
+    - target: {fileID: 4816837615930240018, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: -7213742777133032008, guid: 0e97f32679693fb42816be9a80e0254b, type: 3}
     - target: {fileID: 4882138982048403806, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text
       value: UPGRADE
@@ -4089,9 +4113,29 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Arguments.m_ObjectArgumentAssemblyTypeName
       value: UnityEngine.Object, UnityEngine
       objectReference: {fileID: 0}
+    - target: {fileID: 6497961419243410073, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.89675
+      objectReference: {fileID: 0}
+    - target: {fileID: 6497961419243410073, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.90286624
+      objectReference: {fileID: 0}
     - target: {fileID: 6643907888300381702, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Name
       value: Panel_Speed
+      objectReference: {fileID: 0}
+    - target: {fileID: 6663807869446843587, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.89675
+      objectReference: {fileID: 0}
+    - target: {fileID: 6663807869446843587, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 0.90286624
+      objectReference: {fileID: 0}
+    - target: {fileID: 6663807869446843587, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 6941230924454282834, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text

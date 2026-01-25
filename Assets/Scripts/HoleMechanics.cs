@@ -446,6 +446,26 @@ public class HoleMechanics : MonoBehaviour
             // ONLY PULL ZOMBIES (Ignore Humans)
             if (col.CompareTag("Zombie"))
             {
+                // --- FIX: FALLING CHECK ---
+                // Eğer zombi deliğin merkezine çok yakınsa (düşme mesafesindeyse),
+                // Magnet kuvvetini ve yüksek sürtünmeyi (drag=5) İPTAL ET.
+                // Aksi takdirde zombi havada "yüzüyor" gibi takılı kalıyor ve düşmüyor.
+                
+                Vector3 holePos = transform.position;
+                Vector3 targetPos = col.transform.position;
+                
+                // Yükseklik farkını yoksay (2D Uzaklık)
+                float distToCenter = Vector2.Distance(new Vector2(holePos.x, holePos.z), new Vector2(targetPos.x, targetPos.z));
+                // PhysicsFall coroutine'i 0.9f çarpanını kullanıyor.
+                // Biz de aynısını kullanmalıyız ki arada boşluk (Dead Zone) kalmasın.
+                float killZoneRadius = voidRadius * transform.localScale.x * 0.9f; 
+
+                if (distToCenter < killZoneRadius)
+                {
+                    // Zombi düşme alanında! Magnet onu rahat bıraksın ki PhysicsFall (Gravity) işini yapsın.
+                    continue; 
+                }
+
                 // 2. Disable NavMeshAgent so Physics can take over
                 UnityEngine.AI.NavMeshAgent agent = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
                 if (agent != null && agent.enabled)

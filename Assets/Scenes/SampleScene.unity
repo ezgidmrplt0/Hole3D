@@ -1422,6 +1422,7 @@ MonoBehaviour:
   currentXP: 0
   xpToNextLevel: 5
   visuals: {fileID: 832010503}
+  isFeverMode: 0
   voidRadius: 1
   sinkDepth: 3
   pullForce: 150
@@ -2538,7 +2539,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1314362223
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3907,11 +3908,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3017461742977772940, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.1878
+      value: 1.0780711
       objectReference: {fileID: 0}
     - target: {fileID: 3017461742977772940, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1.2017
+      value: 1.0369837
       objectReference: {fileID: 0}
     - target: {fileID: 3017461742977772940, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3947,7 +3948,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3017461742977772940, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: 279.62
+      value: 242.35
       objectReference: {fileID: 0}
     - target: {fileID: 3017461742977772940, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4049,6 +4050,10 @@ PrefabInstance:
       propertyPath: m_text
       value: UPGRADE
       objectReference: {fileID: 0}
+    - target: {fileID: 5667967095259050350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.89664
+      objectReference: {fileID: 0}
     - target: {fileID: 5780161292675346350, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
       value: 1
@@ -4084,6 +4089,10 @@ PrefabInstance:
     - target: {fileID: 6060564422831126015, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text
       value: SPEED
+      objectReference: {fileID: 0}
+    - target: {fileID: 6291182433421091975, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.88877
       objectReference: {fileID: 0}
     - target: {fileID: 6310329255315772142, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.size
@@ -4140,6 +4149,10 @@ PrefabInstance:
     - target: {fileID: 6941230924454282834, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_text
       value: 1000 Gold
+      objectReference: {fileID: 0}
+    - target: {fileID: 7355818321702770223, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.90032
       objectReference: {fileID: 0}
     - target: {fileID: 9126930982307840431, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
       propertyPath: m_Name

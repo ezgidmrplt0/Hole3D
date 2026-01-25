@@ -70,6 +70,9 @@ public class LevelManager : MonoBehaviour
         {
             yield return new WaitForSeconds(1.0f); // Her 1 saniyede bir kontrol et
 
+            // Eğer Fever Modu zaten çalışıyorsa, safety check yapma (Panel açılmasın diye)
+            if (isFeverSequenceActive) continue;
+
             if (totalZombiesInLevel > 0 && !GameFlowManager.Instance.IsLevelTransitioning)
             {
                 // Sahnedeki gerçek zombileri say
@@ -78,21 +81,20 @@ public class LevelManager : MonoBehaviour
                 // Eğer sahnede hiç zombi kalmadıysa ama biz hala oyun devam ediyor sanıyorsak
                 if (currentRealCount == 0)
                 {
-                    Debug.Log("LevelManager: Safety Check -> No zombies left! Forcing Level Complete.");
+                    // Belki de "currentZombiesEaten" senkronize olamadı.
+                    // Zorla tamamlama yapıyoruz ama FEVER MODE ile uyumlu olmalı.
                     
-                    // UI Count Update (0 olarak göster)
+                    Debug.Log("LevelManager: Safety Check -> No zombies left! Syncing and Checking Completion.");
+                    
+                    // Count'u eşitle
+                    currentZombiesEaten = totalZombiesInLevel;
                     OnZombieCountChanged?.Invoke(0);
+
+                    // Normal tamamlama fonksiyonunu çağır (Bu fonksiyon Fever Mode'u tetikler)
+                    CheckLevelComplete();
                     
-                    // Level Complete
-                    if (GameFlowManager.Instance != null)
-                    {
-                        GameFlowManager.Instance.ShowLevelComplete();
-                    }
-                    else
-                    {
-                        CancelInvoke(nameof(NextLevel));
-                        Invoke(nameof(NextLevel), 2f);
-                    }
+                    // Eski direkt bitirme kodu KALDIRILDI.
+                    // Çünkü o direkt paneli açıyordu.
                 }
             }
         }
@@ -105,6 +107,9 @@ public class LevelManager : MonoBehaviour
             Debug.LogWarning("LevelManager: No levels defined!");
             return;
         }
+        
+        // Reset Logic
+        isFeverSequenceActive = false;
 
         // --- INFINITE LEVEL LOGIC ---
         int actualLevelNumber = currentLevelIndex + 1;
@@ -274,27 +279,65 @@ public class LevelManager : MonoBehaviour
         CheckLevelComplete(); // Tek bir yerde kontrol
     }
 
+    private bool isFeverSequenceActive = false;
+    
+    // --- FEVER MODE INTEGRATION ---
     private void CheckLevelComplete()
     {
         if (currentZombiesEaten >= totalZombiesInLevel)
         {
-            // Already triggered?
-            if (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning) return;
+             // Already ending?
+             if (isFeverSequenceActive || (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning)) return;
 
-            Debug.Log("Level Complete!");
-            
-            if (GameFlowManager.Instance != null)
-            {
-                GameFlowManager.Instance.ShowLevelComplete();
-            }
-            else
-            {
-                // Fallback (UI Manager yoksa eski usül devam)
-                CancelInvoke(nameof(NextLevel));
-                Invoke(nameof(NextLevel), 2f);
-            }
+             // Start Fever Sequence
+             StartCoroutine(FeverSequenceRoutine());
         }
     }
+
+    private System.Collections.IEnumerator FeverSequenceRoutine()
+    {
+        isFeverSequenceActive = true;
+        Debug.Log("Level Quota Met! Starting FEVER MODE.");
+
+        HoleMechanics hole = FindObjectOfType<HoleMechanics>();
+        bool feverStarted = false;
+
+        if (hole != null)
+        {
+             // 5 saniye Fever Mode
+             hole.ActivateFeverMode(5.0f, () => 
+             {
+                 // Callback: Fever bitti, leveli bitir
+                 FinishLevel();
+             });
+             feverStarted = true;
+        }
+
+        if (!feverStarted)
+        {
+             // Hole bulunamazsa direkt bitir
+             FinishLevel();
+        }
+        
+        yield return null;
+    }
+
+    private void FinishLevel()
+    {
+        Debug.Log("Level Complete! (Post-Fever)");
+            
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.ShowLevelComplete();
+        }
+        else
+        {
+            // Fallback (UI Manager yoksa eski usül devam)
+            CancelInvoke(nameof(NextLevel));
+            Invoke(nameof(NextLevel), 2f);
+        }
+    }
+
 
     public void NextLevel()
     {

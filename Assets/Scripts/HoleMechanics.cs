@@ -44,6 +44,8 @@ public class HoleMechanics : MonoBehaviour
 
     private void Start()
     {
+        ResetLevelState(); 
+
         mainCam = Camera.main;
 
         // Deliğin kendi colliderlarını (Siyah kısım, çerçeve vb.) hafızaya al
@@ -102,6 +104,14 @@ public class HoleMechanics : MonoBehaviour
         }
     }
 
+    // --- RESET LOGIC ---
+    // Yeni level başladığında veya fever bittiğinde çağrılmalı
+    public void ResetLevelState()
+    {
+        isFeverMode = false;
+        // Gerekirse başka resetler buraya
+    }
+
     private void UpdateLevelText()
     {
         if (levelText != null) levelText.text = "Lvl " + holeLevel;
@@ -109,12 +119,25 @@ public class HoleMechanics : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Listede var mı kontrol et
-        if (targetTags.Contains(other.tag))
+        // --- FEVER MODE CHECK ---
+        bool canEat = targetTags.Contains(other.tag);
+        
+        if (isFeverMode)
+        {
+            // Fever modunda "Ground" hariç her şeyi yiyebiliriz
+            if (!other.CompareTag("Ground") && !other.CompareTag("MainCamera"))
+            {
+                canEat = true;
+            }
+        }
+
+        // Listede var mı kontrol et veya Fever Mode aktif mi
+        if (canEat)
         {
             // --- LEVEL CHECK ---
             // Zombiyse ve leveli bendekinden büyükse yeme!
-            if (other.CompareTag("Zombie"))
+            // Fever modunda level kontrolü YOKTUR, her şeyi yer.
+            if (!isFeverMode && other.CompareTag("Zombie"))
             {
                 ZombieAI z = other.GetComponent<ZombieAI>();
                 if (z != null && z.level > holeLevel)
@@ -126,6 +149,70 @@ public class HoleMechanics : MonoBehaviour
 
             StartCoroutine(PhysicsFall(other.gameObject));
         }
+    }
+
+    [Header("Fever Mode")]
+    public bool isFeverMode = false;
+    private Vector3 preFeverScale;
+
+    public void ActivateFeverMode(float duration, System.Action onComplete)
+    {
+        if (isFeverMode) return;
+        StartCoroutine(FeverModeRoutine(duration, onComplete));
+    }
+
+    private IEnumerator FeverModeRoutine(float duration, System.Action onComplete)
+    {
+        isFeverMode = true;
+        preFeverScale = transform.localScale;
+
+        // 1. DEVASA BÜYÜME (3 Katına Çık)
+        // Mevcut büyüklüğün üzerine koy
+        Vector3 targetScale = preFeverScale * 2.5f; 
+        
+        // Hızlıca büyü
+        transform.DOScale(targetScale, 1.0f).SetEase(Ease.OutElastic);
+        
+        // Görselleri de büyüt
+        if (visuals != null && visuals.transform.parent != transform)
+        {
+            visuals.transform.DOScale(visuals.transform.localScale * 2.5f, 1.0f).SetEase(Ease.OutElastic);
+        }
+
+        // Mask Radius Update (Shader için)
+        if (maskController != null)
+        {
+             float targetRadius = voidRadius * targetScale.x;
+             DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, 1.0f);
+        }
+
+        SpawnFloatingText("FEVER MODE!", Color.red);
+        SpawnFloatingText("EAT EVERYTHING!", Color.yellow);
+
+        // 2. Bekle (Yıkım Zamanı - OYUNCU HAREKET EDEBİLİR)
+        // Burada paneli AÇMIYORUZ. Oyuncu 5 saniye boyunca serbestçe gezip yıkım yapacak.
+        yield return new WaitForSeconds(duration);
+
+        // 3. Küçül ve Normale Dön (Fever Bitti)
+        transform.DOScale(preFeverScale, 0.5f).SetEase(Ease.InBack);
+        
+        if (visuals != null && visuals.transform.parent != transform)
+        {
+            visuals.transform.DOScale(visuals.transform.localScale / 2.5f, 0.5f).SetEase(Ease.InBack);
+        }
+        
+        if (maskController != null)
+        {
+             float targetRadius = voidRadius * preFeverScale.x;
+             DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, 0.5f);
+        }
+
+        yield return new WaitForSeconds(0.5f); // Animasyon bitsin
+
+        isFeverMode = false;
+        
+        // Callback çağır (Artık paneli açabiliriz)
+        onComplete?.Invoke();
     }
 
     [Header("Physics Settings")]
@@ -191,7 +278,11 @@ public class HoleMechanics : MonoBehaviour
 
         // 2. Fizik Motorunu Devreye Sok
         Rigidbody rb = victim.GetComponent<Rigidbody>();
-        if (rb == null) rb = victim.AddComponent<Rigidbody>(); // Yoksa ekle
+        if (rb == null) 
+        {
+            // Fever Modunda her şeye RB ekle ki düşebilsin
+            rb = victim.AddComponent<Rigidbody>(); 
+        }
 
         rb.isKinematic = false;
         rb.useGravity = true; 
@@ -262,6 +353,14 @@ public class HoleMechanics : MonoBehaviour
 
     void ProcessEatenObject(GameObject victim)
     {
+        // --- FEVER MODE BONUS ---
+        if (isFeverMode)
+        {
+            // Fever modunda yenilen HER ŞEY için ekstra altın
+            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(5);
+            SpawnFloatingText("+5 Gold", Color.yellow);
+        }
+
         if (victim.CompareTag("Zombie"))
         {
             int gainedXP = 1;
@@ -270,11 +369,12 @@ public class HoleMechanics : MonoBehaviour
             {
                 gainedXP = zombieAI.level; // Level kadar XP ver
             }
+            
+            // Fever Modunda XP Double!
+            if (isFeverMode) gainedXP *= 2;
+
             currentXP += gainedXP;
             
-            // Floating Text (+XP Green)
-            SpawnFloatingText("+" + gainedXP, Color.green);
-
             // Floating Text (+XP Green)
             SpawnFloatingText("+" + gainedXP, Color.green);
 
@@ -305,9 +405,15 @@ public class HoleMechanics : MonoBehaviour
         }
         // Human condition removed as per user request (Counter only for Zombies)
         // YENİ: İnsanı yiyince sadece level manager'a bildir (Fail condition için)
-        if (victim.CompareTag("Human"))
+        else if (victim.CompareTag("Human"))
         {
              if (LevelManager.Instance != null) LevelManager.Instance.OnHumanEaten();
+        }
+        else if (isFeverMode)
+        {
+            // Fever modunda Environment yedik
+            // Zaten Bonus Gold yukarıda verildi.
+            // Ekstra efekt?
         }
 
         if (currentXP >= xpToNextLevel)

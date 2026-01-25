@@ -116,11 +116,10 @@ public class GameFlowManager : MonoBehaviour
             }
         }
 
-        // --- AUTOMATIC TRANSITION (User Request) ---
-        // "Her zaman counter 0 olduğunda next levele geçiş olsun"
-        // Wait 2 seconds then go
-        CancelInvoke(nameof(TriggerNextLevel));
-        Invoke(nameof(TriggerNextLevel), 2.0f);
+        // --- AUTOMATIC TRANSITION REMOVED Check ---
+        // Kullanıcı isteği: "Otomatik geçmesin, panel açılsın ben tıklayayım"
+        // CancelInvoke(nameof(TriggerNextLevel));
+        // Invoke(nameof(TriggerNextLevel), 2.0f);
     }
 
     private void TriggerNextLevel()

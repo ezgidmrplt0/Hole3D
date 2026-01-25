@@ -42,6 +42,9 @@ public class HoleMechanics : MonoBehaviour
     private Collider[] holeCols;
     private HoleMaskController maskController;
     private ObstructionFader obstructionFader;
+    
+    [Header("Effects")]
+    public ParticleSystem xpParticles; // Zombi yiyince çıkacak efekt
 
     private void Start()
     {
@@ -103,6 +106,12 @@ public class HoleMechanics : MonoBehaviour
         if (obstructionFader == null)
         {
             obstructionFader = gameObject.AddComponent<ObstructionFader>();
+        }
+
+        // --- SETUP XP PARTICLES ---
+        if (xpParticles == null)
+        {
+            CreateDefaultXPParticles();
         }
     }
 
@@ -404,6 +413,12 @@ public class HoleMechanics : MonoBehaviour
             // Floating Text (+XP Green)
             SpawnFloatingText("+" + gainedXP, Color.green);
 
+            // --- PARTICLE EFFECT ---
+            if (xpParticles != null)
+            {
+                xpParticles.Play();
+            }
+
             // --- COMBO VIBRATION (SERİ YEME) ---
             // Eğer son zombiden bu yana geçen süre az ise combo yap
             if (Time.time - lastEatTime < comboTimeWindow)
@@ -667,6 +682,73 @@ public class HoleMechanics : MonoBehaviour
         {
              Gizmos.color = Color.magenta;
              Gizmos.DrawWireSphere(transform.position, SkillManager.Instance.GetRepellentRadius());
+        }
+    }
+
+    private void CreateDefaultXPParticles()
+    {
+        GameObject go = new GameObject("XP_Burst_Effects");
+        go.transform.SetParent(transform, false);
+        go.transform.localPosition = Vector3.up * 0.2f; 
+        go.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+
+        xpParticles = go.AddComponent<ParticleSystem>();
+        
+        // --- Main Module (Zombie Blood / Slime) ---
+        var main = xpParticles.main;
+        // Zombi kanı: Parlak Yeşil -> Koyu Yeşil
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.2f, 0.8f, 0.1f, 1f), new Color(0.1f, 0.5f, 0.1f, 1f)); 
+        // Biraz daha belirgin damlalar
+        main.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.25f); 
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 1.0f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(2f, 5f); // Çok hızlı fırlamasın, vıcık olsun
+        main.startRotation = new ParticleSystem.MinMaxCurve(0, 360);
+        main.gravityModifier = 0.8f; // Yer çekimi: Kan gibi aşağı düşsün
+        main.loop = false;
+        main.playOnAwake = false;
+        main.maxParticles = 50;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        
+        // --- Emission (Reduced Count) ---
+        var emission = xpParticles.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] { new ParticleSystem.Burst(0f, 15) }); // Daha az ama öz (15)
+
+        // --- Shape (Halka) ---
+        var shape = xpParticles.shape;
+        shape.shapeType = ParticleSystemShapeType.Circle;
+        shape.radius = 0.6f;
+        shape.radiusThickness = 0.1f;
+        
+        // --- Size Over Lifetime (Eriyen Damlalar) ---
+        var sol = xpParticles.sizeOverLifetime;
+        sol.enabled = true;
+        AnimationCurve curve = new AnimationCurve();
+        curve.AddKey(0.0f, 0.5f);
+        curve.AddKey(0.2f, 1.0f); 
+        curve.AddKey(1.0f, 0.0f); // Küçülerek yok ol
+        sol.size = new ParticleSystem.MinMaxCurve(1.0f, curve);
+
+        // --- Renderer (Standard Alpha Blended - Not Additive) ---
+        // Kan/Slime efektinin net görünmesi için Additive yerine Alpha Blended daha iyi durur (Koyu renkleri gösterir)
+        var renderer = go.GetComponent<ParticleSystemRenderer>();
+        if (renderer != null)
+        {
+            // Standard Unlit, rengi olduğu gibi basar (Additive parlama yapmaz)
+            Material bloodMat = new Material(Shader.Find("Particles/Standard Unlit"));
+            if (bloodMat != null) 
+            {
+                renderer.material = bloodMat;
+                
+                // Render Ayarları (Transparent)
+                bloodMat.SetFloat("_Mode", 2);
+                bloodMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                bloodMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                bloodMat.SetInt("_ZWrite", 0);
+                bloodMat.EnableKeyword("_ALPHABLEND_ON");
+                bloodMat.renderQueue = 3000;
+            }
+            renderer.renderMode = ParticleSystemRenderMode.Billboard;
         }
     }
 }

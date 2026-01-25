@@ -163,6 +163,8 @@ public class ZombieAI : CharacterAI
         // Önce sahnede insan var mı diye bak (Koku alma duyusu gibi global arama)
         GameObject[] humans = GameObject.FindGameObjectsWithTag(preyTag);
 
+        Vector3 candidatePos;
+
         if (humans.Length > 0)
         {
             // Rastgele bir insan seç ve ona doğru git
@@ -170,19 +172,37 @@ public class ZombieAI : CharacterAI
             
             // Tam üstüne gitmesin, o bölgeye gitsin (Sürü psikolojisi)
             Vector3 randomOffset = Random.insideUnitSphere * wanderRadius;
-            Vector3 targetPos = targetHuman.position + randomOffset;
-            
-            targetPos.y = transform.position.y;
-            roamTarget = targetPos;
+            candidatePos = targetHuman.position + randomOffset;
         }
         else
         {
             // Hiç insan kalmadıysa olduğu yerde gezinmeye devam et
             Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
-            randomDir += transform.position;
-            randomDir.y = transform.position.y;
-            roamTarget = randomDir;
+            candidatePos = transform.position + randomDir;
         }
+
+        // --- SAFE CHECK ---
+        // Hedef geçerli bir zemin üzerinde mi?
+        candidatePos.y = expectedGroundY; // Zemin seviyesi (CharacterAI'den gelir)
+        
+        if (IsOnGround(candidatePos))
+        {
+            roamTarget = candidatePos;
+        }
+        else
+        {
+            // Değilse merkeze (0,0) doğru bir nokta seç
+            roamTarget = Vector3.Lerp(transform.position, Vector3.zero, 0.5f);
+        }
+    }
+
+    private bool IsOnGround(Vector3 pos)
+    {
+        if (groundLayer.value == 0) return true; // Layer seçilmemişse her yer zemin
+        
+        // Yukarıdan aşağı bak
+        // 10 birim yukarıdan 50 birim aşağı (Map çok eğimli olabilir)
+        return Physics.Raycast(pos + Vector3.up * 10f, Vector3.down, 50f, groundLayer);
     }
 
     private Transform GetClosestPrey()

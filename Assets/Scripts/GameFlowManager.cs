@@ -65,39 +65,42 @@ public class GameFlowManager : MonoBehaviour
         if (!IsGameActive)
         {
             // Eğer bir UI elemanına (Buton, Panel vs.) tıklanıyorsa oyunu başlatma!
-            if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+            // ANCAK Level Geçişi sırasındaysak, UI (Text) üzerine tıklamayı kabul etmeliyiz
+            if (!IsLevelTransitioning && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
-            // Mobil için (Touch) kontrolü (Telefonda test yaparken UI'a basınca başlamaması için)
-            if (Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
+            // Mobil için
+            if (!IsLevelTransitioning && Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
 
             if (Input.GetMouseButtonDown(0))
             {
                 if (isLevelCompleteState)
                 {
-                    // Level Geçişi Modu
-                    if (LevelManager.Instance != null) LevelManager.Instance.NextLevel();
-                    
-                    // Reset state
-                    isLevelCompleteState = false;
-                    
-                    // UI Düzenlemesi: Next level başladığı için Play yazısına dönebiliriz (ama StartGame paneli kapatacak)
-                    if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
-                    if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
+                    // Manual Transition (Skip Timer)
+                    CancelInvoke(nameof(TriggerNextLevel));
+                    TriggerNextLevel();
                 }
-
-                StartGame();
+                else
+                {
+                    StartGame();
+                }
             }
         }
     }
 
+    public bool IsLevelTransitioning { get; private set; } = false;
+
     public void ShowLevelComplete()
     {
+        if (IsLevelTransitioning) return; // Prevent double calls
+        
         isLevelCompleteState = true;
+        IsLevelTransitioning = true;
+
         if (tapToPlayPanel != null)
         {
             tapToPlayPanel.SetActive(true);
             IsGameActive = false;
-            Time.timeScale = 0f;
+            Time.timeScale = 1f; // KEEP TIME RUNNING for animations! (Critical for auto-transition timers)
 
             // Yazıları Değiştir
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
@@ -107,6 +110,33 @@ public class GameFlowManager : MonoBehaviour
                 AnimateText(tapToNextLevelText);
             }
         }
+
+        // --- AUTOMATIC TRANSITION (User Request) ---
+        // "Her zaman counter 0 olduğunda next levele geçiş olsun"
+        // Wait 2 seconds then go
+        CancelInvoke(nameof(TriggerNextLevel));
+        Invoke(nameof(TriggerNextLevel), 2.0f);
+    }
+
+    private void TriggerNextLevel()
+    {
+         if (LevelManager.Instance != null) LevelManager.Instance.NextLevel();
+         
+         // Reset state
+         isLevelCompleteState = false;
+         IsLevelTransitioning = false;
+         IsGameActive = false; // Ensure game is paused and joystick disabled
+         
+         // Reset UI
+         if (tapToPlayPanel != null) tapToPlayPanel.SetActive(true);
+         if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
+         if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false); 
+         
+         // Animate Play Text again
+         AnimateText(tapToPlayText);
+         
+         // Pause time until user taps
+         Time.timeScale = 0f;
     }
 
     private void AnimateText(Transform target)

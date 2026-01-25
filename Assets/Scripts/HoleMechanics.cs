@@ -250,14 +250,7 @@ public class HoleMechanics : MonoBehaviour
 
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
         }
-        else if (victim.CompareTag("Human"))
-        {
-            currentXP--; // Ceza
-            if (currentXP < 0) currentXP = 0;
-            
-            // Floating Text (-1 Red)
-            SpawnFloatingText("-1", Color.red);
-        }
+        // Human condition removed as per user request (Counter only for Zombies)
         if (currentXP >= xpToNextLevel)
         {
             LevelUp();

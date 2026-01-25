@@ -38,17 +38,67 @@ public class HoleMoveJoystick : MonoBehaviour
         
         // Bu objenin ve altındaki tüm çocukların (rim, hole center) colliderlarını listeye al
         holeColliders = GetComponentsInChildren<Collider>();
+
+        // AUTO-FIND JOYSTICK (Kullanıcı yeni eklerse otomatik bulsun)
+        if (joystick == null)
+        {
+            joystick = FindObjectOfType<Joystick>();
+            if (joystick == null)
+            {
+                Debug.LogError("HoleMoveJoystick: Sahneye 'Dynamic Joystick' eklemeyi unuttunuz! Lütfen Joystick Pack -> Prefabs klasöründen 'Dynamic Joystick'i Canvas'a sürükleyin.");
+            }
+            else
+            {
+                Debug.Log($"HoleMoveJoystick: Otomatik olarak {joystick.name} bulundu ve atandı.");
+            }
+        }
+
+        // DYNAMIC JOYSTICK AYARI (Tam Ekran Dokunma)
+        if (joystick != null && joystick.GetType().Name.Contains("Dynamic"))
+        {
+            RectTransform rt = joystick.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // Ekranı Kapla (Stretch)
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.sizeDelta = Vector2.zero; // Offsetleri sıfırla
+                rt.anchoredPosition = Vector2.zero;
+                
+                // En arkaya gönder ki (Hierarchy'de en üst), diğer butonları engellemesin
+                rt.SetAsFirstSibling();
+                
+                Debug.Log("HoleMoveJoystick: Dynamic Joystick tam ekran yapıldı.");
+            }
+        }
+    }
+
+    void Update()
+    {
+        // JOYSTICK GÖRÜNÜRLÜK YÖNETİMİ
+        // Oyun başlamadıysa Joystick objesini kapat ki tıklamaları engellemesin
+        if (joystick != null && GameFlowManager.Instance != null)
+        {
+            bool shouldBeActive = GameFlowManager.Instance.IsGameActive;
+            
+            // Gereksiz set işlemlerinden kaçınmak için check yap
+            if (joystick.gameObject.activeSelf != shouldBeActive)
+            {
+                joystick.gameObject.SetActive(shouldBeActive);
+            }
+        }
     }
 
     void FixedUpdate()
     {
-        // Rigidbody yoksa hareket edemeyiz
         if (rb == null) return;
-        
-        if (joystick == null)
+
+        // Joystick kapalıysa veya oyun aktif değilse hareket etme
+        if (joystick == null || !joystick.gameObject.activeInHierarchy)
         {
-            // Fail silently or just return to avoid unused var warning if we don't move
-            return;
+             rb.velocity = Vector3.zero;
+             rb.angularVelocity = Vector3.zero;
+             return;
         }
 
         Vector3 direction = new Vector3(joystick.Horizontal, 0f, joystick.Vertical);

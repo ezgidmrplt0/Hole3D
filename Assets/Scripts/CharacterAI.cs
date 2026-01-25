@@ -176,22 +176,31 @@ public class CharacterAI : MonoBehaviour
             bool hasGroundBelow = Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 2f, groundLayer);
             
             // Eğer altında zemin yok VEYA zemin çok aşağıda (yani bir objenin üstündeyiz)
+            // Eğer altında zemin yok VEYA zemin çok aşağıda (yani bir objenin üstündeyiz veya boşluktayız)
             if (!hasGroundBelow || hit.point.y > expectedGroundY + heightTolerance)
             {
-                // Rastgele bir yöne it
+                // Merkeze doğru it (Güvenli Alan)
                 if (pushTimer <= 0f)
                 {
-                    // Yeni rastgele yön belirle
-                    pushDirection = new Vector3(Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f)).normalized;
-                    pushTimer = 0.5f; // 0.5 saniye aynı yöne it
+                    Vector3 toCenter = (Vector3.zero - transform.position).normalized;
+                    // Y bileşenini sıfırla
+                    toCenter.y = 0; 
+                    
+                    pushDirection = toCenter;
+                    pushTimer = 0.5f; // 0.5 saniye boyunca 
                 }
                 
                 pushTimer -= Time.deltaTime;
                 
-                // İtme uygula
+                // İtme uygula (Yumuşakça)
                 if (rb != null)
                 {
-                    rb.AddForce(pushDirection * pushForce, ForceMode.Acceleration);
+                    // Velocity'i sıfırla ki kayıp gitmesin
+                    Vector3 vel = rb.velocity;
+                    vel.x = 0; vel.z = 0;
+                    rb.velocity = vel;
+                    
+                    rb.AddForce(pushDirection * pushForce, ForceMode.VelocityChange);
                 }
                 else
                 {
@@ -401,39 +410,47 @@ public class CharacterAI : MonoBehaviour
 
     private Vector3 AvoidObstacles(Vector3 desiredDir)
     {
-        Vector3 forward = transform.forward;
-        Vector3 origin = transform.position + Vector3.up * 0.5f; // Yerden biraz yukarıdan
+        // Use desired direction for checks, fallback to forward if zero
+        Vector3 checkDir = desiredDir.magnitude > 0.1f ? desiredDir : transform.forward;
+        Vector3 origin = transform.position + Vector3.up * 0.5f;
 
-        // 1. UÇURUM KONTROLÜ (Edge Detection)
-        Vector3 lookAheadPos = transform.position + forward * detectionRadius;
-        Ray downRay = new Ray(lookAheadPos + Vector3.up, Vector3.down);
+        // 1. UÇURUM KONTROLÜ (Edge Detection) - DAHA HASSAS
+        // Hızla orantılı olarak daha uzağa bak
+        float lookAheadDist = detectionRadius * 1.5f; 
+        Vector3 lookAheadPos = transform.position + checkDir * lookAheadDist;
         
+        Ray downRay = new Ray(lookAheadPos + Vector3.up * 2f, Vector3.down);
+        
+        // Ground Layer kontrolü
         if (groundLayer.value != 0)
         {
-            // 3 birim aşağıda zemin yoksa geri dön
-            if (!Physics.Raycast(downRay, 3f, groundLayer))
+            // Aşağıda zemin yoksa? (Daha derin kontrol: 5 birim)
+            if (!Physics.Raycast(downRay, 5f, groundLayer))
             {
-                // Debug.DrawRay(lookAheadPos + Vector3.up, Vector3.down * 3f, Color.magenta); 
-                return -forward * 2f; 
+                // UÇURUM VAR!
+                // Geri dön (Merkeze doğru kaçış vektörü de eklenebilir)
+                Vector3 toCenter = (Vector3.zero - transform.position).normalized;
+                
+                // Debug.DrawRay(lookAheadPos, Vector3.up * 5f, Color.red, 1f);
+                return (toCenter + (-checkDir)).normalized * 3f; // Güçlü reddetme
             }
         }
 
         // 2. DUVAR/ENGEL KONTROLÜ
-        Ray ray = new Ray(origin, forward);
+        Ray ray = new Ray(origin, checkDir);
         if (Physics.Raycast(ray, detectionRadius, obstacleLayer))
         {
-            // Debug.DrawRay(origin, forward * detectionRadius, Color.red);
-            
             // Sağa mı sola mı kaçalım?
-            if (!Physics.Raycast(origin, transform.right, detectionRadius, obstacleLayer))
-                return transform.right * 2f; // Sağa kaç
-            else if (!Physics.Raycast(origin, -transform.right, detectionRadius, obstacleLayer))
-                return -transform.right * 2f; // Sola kaç
+            Vector3 right = Vector3.Cross(Vector3.up, checkDir);
             
-            return -forward; // Geri dön
+            if (!Physics.Raycast(origin, right, detectionRadius, obstacleLayer))
+                return right * 2f; 
+            else if (!Physics.Raycast(origin, -right, detectionRadius, obstacleLayer))
+                return -right * 2f; 
+            
+            return -checkDir; // Geri dön
         }
         
-        // Debug.DrawRay(origin, forward * detectionRadius, Color.green);
         return Vector3.zero;
     }
 }

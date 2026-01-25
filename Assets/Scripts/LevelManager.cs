@@ -174,17 +174,25 @@ public class LevelManager : MonoBehaviour
             spawnManager.UpdateSpawnPoints(currentMapInstance.transform);
         }
 
-        // Reset Progress
-        currentZombiesEaten = 0;
-        totalZombiesInLevel = desiredZombieCount;
-        NotifyProgress();
-
         // Spawn Enemies
         if (spawnManager != null)
         {
             spawnManager.ClearScene();
             spawnManager.SpawnLevel(desiredHumanCount, desiredZombieCount, isHordeMode);
+            
+            // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
+            // Sometimes spawn fails (no space), so we count them from scene
+            // Note: This is heavy but accurate.
+            int realZombieCount = GameObject.FindGameObjectsWithTag("Zombie").Length;
+            
+            Debug.Log($"LevelManager: Desired {desiredZombieCount}, Actual Spawned {realZombieCount}");
+            
+            totalZombiesInLevel = realZombieCount;
         }
+
+        // Reset Progress (After spawn to get real count)
+        currentZombiesEaten = 0;
+        NotifyProgress();
     }
 
     public void OnZombieEaten()
@@ -194,8 +202,11 @@ public class LevelManager : MonoBehaviour
 
         if (currentZombiesEaten >= totalZombiesInLevel)
         {
+            // Already triggered?
+            if (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning) return;
+
             Debug.Log("Level Complete!");
-            // Invoke'u kaldırdık, UI kontrolüne devrettik
+            
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.ShowLevelComplete();
@@ -203,6 +214,7 @@ public class LevelManager : MonoBehaviour
             else
             {
                 // Fallback (UI Manager yoksa eski usül devam)
+                CancelInvoke(nameof(NextLevel));
                 Invoke(nameof(NextLevel), 2f);
             }
         }

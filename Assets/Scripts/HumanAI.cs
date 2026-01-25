@@ -63,10 +63,24 @@ public class HumanAI : CharacterAI
 
     private void PickNewWanderTarget()
     {
-        Vector3 randomDir = Random.insideUnitSphere * wanderRadius;
-        randomDir += transform.position;
-        randomDir.y = transform.position.y; // Yüksekliği koru
-        wanderTarget = randomDir;
+        Vector3 candidatePos = transform.position + Random.insideUnitSphere * wanderRadius;
+        candidatePos.y = expectedGroundY; // Yüksekliği koru (Ground Y Reference)
+
+        if (IsOnGround(candidatePos))
+        {
+            wanderTarget = candidatePos;
+        }
+        else
+        {
+             // Geçersizse merkeze doğru güvenli bir nokta seç
+             wanderTarget = Vector3.Lerp(transform.position, Vector3.zero, 0.5f);
+        }
+    }
+
+    private bool IsOnGround(Vector3 pos)
+    {
+        if (groundLayer.value == 0) return true; 
+        return Physics.Raycast(pos + Vector3.up * 10f, Vector3.down, 50f, groundLayer);
     }
 
     private Transform GetClosestEnemy()

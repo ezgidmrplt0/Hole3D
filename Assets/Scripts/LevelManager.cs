@@ -110,6 +110,12 @@ public class LevelManager : MonoBehaviour
         
         // Reset Logic
         isFeverSequenceActive = false;
+        
+        // Skills reset per level
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.ResetSkills();
+        }
 
         // --- INFINITE LEVEL LOGIC ---
         int actualLevelNumber = currentLevelIndex + 1;
@@ -249,6 +255,9 @@ public class LevelManager : MonoBehaviour
 
     public void OnHumanEaten()
     {
+        // Fever modunda insan limitinden etkilenme
+        if (isFeverSequenceActive) return;
+
         currentHumansEaten++;
         OnHumanCountChanged?.Invoke(currentHumansEaten); // UI Update
 
@@ -304,8 +313,8 @@ public class LevelManager : MonoBehaviour
 
         if (hole != null)
         {
-             // 5 saniye Fever Mode
-             hole.ActivateFeverMode(5.0f, () => 
+             // 10 saniye Fever Mode
+             hole.ActivateFeverMode(10.0f, () => 
              {
                  // Callback: Fever bitti, leveli bitir
                  FinishLevel();

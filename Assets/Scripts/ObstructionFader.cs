@@ -147,6 +147,25 @@ public class ObstructionFader : MonoBehaviour
 
         foreach (var r in toRemove) fadedRenderers.Remove(r);
     }
+
+    public void ForceRestoreAll()
+    {
+        foreach (var kvp in fadedRenderers)
+        {
+            Renderer r = kvp.Key;
+            MaterialModeData data = kvp.Value;
+            if (r != null && data != null)
+            {
+                // Instant Restore (No Tween for quick cleanup)
+                Restore(r, data); 
+                // Restore calls Tween, but we accept it. 
+                // If we wanted instant, we would duplicate restore logic without tween.
+                // For now, Tween restore is fine, it looks smooth.
+            }
+        }
+        fadedRenderers.Clear();
+        hitRenderersThisFrame.Clear();
+    }
     
     private bool IsIgnored(GameObject obj)
     {

@@ -41,6 +41,7 @@ public class HoleMechanics : MonoBehaviour
     
     private Collider[] holeCols;
     private HoleMaskController maskController;
+    private ObstructionFader obstructionFader;
 
     private void Start()
     {
@@ -98,9 +99,10 @@ public class HoleMechanics : MonoBehaviour
         
         // --- AUTO-ADD OBSTRUCTION FADER ---
         // Kullanıcı isteği: objelerin içinden geçerken transparan olması
-        if (GetComponent<ObstructionFader>() == null)
+        obstructionFader = GetComponent<ObstructionFader>();
+        if (obstructionFader == null)
         {
-            gameObject.AddComponent<ObstructionFader>();
+            obstructionFader = gameObject.AddComponent<ObstructionFader>();
         }
     }
 
@@ -125,9 +127,18 @@ public class HoleMechanics : MonoBehaviour
         if (isFeverMode)
         {
             // Fever modunda "Ground" hariç her şeyi yiyebiliriz
-            if (!other.CompareTag("Ground") && !other.CompareTag("MainCamera"))
+            // Ancak LevelManager bina/taş gibi objeleri de "Ground" olarak etiketliyor.
+            // Bu yüzden "Ground" tagine bakmak yerine, objenin İSMİNE bakarak "Zemin" olup olmadığını anla.
+            if (!other.CompareTag("MainCamera"))
             {
-                canEat = true;
+                string n = other.name.ToLower();
+                // Gerçek zemin genellikle "Floor", "Plane" veya "Ground" ismini taşır.
+                bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground");
+
+                if (!isActualFloor)
+                {
+                    canEat = true;
+                }
             }
         }
 
@@ -166,31 +177,40 @@ public class HoleMechanics : MonoBehaviour
         isFeverMode = true;
         preFeverScale = transform.localScale;
 
-        // 1. DEVASA BÜYÜME (3 Katına Çık)
-        // Mevcut büyüklüğün üzerine koy
-        Vector3 targetScale = preFeverScale * 2.5f; 
+        // Fever Başlangıcı: Transparanlık efektini KAPAT (Her şey net görünsün)
+        if (obstructionFader != null)
+        {
+            obstructionFader.ForceRestoreAll();
+            obstructionFader.enabled = false;
+        }
+
+        // 1. DEVASA BÜYÜME (Daha kontrollü - 3.5 Kat)
+        // 6x yapınca tüm haritayı tek karede yiyor ve kötü görünüyor. 3.5x daha dengeli.
+        float feverMultiplier = 3.5f;
+        Vector3 targetScale = preFeverScale * feverMultiplier; 
         
-        // Hızlıca büyü
-        transform.DOScale(targetScale, 1.0f).SetEase(Ease.OutElastic);
+        // Hızlıca büyü (Biraz daha yavaş ki oyuncu hissetsin)
+        float growDuration = 2.0f;
+        transform.DOScale(targetScale, growDuration).SetEase(Ease.OutElastic);
         
         // Görselleri de büyüt
         if (visuals != null && visuals.transform.parent != transform)
         {
-            visuals.transform.DOScale(visuals.transform.localScale * 2.5f, 1.0f).SetEase(Ease.OutElastic);
+            visuals.transform.DOScale(visuals.transform.localScale * feverMultiplier, growDuration).SetEase(Ease.OutElastic);
         }
 
         // Mask Radius Update (Shader için)
         if (maskController != null)
         {
              float targetRadius = voidRadius * targetScale.x;
-             DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, 1.0f);
+             DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, growDuration);
         }
 
         SpawnFloatingText("FEVER MODE!", Color.red);
         SpawnFloatingText("EAT EVERYTHING!", Color.yellow);
 
         // 2. Bekle (Yıkım Zamanı - OYUNCU HAREKET EDEBİLİR)
-        // Burada paneli AÇMIYORUZ. Oyuncu 5 saniye boyunca serbestçe gezip yıkım yapacak.
+        // Burada paneli AÇMIYORUZ. Oyuncu 10 saniye boyunca serbestçe gezip yıkım yapacak.
         yield return new WaitForSeconds(duration);
 
         // 3. Küçül ve Normale Dön (Fever Bitti)
@@ -198,7 +218,7 @@ public class HoleMechanics : MonoBehaviour
         
         if (visuals != null && visuals.transform.parent != transform)
         {
-            visuals.transform.DOScale(visuals.transform.localScale / 2.5f, 0.5f).SetEase(Ease.InBack);
+            visuals.transform.DOScale(visuals.transform.localScale / feverMultiplier, 0.5f).SetEase(Ease.InBack);
         }
         
         if (maskController != null)
@@ -210,6 +230,12 @@ public class HoleMechanics : MonoBehaviour
         yield return new WaitForSeconds(0.5f); // Animasyon bitsin
 
         isFeverMode = false;
+
+        // Fever Bitişi: Transparanlık efektini geri AÇ
+        if (obstructionFader != null)
+        {
+            obstructionFader.enabled = true;
+        }
         
         // Callback çağır (Artık paneli açabiliriz)
         onComplete?.Invoke();
@@ -568,8 +594,25 @@ public class HoleMechanics : MonoBehaviour
 
                 if (distToCenter < killZoneRadius)
                 {
-                    // Zombi düşme alanında! Magnet onu rahat bıraksın ki PhysicsFall (Gravity) işini yapsın.
-                    continue; 
+                     // Zombi düşme alanında! Magnet onu rahat bıraksın ki PhysicsFall (Gravity) işini yapsın.
+                     // ANCAK: Önceki kareden kalan "Drag 5" yüzünden havada asılı kalabilir.
+                     // Bu yüzden burada ZORLA Drag'i sıfırla ve aşağı it.
+                     
+                     Rigidbody rbInZone = col.GetComponent<Rigidbody>();
+                     if (rbInZone != null)
+                     {
+                         rbInZone.drag = 0f;
+                         rbInZone.angularDrag = 0.05f;
+                         
+                         // Ekstra: Hafif aşağı it ki kesin düşsün (Hovering Fix)
+                         rbInZone.AddForce(Vector3.down * 20f, ForceMode.Acceleration);
+                     }
+                     
+                     // Agent'ı da kapat ki kaçmaya çalışmasın
+                     UnityEngine.AI.NavMeshAgent agentInZone = col.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                     if (agentInZone != null && agentInZone.enabled) agentInZone.enabled = false;
+
+                     continue; 
                 }
 
                 // 2. Disable NavMeshAgent so Physics can take over

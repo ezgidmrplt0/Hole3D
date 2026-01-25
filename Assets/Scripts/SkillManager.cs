@@ -18,7 +18,7 @@ public class SkillManager : MonoBehaviour
     // Max Level
     public const int MAX_SKILL_LEVEL = 10;
 
-    // Base Prices (Level 0 -> 1)
+    // Base Prices (Level 1 Base)
     [Header("Base Prices")]
     public int magnetBasePrice = 100;
     public int speedBasePrice = 100;
@@ -26,26 +26,22 @@ public class SkillManager : MonoBehaviour
 
     // Price multiplier per level (her level'da fiyat artar)
     [Header("Price Scaling")]
-    public float priceMultiplier = 1.5f;
+    public float priceMultiplier = 1.5f; // Unused but kept for structure or remove if strict
 
     // ========== SKILL EFFECT VALUES ==========
     // Magnet: Zombileri çekme
     [Header("Magnet Skill Settings")]
-    public float magnetBaseRadius = 2f;       // Level 1'de başlangıç
-    public float magnetRadiusPerLevel = 0.8f; // Her level +0.8 radius
-    public float magnetBaseForce = 5f;        // Level 1'de başlangıç
-    public float magnetForcePerLevel = 5f;    // Her level +5 force
+    public float magnetBaseRadius = 2f;       
+    public float magnetBaseForce = 5f;        
 
     // Speed: Hareket hızı bonusu
     [Header("Speed Skill Settings")]
-    public float speedBonusPerLevel = 0.05f;  // Her level %5 bonus (Level 1 = %5, Level 10 = %50)
+    public float speedBonusPerLevel = 0.5f; // %50 Hız artsın (Tek seferlik olduğu için güçlü olsun)
 
     // Repellent: İnsanları itme
     [Header("Repellent Skill Settings")]
-    public float repellentBaseRadius = 1.5f;     // Level 1'de başlangıç
-    public float repellentRadiusPerLevel = 0.5f; // Her level +0.5 radius
-    public float repellentBaseForce = 10f;       // Level 1'de başlangıç
-    public float repellentForcePerLevel = 8f;    // Her level +8 force
+    public float repellentBaseRadius = 1.5f;     
+    public float repellentBaseForce = 10f;       
 
     public event Action OnSkillsChanged;
 
@@ -54,7 +50,7 @@ public class SkillManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            LoadSkills();
+            // No loading from PlayerPrefs (One-time use per level)
         }
         else
         {
@@ -62,54 +58,45 @@ public class SkillManager : MonoBehaviour
         }
     }
 
-    private void LoadSkills()
-    {
-        MagnetLevel = PlayerPrefs.GetInt(MAGNET_LEVEL_KEY, 0);
-        SpeedLevel = PlayerPrefs.GetInt(SPEED_LEVEL_KEY, 0);
-        RepellentLevel = PlayerPrefs.GetInt(REPELLENT_LEVEL_KEY, 0);
-    }
-
-    private void SaveSkills()
-    {
-        PlayerPrefs.SetInt(MAGNET_LEVEL_KEY, MagnetLevel);
-        PlayerPrefs.SetInt(SPEED_LEVEL_KEY, SpeedLevel);
-        PlayerPrefs.SetInt(REPELLENT_LEVEL_KEY, RepellentLevel);
-        PlayerPrefs.Save();
-    }
-
     // ========== PRICE CALCULATIONS ==========
-    public int GetMagnetUpgradePrice()
+    // Fiyat Oyun Leveline göre değişir: Base * 2^(Level-1)
+    private int CalculatePrice(int basePrice)
     {
-        if (MagnetLevel >= MAX_SKILL_LEVEL) return -1; // Max level
-        return Mathf.RoundToInt(magnetBasePrice * Mathf.Pow(priceMultiplier, MagnetLevel));
+        int gameLevelIndex = 0;
+        if (LevelManager.Instance != null)
+        {
+            gameLevelIndex = LevelManager.Instance.currentLevelIndex;
+        }
+        
+        // Formül: Her levelde %100 artış (2 katına çıkma)
+        // Level 1 (Index 0): Base * 1
+        // Level 2 (Index 1): Base * 2
+        // Level 3 (Index 2): Base * 4
+        
+        float multiplier = Mathf.Pow(2, gameLevelIndex);
+        return Mathf.RoundToInt(basePrice * multiplier);
     }
 
-    public int GetSpeedUpgradePrice()
-    {
-        if (SpeedLevel >= MAX_SKILL_LEVEL) return -1;
-        return Mathf.RoundToInt(speedBasePrice * Mathf.Pow(priceMultiplier, SpeedLevel));
-    }
-
-    public int GetRepellentUpgradePrice()
-    {
-        if (RepellentLevel >= MAX_SKILL_LEVEL) return -1;
-        return Mathf.RoundToInt(repellentBasePrice * Mathf.Pow(priceMultiplier, RepellentLevel));
-    }
+    public int GetMagnetUpgradePrice() => CalculatePrice(magnetBasePrice);
+    public int GetSpeedUpgradePrice() => CalculatePrice(speedBasePrice);
+    public int GetRepellentUpgradePrice() => CalculatePrice(repellentBasePrice);
 
     // ========== UPGRADE METHODS ==========
+    // Artık "Upgrade" aslında "Satın Al / Aktif Et" demek (Tek seferlik)
+    
     public bool UpgradeMagnet()
     {
-        if (MagnetLevel >= MAX_SKILL_LEVEL)
+        if (MagnetLevel >= 1) // Zaten aktifse alma (Level sistemi kalktı, sadece 0 veya 1)
         {
-            Debug.Log("SkillManager: Magnet already at max level!");
+            Debug.Log("SkillManager: Magnet already active for this level!");
             return false;
         }
 
         int price = GetMagnetUpgradePrice();
         if (TrySpend(price))
         {
-            MagnetLevel++;
-            SaveAndNotify("Magnet", MagnetLevel);
+            MagnetLevel = 1; // Aktif et
+            NotifyOnly("Magnet");
             return true;
         }
         return false;
@@ -117,17 +104,17 @@ public class SkillManager : MonoBehaviour
 
     public bool UpgradeSpeed()
     {
-        if (SpeedLevel >= MAX_SKILL_LEVEL)
+        if (SpeedLevel >= 1)
         {
-            Debug.Log("SkillManager: Speed already at max level!");
+            Debug.Log("SkillManager: Speed already active for this level!");
             return false;
         }
 
         int price = GetSpeedUpgradePrice();
         if (TrySpend(price))
         {
-            SpeedLevel++;
-            SaveAndNotify("Speed", SpeedLevel);
+            SpeedLevel = 1;
+            NotifyOnly("Speed");
             return true;
         }
         return false;
@@ -135,110 +122,67 @@ public class SkillManager : MonoBehaviour
 
     public bool UpgradeRepellent()
     {
-        if (RepellentLevel >= MAX_SKILL_LEVEL)
+        if (RepellentLevel >= 1)
         {
-            Debug.Log("SkillManager: Repellent already at max level!");
+            Debug.Log("SkillManager: Repellent already active for this level!");
             return false;
         }
 
         int price = GetRepellentUpgradePrice();
         if (TrySpend(price))
         {
-            RepellentLevel++;
-            SaveAndNotify("Repellent", RepellentLevel);
+            RepellentLevel = 1;
+            NotifyOnly("Repellent");
             return true;
         }
         return false;
     }
+    
+    // ========== LEVEL MANAGEMENT ==========
+    // LevelManager tarafından her yeni level başlangıcında çağrılmalı
+    public void ResetSkills()
+    {
+        MagnetLevel = 0;
+        SpeedLevel = 0;
+        RepellentLevel = 0;
+        OnSkillsChanged?.Invoke();
+        Debug.Log("SkillManager: Skills reset for new level.");
+    }
 
-    // ========== EFFECT GETTERS ==========
-    /// <summary>
-    /// Magnet aktif mi? (Level > 0)
-    /// </summary>
+    // ========== EFFECT GETTERS (Simplified) ==========
     public bool IsMagnetActive => MagnetLevel > 0;
-
-    /// <summary>
-    /// Speed aktif mi? (Level > 0)
-    /// </summary>
     public bool IsSpeedActive => SpeedLevel > 0;
-
-    /// <summary>
-    /// Repellent aktif mi? (Level > 0)
-    /// </summary>
     public bool IsRepellentActive => RepellentLevel > 0;
 
-    /// <summary>
-    /// Mevcut Magnet çekim yarıçapı
-    /// </summary>
-    public float GetMagnetRadius()
-    {
-        if (MagnetLevel <= 0) return 0f;
-        return magnetBaseRadius + (magnetRadiusPerLevel * (MagnetLevel - 1));
-    }
+    // Değerler artık sabit (Level sistemi kalktığı için tek bir güçlü değer dönelim veya Base dönelim)
+    // Level sistemini "active" olduğu sürece "Level 1" gibi varsayıyoruz.
+    public float GetMagnetRadius() => IsMagnetActive ? magnetBaseRadius : 0f;
+    public float GetMagnetForce() => IsMagnetActive ? magnetBaseForce : 0f;
+    public float GetSpeedMultiplier() => IsSpeedActive ? 1f + speedBonusPerLevel : 1f; // %5 bonus (Yükseltilebilir)
+    public float GetRepellentRadius() => IsRepellentActive ? repellentBaseRadius : 0f;
+    public float GetRepellentForce() => IsRepellentActive ? repellentBaseForce : 0f;
 
-    /// <summary>
-    /// Mevcut Magnet çekim kuvveti
-    /// </summary>
-    public float GetMagnetForce()
-    {
-        if (MagnetLevel <= 0) return 0f;
-        return magnetBaseForce + (magnetForcePerLevel * (MagnetLevel - 1));
-    }
-
-    /// <summary>
-    /// Mevcut Speed bonus çarpanı (1.0 = normal, 1.05 = %5 bonus)
-    /// </summary>
-    public float GetSpeedMultiplier()
-    {
-        if (SpeedLevel <= 0) return 1f;
-        return 1f + (speedBonusPerLevel * SpeedLevel);
-    }
-
-    /// <summary>
-    /// Mevcut Repellent itme yarıçapı
-    /// </summary>
-    public float GetRepellentRadius()
-    {
-        if (RepellentLevel <= 0) return 0f;
-        return repellentBaseRadius + (repellentRadiusPerLevel * (RepellentLevel - 1));
-    }
-
-    /// <summary>
-    /// Mevcut Repellent itme kuvveti
-    /// </summary>
-    public float GetRepellentForce()
-    {
-        if (RepellentLevel <= 0) return 0f;
-        return repellentBaseForce + (repellentForcePerLevel * (RepellentLevel - 1));
-    }
 
     // ========== HELPER METHODS ==========
     private bool TrySpend(int amount)
     {
         if (EconomyManager.Instance == null)
         {
-            Debug.LogError("SkillManager: EconomyManager missing!");
-            return false;
+             // Debug amaçlı: Economy yoksa al
+            Debug.LogWarning("SkillManager: EconomyManager missing! Bypassing payment.");
+            return true; 
         }
         return EconomyManager.Instance.SpendCoins(amount);
     }
 
-    private void SaveAndNotify(string skillName, int newLevel)
+    private void NotifyOnly(string skillName)
     {
-        SaveSkills();
+        // Save yok, sadece notify
         OnSkillsChanged?.Invoke();
-        Debug.Log($"SkillManager: {skillName} upgraded to Level {newLevel}!");
+        Debug.Log($"SkillManager: {skillName} activated for this level!");
     }
 
     // ========== DEBUG ==========
     [ContextMenu("Reset All Skills")]
-    public void ResetAllSkills()
-    {
-        MagnetLevel = 0;
-        SpeedLevel = 0;
-        RepellentLevel = 0;
-        SaveSkills();
-        OnSkillsChanged?.Invoke();
-        Debug.Log("SkillManager: All skills reset to Level 0");
-    }
+    public void ResetAllSkills() => ResetSkills();
 }

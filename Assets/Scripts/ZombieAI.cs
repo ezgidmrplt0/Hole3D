@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro;
+using System.Collections;
 
 public class ZombieAI : CharacterAI
 {
@@ -27,6 +28,14 @@ public class ZombieAI : CharacterAI
 
     void Start()
     {
+        // --- TAG GÜVENLİĞİ ---
+        // Prefab'ın tag'i yanlış ayarlanmış olabilir, zorla düzelt
+        if (!gameObject.CompareTag("Zombie"))
+        {
+            gameObject.tag = "Zombie";
+            Debug.LogWarning($"ZombieAI: {gameObject.name} had wrong tag, fixed to 'Zombie'");
+        }
+        
         camTransform = Camera.main.transform;
         
         // Inspector'dan ne gelirse gelsin, kural olarak 1 insan = 1 level olsun

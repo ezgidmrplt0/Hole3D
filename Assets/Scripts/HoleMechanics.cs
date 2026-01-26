@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using DG.Tweening; // Import DOTween
 
@@ -7,6 +8,10 @@ public class HoleMechanics : MonoBehaviour
 {
     // Listeye çevirdik ki hem Zombi hem İnsan hem SkillPickup girebilsin
     public System.Collections.Generic.List<string> targetTags = new System.Collections.Generic.List<string> { "Zombie", "Human", "SkillPickup" };
+    
+    // --- DUPLICATE PREVENTION ---
+    // Aynı objenin birden fazla collider'ı olabilir, çift sayımı önle
+    private HashSet<GameObject> objectsBeingProcessed = new HashSet<GameObject>();
 
     [Header("Feedback Effects")]
     public float shakeDuration = 0.15f;
@@ -130,6 +135,24 @@ public class HoleMechanics : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // --- ROOT OBJE BUL (Child collider'lar için) ---
+        // Zombilerin birden fazla collider'ı olabilir, hepsini aynı root'a bağla
+        GameObject rootObject = other.gameObject;
+        
+        // Eğer ZombieAI veya CharacterAI parent'ta ise, onu root say
+        CharacterAI charAI = other.GetComponentInParent<CharacterAI>();
+        if (charAI != null) rootObject = charAI.gameObject;
+        
+        // SkillPickup için de aynısı
+        SkillPickup skillPickupParent = other.GetComponentInParent<SkillPickup>();
+        if (skillPickupParent != null) rootObject = skillPickupParent.gameObject;
+        
+        // --- DUPLICATE KONTROLÜ ---
+        if (objectsBeingProcessed.Contains(rootObject))
+        {
+            return; // Bu obje zaten işleniyor, atla
+        }
+        
         // --- SKILL PICKUP KONTROLÜ (Tag'a bağımlı değil, component'e bakıyor) ---
         SkillPickup skillPickup = other.GetComponent<SkillPickup>();
         if (skillPickup == null) skillPickup = other.GetComponentInParent<SkillPickup>();
@@ -257,6 +280,16 @@ public class HoleMechanics : MonoBehaviour
 
     IEnumerator PhysicsFall(GameObject victim)
     {
+        // --- ROOT OBJE BUL VE İŞARETLE ---
+        GameObject rootObject = victim;
+        CharacterAI charAI = victim.GetComponentInParent<CharacterAI>();
+        if (charAI != null) rootObject = charAI.gameObject;
+        SkillPickup skillPickup = victim.GetComponentInParent<SkillPickup>();
+        if (skillPickup != null) rootObject = skillPickup.gameObject;
+        
+        // İşlenen objelere ekle (çift sayımı önle)
+        objectsBeingProcessed.Add(rootObject);
+        
         // --- LEVEL KONTROLÜ İPTAL ---
         // Kullanıcı isteği: Büyük zombiler de yensin ve çok XP versin.
         /*
@@ -304,10 +337,10 @@ public class HoleMechanics : MonoBehaviour
         }
         
         // SkillPickup için özel işlem
-        SkillPickup skillPickup = victim.GetComponent<SkillPickup>();
-        if (skillPickup != null)
+        SkillPickup victimSkillPickup = victim.GetComponent<SkillPickup>();
+        if (victimSkillPickup != null)
         {
-            skillPickup.OnSwallowStart();
+            victimSkillPickup.OnSwallowStart();
         }
 
         Animator anim = victim.GetComponent<Animator>();
@@ -390,6 +423,9 @@ public class HoleMechanics : MonoBehaviour
             // Efekt (Varsa partikül vs eklenebilir)
             Destroy(victim);
         }
+        
+        // Listeden çıkar (artık işlenmedi)
+        objectsBeingProcessed.Remove(rootObject);
     }
 
     void ProcessEatenObject(GameObject victim)
@@ -402,10 +438,14 @@ public class HoleMechanics : MonoBehaviour
             SpawnFloatingText("+5 Gold", Color.yellow);
         }
 
-        if (victim.CompareTag("Zombie"))
+        // --- ZOMBİ TESPİTİ ---
+        // Önce tag kontrol et, sonra component bazlı yedek kontrol (tag atanmamış olabilir)
+        ZombieAI zombieAI = victim.GetComponent<ZombieAI>();
+        bool isZombie = victim.CompareTag("Zombie") || zombieAI != null;
+        
+        if (isZombie)
         {
             int gainedXP = 1;
-            ZombieAI zombieAI = victim.GetComponent<ZombieAI>();
             if (zombieAI != null)
             {
                 gainedXP = zombieAI.level; // Level kadar XP ver

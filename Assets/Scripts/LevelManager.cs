@@ -237,15 +237,48 @@ public class LevelManager : MonoBehaviour
             // --- Start Skill Pickup Spawning ---
             spawnManager.StartSkillSpawning();
             
-            // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
-            // Sometimes spawn fails (no space), so we count them from scene
-            // Note: This is heavy but accurate.
-            int realZombieCount = GameObject.FindGameObjectsWithTag("Zombie").Length;
-            
-            Debug.Log($"LevelManager: Desired {desiredZombieCount}, Actual Spawned {realZombieCount}");
-            
-            totalZombiesInLevel = realZombieCount;
+            // --- ZOMBIE SAYIMI: Frame sonu bekle ---
+            // ZombieAI.Start() tag ataması yapıyor, bu yüzden frame sonunu beklemeliyiz
+            StartCoroutine(CountZombiesAfterFrame(desiredZombieCount));
         }
+        else
+        {
+            // SpawnManager yoksa fallback
+            totalZombiesInLevel = desiredZombieCount;
+            currentZombiesEaten = 0;
+            currentHumansEaten = 0;
+            NotifyProgress();
+            OnHumanCountChanged?.Invoke(currentHumansEaten);
+        }
+    }
+    
+    private System.Collections.IEnumerator CountZombiesAfterFrame(int desiredCount)
+    {
+        // Frame sonunu bekle - ZombieAI.Start() çalışsın, tag'ler düzgün atansın
+        yield return new WaitForEndOfFrame();
+        
+        // Ek güvenlik: Bir frame daha bekle
+        yield return null;
+        
+        // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
+        // Şimdi hem tag'li hem de ZombieAI component'li objeleri say
+        int realZombieCount = 0;
+        
+        // Önce tag ile say
+        GameObject[] taggedZombies = GameObject.FindGameObjectsWithTag("Zombie");
+        realZombieCount = taggedZombies.Length;
+        
+        // Yedek: Eğer hiç bulamadıysak, ZombieAI component'i ara
+        if (realZombieCount == 0)
+        {
+            ZombieAI[] zombieComponents = GameObject.FindObjectsOfType<ZombieAI>();
+            realZombieCount = zombieComponents.Length;
+            Debug.LogWarning($"LevelManager: No tagged zombies found, using component count: {realZombieCount}");
+        }
+        
+        Debug.Log($"LevelManager: Desired {desiredCount}, Actual Spawned {realZombieCount}");
+        
+        totalZombiesInLevel = realZombieCount;
 
         // Reset Progress (After spawn to get real count)
         currentZombiesEaten = 0;

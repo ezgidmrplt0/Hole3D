@@ -24,24 +24,111 @@ public class SkillPickup : MonoBehaviour
     private float spawnTime;
     private Vector3 startPos;
     private Renderer meshRenderer;
+    private bool isBeingSwallowed = false; // Hole tarafından yutulmaya başlandı mı?
     
     void Start()
     {
         spawnTime = Time.time;
+        
+        // Zemine düşür - Raycast ile zemin bul
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position + Vector3.up * 2f, Vector3.down, out hit, 10f))
+        {
+            // Zeminin biraz üstüne yerleş
+            transform.position = new Vector3(transform.position.x, hit.point.y + 0.5f, transform.position.z);
+        }
+        
         startPos = transform.position;
+        
+        // Tag'ı ayarla (opsiyonel - component kontrolü ile de çalışıyor)
+        try { gameObject.tag = "SkillPickup"; } catch { /* Tag yoksa sorun değil */ }
+        
+        // Rigidbody ekle (yoksa)
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb == null)
+        {
+            rb = gameObject.AddComponent<Rigidbody>();
+        }
+        rb.isKinematic = true; // Başlangıçta kinematic, hole yutunca açılacak
+        rb.useGravity = false;
+        
+        // Collider ayarla
+        Collider col = GetComponent<Collider>();
+        if (col == null)
+        {
+            SphereCollider sphere = gameObject.AddComponent<SphereCollider>();
+            sphere.radius = 0.5f;
+            col = sphere;
+        }
+        col.isTrigger = true;
         
         // Renderer bul ve renk ayarla
         meshRenderer = GetComponentInChildren<Renderer>();
         ApplyColor();
         
+        // Hole referansını bul
+        holeTransform = FindObjectOfType<HoleMechanics>()?.transform;
+        
         // Spawn animasyonu
         transform.localScale = Vector3.zero;
         transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack);
+        
+        Debug.Log($"[SkillPickup] {skillType} spawned at {transform.position}");
     }
+    
+    private Transform holeTransform;
+    private bool isFalling = false;
     
     void Update()
     {
-        // Floating animasyonu (Yukarı aşağı)
+        // Eğer yutulmaya başlandıysa animasyon yapma
+        if (isBeingSwallowed) return;
+        
+        // --- HOLE MESAFE KONTROLÜ ---
+        if (holeTransform != null)
+        {
+            // 2D mesafe (X-Z düzleminde)
+            float distXZ = Vector2.Distance(
+                new Vector2(transform.position.x, transform.position.z),
+                new Vector2(holeTransform.position.x, holeTransform.position.z)
+            );
+            
+            // Hole'un scale'ine göre yutma mesafesi
+            float eatRadius = holeTransform.localScale.x * 0.7f;
+            
+            if (distXZ < eatRadius && !isFalling)
+            {
+                // Düşmeye başla!
+                isFalling = true;
+                isBeingSwallowed = true;
+                Debug.Log($"[SkillPickup] Hole'a düşmeye başladı: {skillType}");
+                
+                // Rigidbody'yi aktif et - fiziksel düşüş
+                Rigidbody rb = GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = false;
+                    rb.useGravity = true;
+                    rb.drag = 0f;
+                    
+                    // Hole'un merkezine doğru hafif çekme kuvveti
+                    Vector3 toHole = (holeTransform.position - transform.position).normalized;
+                    rb.AddForce(toHole * 2f, ForceMode.VelocityChange);
+                }
+                
+                // Collider'ı trigger olmaktan çıkar ki zemine çarpmasın
+                Collider col = GetComponent<Collider>();
+                if (col != null) col.isTrigger = true;
+                
+                // 2 saniye sonra skill aktif et ve yok et
+                StartCoroutine(FallAndActivate());
+            }
+        }
+        
+        // Düşüyorsa floating yapma
+        if (isFalling) return;
+        
+        // Floating animasyonu (Yukarı aşağı) - Zemine göre
         float newY = startPos.y + Mathf.Sin(Time.time * bobSpeed) * bobHeight;
         transform.position = new Vector3(transform.position.x, newY, transform.position.z);
         
@@ -65,6 +152,63 @@ public class SkillPickup : MonoBehaviour
         }
     }
     
+    System.Collections.IEnumerator FallAndActivate()
+    {
+        // Düşme süresi - yeterince aşağı inene kadar bekle
+        float fallTime = 0f;
+        float maxFallTime = 2f;
+        
+        Rigidbody rb = GetComponent<Rigidbody>();
+        
+        while (fallTime < maxFallTime)
+        {
+            fallTime += Time.deltaTime;
+            
+            // Hole'un merkezine doğru çek
+            if (holeTransform != null && rb != null)
+            {
+                Vector3 toCenter = holeTransform.position - transform.position;
+                toCenter.y = 0; // Sadece X-Z düzleminde
+                rb.AddForce(toCenter.normalized * 5f * Time.deltaTime, ForceMode.VelocityChange);
+                
+                // Döndür
+                rb.AddTorque(Vector3.one * 10f * Time.deltaTime, ForceMode.VelocityChange);
+            }
+            
+            // Yeterince aşağı düştüyse bitir
+            if (transform.position.y < holeTransform.position.y - 3f)
+            {
+                break;
+            }
+            
+            yield return null;
+        }
+        
+        // Skill'i aktif et
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.ActivateSkill(skillType);
+            Debug.Log($"[SkillPickup] {skillType} skill aktif edildi!");
+        }
+        
+        // Küçülerek yok ol
+        transform.DOScale(Vector3.zero, 0.2f).SetEase(Ease.InBack).OnComplete(() => Destroy(gameObject));
+    }
+    
+    // HoleMechanics tarafından çağrılır - yutulmaya başlandığında animasyonu durdur
+    public void OnSwallowStart()
+    {
+        isBeingSwallowed = true;
+        
+        // Rigidbody'yi aktif et
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+        }
+    }
+    
     void ApplyColor()
     {
         if (meshRenderer == null) return;
@@ -85,34 +229,6 @@ public class SkillPickup : MonoBehaviour
             meshRenderer.material.EnableKeyword("_EMISSION");
             meshRenderer.material.SetColor("_EmissionColor", targetColor * 0.5f);
         }
-    }
-    
-    void OnTriggerEnter(Collider other)
-    {
-        // Hole tarafından yutuldu mu?
-        if (other.CompareTag("Player") || other.GetComponentInParent<HoleMechanics>() != null)
-        {
-            // Skill'i aktif et
-            if (SkillManager.Instance != null)
-            {
-                SkillManager.Instance.ActivateSkill(skillType);
-                
-                // Pickup efekti
-                PlayPickupEffect();
-            }
-            
-            // Kendini yok et
-            Destroy(gameObject);
-        }
-    }
-    
-    void PlayPickupEffect()
-    {
-        // Basit scale-up ve fade efekti
-        // İleride particle eklenebilir
-        
-        // Ses efekti (varsa)
-        // AudioManager.Instance?.PlayPickupSound();
     }
     
     // Editor'da rengi göster

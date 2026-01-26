@@ -5,8 +5,8 @@ using DG.Tweening; // Import DOTween
 
 public class HoleMechanics : MonoBehaviour
 {
-    // Listeye çevirdik ki hem Zombi hem İnsan girebilsin
-    public System.Collections.Generic.List<string> targetTags = new System.Collections.Generic.List<string> { "Zombie", "Human" };
+    // Listeye çevirdik ki hem Zombi hem İnsan hem SkillPickup girebilsin
+    public System.Collections.Generic.List<string> targetTags = new System.Collections.Generic.List<string> { "Zombie", "Human", "SkillPickup" };
 
     [Header("Feedback Effects")]
     public float shakeDuration = 0.15f;
@@ -130,6 +130,17 @@ public class HoleMechanics : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        // --- SKILL PICKUP KONTROLÜ (Tag'a bağımlı değil, component'e bakıyor) ---
+        SkillPickup skillPickup = other.GetComponent<SkillPickup>();
+        if (skillPickup == null) skillPickup = other.GetComponentInParent<SkillPickup>();
+        
+        if (skillPickup != null)
+        {
+            Debug.Log($"[HoleMechanics] Skill Pickup algılandı: {skillPickup.skillType}");
+            StartCoroutine(PhysicsFall(other.gameObject));
+            return;
+        }
+        
         // --- FEVER MODE CHECK ---
         bool canEat = targetTags.Contains(other.tag);
         
@@ -291,6 +302,13 @@ public class HoleMechanics : MonoBehaviour
             agent.isStopped = true;
             agent.enabled = false;
         }
+        
+        // SkillPickup için özel işlem
+        SkillPickup skillPickup = victim.GetComponent<SkillPickup>();
+        if (skillPickup != null)
+        {
+            skillPickup.OnSwallowStart();
+        }
 
         Animator anim = victim.GetComponent<Animator>();
         if (anim != null) 
@@ -444,6 +462,17 @@ public class HoleMechanics : MonoBehaviour
             SpawnFloatingText("-1", Color.red);
             
             if (LevelManager.Instance != null) LevelManager.Instance.OnHumanEaten();
+        }
+        else if (victim.CompareTag("SkillPickup"))
+        {
+            // Skill Pickup yutuldu - Skill'i aktif et!
+            SkillPickup pickup = victim.GetComponent<SkillPickup>();
+            if (pickup != null && SkillManager.Instance != null)
+            {
+                SkillManager.Instance.ActivateSkill(pickup.skillType);
+                SpawnFloatingText(pickup.skillType.ToString() + "!", Color.cyan);
+                Debug.Log($"[HoleMechanics] Skill pickup yutuldu: {pickup.skillType}");
+            }
         }
         else if (isFeverMode)
         {

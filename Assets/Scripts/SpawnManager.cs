@@ -671,8 +671,8 @@ public class SpawnManager : MonoBehaviour
                 candidatePos = new Vector3(Random.Range(-15f, 15f), groundY + 1f, Random.Range(-15f, 15f));
             }
             
-            // Yüksekliği ayarla (zeminden 1m yukarı)
-            candidatePos.y = groundY + 1f;
+            // Yüksekliği ayarla (zeminden 2m yukarı - SkillPickup kendi raycast ile düşecek)
+            candidatePos.y = groundY + 2f;
             
             // Engel kontrolü
             if (!Physics.CheckSphere(candidatePos, 1f, obstacleLayer))

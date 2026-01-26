@@ -8,6 +8,7 @@ TagManager:
   - Ground
   - Human
   - Main Camera
+  - SkillPickup
   layers:
   - Default
   - TransparentFX

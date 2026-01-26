@@ -173,11 +173,11 @@ public class ObstructionFader : MonoBehaviour
         if (obj == gameObject || obj.transform.root == transform.root) return true;
         if (obj.CompareTag("Player")) return true;
         
-        // 2. Zombi ve İnsanlar (Karakterler transparan olmasın)
-        if (obj.CompareTag("Zombie") || obj.CompareTag("Human")) return true;
+        // 2. Zombi, İnsanlar ve Skill Pickup'lar (Karakterler ve pickup'lar transparan olmasın)
+        if (obj.CompareTag("Zombie") || obj.CompareTag("Human") || obj.CompareTag("SkillPickup")) return true;
         // Karakterlerin çocuk objeleri de olabilir (mesh vs), root'a bak
         Transform root = obj.transform.root;
-        if (root.CompareTag("Zombie") || root.CompareTag("Human")) return true;
+        if (root.CompareTag("Zombie") || root.CompareTag("Human") || root.CompareTag("SkillPickup")) return true;
         
         // 3. UI ve Water (Genelde transparan olmamalı)
         if (obj.layer == LayerMask.NameToLayer("UI")) return true;

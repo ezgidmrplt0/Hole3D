@@ -90,23 +90,12 @@ public class UIManager : MonoBehaviour
         // if (count <= 0 && zombieCounterPanel != null) zombieCounterPanel.SetActive(false);
     }
 
-    private void UpdateHumanCounter(int count)
+    private void UpdateHumanCounter(int remainingHumans)
     {
         if (humanCounterText != null)
         {
-            // Kullanıcı isteği: 5'ten geriye saysın (Kalan Hak)
-            // Bunun için LevelManager'dan Max Limit'i bilmemiz lazım.
-            // İdeal yol: LevelManager'dan count değişimiyle birlikte bu veriyi almak veya doğrudan erişmek.
-            
-            int remaining = 0;
-            if (LevelManager.Instance != null)
-            {
-                remaining = LevelManager.Instance.maxHumanLimit - count;
-            }
-            
-            if (remaining < 0) remaining = 0;
-            
-            humanCounterText.text = remaining.ToString();
+            // Artık doğrudan kalan insan sayısını gösteriyoruz
+            humanCounterText.text = remainingHumans.ToString();
         }
     }
     [Header("Panels")]

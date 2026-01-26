@@ -28,8 +28,9 @@ public class LevelManager : MonoBehaviour
     public int totalZombiesInLevel = 0;
     
     [Header("Human Limit Settings")]
-    public int maxHumanLimit = 5;
-    public int currentHumansEaten = 0;
+    public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
+    public int currentHumansRemaining = 0; // Kalan insan sayısı
+    public int currentHumansEaten = 0; // Hole tarafından yenilen (fail condition için)
 
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
@@ -276,7 +277,12 @@ public class LevelManager : MonoBehaviour
             Debug.LogWarning($"LevelManager: No tagged zombies found, using component count: {realZombieCount}");
         }
         
-        Debug.Log($"LevelManager: Desired {desiredCount}, Actual Spawned {realZombieCount}");
+        // --- İNSAN SAYIMI ---
+        GameObject[] taggedHumans = GameObject.FindGameObjectsWithTag("Human");
+        totalHumansInLevel = taggedHumans.Length;
+        currentHumansRemaining = totalHumansInLevel;
+        
+        Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount}. Humans: {totalHumansInLevel}");
         
         totalZombiesInLevel = realZombieCount;
 
@@ -285,21 +291,46 @@ public class LevelManager : MonoBehaviour
         currentHumansEaten = 0; // Reset Human Count
         
         NotifyProgress();
-        // Update Human UI Immediately (0)
-        OnHumanCountChanged?.Invoke(currentHumansEaten);
+        // Update Human UI - Kalan insan sayısını göster
+        OnHumanCountChanged?.Invoke(currentHumansRemaining);
     }
 
+    // Zombi tarafından yenilen insan
+    public void OnHumanEatenByZombie()
+    {
+        currentHumansRemaining--;
+        if (currentHumansRemaining < 0) currentHumansRemaining = 0;
+        
+        Debug.Log($"Human eaten by zombie! Remaining: {currentHumansRemaining}/{totalHumansInLevel}");
+        
+        // UI güncelle
+        OnHumanCountChanged?.Invoke(currentHumansRemaining);
+        
+        // Counter 0'a düştüyse Game Over
+        CheckHumanGameOver();
+    }
+
+    // Hole tarafından yenilen insan
     public void OnHumanEaten()
     {
         // Fever modunda insan limitinden etkilenme
         if (isFeverSequenceActive) return;
 
-        currentHumansEaten++;
-        OnHumanCountChanged?.Invoke(currentHumansEaten); // UI Update
+        currentHumansRemaining--;
+        if (currentHumansRemaining < 0) currentHumansRemaining = 0;
+        
+        OnHumanCountChanged?.Invoke(currentHumansRemaining);
 
-        if (currentHumansEaten >= maxHumanLimit)
+        // Counter 0'a düştüyse Game Over
+        CheckHumanGameOver();
+    }
+    
+    private void CheckHumanGameOver()
+    {
+        // Tüm insanlar yendi mi?
+        if (currentHumansRemaining <= 0 && totalHumansInLevel > 0)
         {
-            Debug.Log("Game Over! Too many humans eaten.");
+            Debug.Log("Game Over! All humans are gone.");
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.ShowRetry();

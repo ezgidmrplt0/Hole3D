@@ -352,6 +352,27 @@ public class HoleMechanics : MonoBehaviour
 
         // 2. Fizik Motorunu Devreye Sok
         Rigidbody rb = victim.GetComponent<Rigidbody>();
+        
+        // --- NON-CONVEX MESHCOLLIDER FIX ---
+        // MeshCollider varsa ve convex değilse, convex yap veya kaldır
+        MeshCollider[] meshCols = victim.GetComponentsInChildren<MeshCollider>();
+        foreach (var mc in meshCols)
+        {
+            if (mc != null && !mc.convex)
+            {
+                // Basit objeler için convex yapılabilir, karmaşık olanlar için kaldır
+                try
+                {
+                    mc.convex = true;
+                }
+                catch
+                {
+                    // Convex yapılamıyorsa, trigger yap (fizik çarpışması olmaz ama hata da vermez)
+                    mc.isTrigger = true;
+                }
+            }
+        }
+        
         if (rb == null) 
         {
             // Fever Modunda her şeye RB ekle ki düşebilsin
@@ -396,11 +417,24 @@ public class HoleMechanics : MonoBehaviour
 
             // Merkeze ve Aşağıya Doğru Çek
             Vector3 centerBottom = transform.position + Vector3.down * sinkDepth;
-            Vector3 direction = (centerBottom - vTransform.position).normalized;
+            Vector3 diff = centerBottom - vTransform.position;
             
-            // Güçlü Çekim
-            rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
-            rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
+            // --- INFINITE FORCE KORUMASI ---
+            // Eğer mesafe çok küçükse veya NaN ise, direction sıfırla
+            float dist = diff.magnitude;
+            Vector3 direction = Vector3.down; // Varsayılan
+            if (dist > 0.01f && !float.IsNaN(dist) && !float.IsInfinity(dist))
+            {
+                direction = diff / dist; // normalized
+            }
+            
+            // Rigidbody hala geçerli mi kontrol et
+            if (rb != null && !float.IsNaN(direction.x))
+            {
+                // Güçlü Çekim
+                rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
+                rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
+            }
 
             // Çukurun dibine yaklaştı mı?
             if (vTransform.position.y < bottomLimit + 0.5f) // Dibe yaklaştı
@@ -693,7 +727,16 @@ public class HoleMechanics : MonoBehaviour
                     targetRb.drag = 5f; 
                     targetRb.angularDrag = 5f;
 
-                    Vector3 direction = (transform.position - col.transform.position).normalized;
+                    Vector3 diff = transform.position - col.transform.position;
+                    float dist = diff.magnitude;
+                    
+                    // --- INFINITE FORCE KORUMASI ---
+                    if (dist < 0.01f || float.IsNaN(dist) || float.IsInfinity(dist))
+                    {
+                        continue; // Çok yakın veya geçersiz, atla
+                    }
+                    
+                    Vector3 direction = diff / dist;
                     direction.y = 0; // Keep pull horizontal, gravity handles falling
 
                     // Pull towards hole center

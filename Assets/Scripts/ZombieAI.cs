@@ -261,21 +261,10 @@ public class ZombieAI : CharacterAI
             // İnsanı yok et (Yendi!)
             Destroy(collision.gameObject);
 
-            // XP Kazan
-            currentXP++;
-            
-            // Level Atla (Eşik değeri geçilirse)
-            if (currentXP >= xpToNextLevel)
+            // LevelManager'a bildir (İnsan counter'ı düşsün)
+            if (LevelManager.Instance != null)
             {
-                level++;
-                currentXP = 0; // Sıfırla veya devret
-                // xpToNextLevel += 5; // İstersen zorluğu artırabilirsin
-
-                if (levelText != null) UpdateLevelText();
-                
-                // Sadece Level Atladığında Büyüsün (Opsiyonel, yoksa her yediğinde mi büyüsün?)
-                // Kullanıcı "her yediğinde büyüsün" demedi, "10 insan yediklerinde level atlasınlar" dedi.
-                // Biz yine de her yediğinde hafif büyütelim ama level sadece 10'da bir artsın.
+                LevelManager.Instance.OnHumanEatenByZombie();
             }
 
             // Zombiyi büyüt (Her yemekte azıcık büyüsün, ödül olsun)

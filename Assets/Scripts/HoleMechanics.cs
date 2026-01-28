@@ -49,11 +49,15 @@ public class HoleMechanics : MonoBehaviour
     private ObstructionFader obstructionFader;
     
     [Header("Effects")]
-    public ParticleSystem xpParticles; // Zombi yiyince çıkacak efekt
+    public ParticleSystem xpParticles; // Eski referans (kalsın)
+    private ParticleSystem eatVFX; // Kod ile oluşturulan efekt
 
     private void Start()
     {
         ResetLevelState(); 
+        
+        // --- HYPERCASUAL VFX SETUP ---
+        SetupHypercasualVFX();
 
         mainCam = Camera.main;
 
@@ -131,6 +135,100 @@ public class HoleMechanics : MonoBehaviour
     private void UpdateLevelText()
     {
         if (levelText != null) levelText.text = "Lvl " + holeLevel;
+    }
+
+    // --- PROGRAMMATIC VFX GENERATOR ---
+    private void SetupHypercasualVFX()
+    {
+        // 1. Obje Yarat
+        GameObject vfxObj = new GameObject("HypercasualEatVFX");
+        vfxObj.transform.SetParent(this.transform);
+        vfxObj.transform.localPosition = Vector3.up * 0.1f; 
+
+        eatVFX = vfxObj.AddComponent<ParticleSystem>();
+        var main = eatVFX.main;
+        var emission = eatVFX.emission;
+        var shape = eatVFX.shape;
+        var renderer = vfxObj.GetComponent<ParticleSystemRenderer>();
+        var sizeOverLifetime = eatVFX.sizeOverLifetime;
+        var limitVelocity = eatVFX.limitVelocityOverLifetime;
+
+        // 2. MAIN AYARLAR (Daha yumuşak ve canlı)
+        main.loop = false;
+        main.playOnAwake = false;
+        main.duration = 1.0f;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.7f); // Hızlı yok olsun
+        main.startSpeed = new ParticleSystem.MinMaxCurve(6f, 12f); // Patlama hızı
+        main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.35f); // Çeşitli boylar
+        main.gravityModifier = 1.5f; // Yerçekimi
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 100;
+
+        // 3. MOTION (Sürtünme hissi - Pop etkisi)
+        limitVelocity.enabled = true;
+        limitVelocity.dampen = 0.15f; // Hızla yavaşlasın (Drag)
+        limitVelocity.limit = 0f; // Limit yok, sadece dampen kullanıyoruz
+
+        // 4. EMISSION
+        emission.enabled = false; 
+
+        // 5. SHAPE (Daha geniş koni)
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 45f; // Geniş açı
+        shape.radius = 0.3f;
+
+        // 6. VISUALS (Yuvarlak Texture ve Shrink Effect)
+        sizeOverLifetime.enabled = true;
+        AnimationCurve curve = new AnimationCurve();
+        curve.AddKey(0.0f, 1.0f); // Başta tam boyut
+        curve.AddKey(1.0f, 0.0f); // Sonunda sıfır
+        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1.0f, curve);
+
+        // Texture oluştur (Yuvarlak)
+        Texture2D circleTex = GenerateCircleTexture();
+        
+        // Shader ve Material
+        Material particleMat = new Material(Shader.Find("Mobile/Particles/Alpha Blended"));
+        particleMat.mainTexture = circleTex;
+        renderer.material = particleMat;
+        renderer.renderMode = ParticleSystemRenderMode.Billboard;
+    }
+
+    // Runtime'da basit bir yuvarlak texture oluşturur
+    private Texture2D GenerateCircleTexture()
+    {
+        int size = 64;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
+        Color[] colors = new Color[size * size];
+        Vector2 center = new Vector2(size / 2f, size / 2f);
+        float radius = size / 2f;
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float dist = Vector2.Distance(new Vector2(x, y), center);
+                float alpha = Mathf.Clamp01((radius - dist) / 2f); // Yumuşak kenarlı (Anti-aliasing benzeri)
+                colors[y * size + x] = new Color(1, 1, 1, alpha);
+            }
+        }
+        tex.SetPixels(colors);
+        tex.Apply();
+        return tex;
+    }
+
+    public void PlayEatEffect(Vector3 pos, Color color)
+    {
+        if (eatVFX != null)
+        {
+            eatVFX.transform.position = pos;
+            
+            var main = eatVFX.main;
+            main.startColor = color; // Direkt renk ata
+            
+            // Patlat! (Büyük parça sayısı)
+            eatVFX.Emit(25);
+        }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -304,20 +402,24 @@ public class HoleMechanics : MonoBehaviour
         
         // --- AŞAMA 1: KENAR KONTROLÜ (BEKLEME) ---
         // Obje deliğin merkezine (siyah kısmına) tam girene kadar bekle
-        while (vTransform != null)
+        // FEVER MODE: Bekleme yapma! Direkt yut.
+        if (!isFeverMode)
         {
-            // Sadece X-Z düzleminde mesafe (Yükseklik önemsiz)
-            float dist = Vector2.Distance(new Vector2(transform.position.x, transform.position.z), 
-                                          new Vector2(vTransform.position.x, vTransform.position.z));
-
-            // Scale arttıkça radius artar. Biraz tolerans (0.8f) ekledik ki tam kenarda düşmesin, hafif içeri girince düşsün.
-            float scaledVoidRadius = voidRadius * transform.localScale.x * 0.9f;
-
-            if (dist < scaledVoidRadius)
+            while (vTransform != null)
             {
-                break; // Düşüş Başlasın!
+                // Sadece X-Z düzleminde mesafe (Yükseklik önemsiz)
+                float dist = Vector2.Distance(new Vector2(transform.position.x, transform.position.z), 
+                                              new Vector2(vTransform.position.x, vTransform.position.z));
+
+                // Scale arttıkça radius artar. Biraz tolerans (0.8f) ekledik ki tam kenarda düşmesin, hafif içeri girince düşsün.
+                float scaledVoidRadius = voidRadius * transform.localScale.x * 0.9f;
+
+                if (dist < scaledVoidRadius)
+                {
+                    break; // Düşüş Başlasın!
+                }
+                yield return null; 
             }
-            yield return null; 
         }
 
         if (vTransform == null) yield break;
@@ -388,6 +490,16 @@ public class HoleMechanics : MonoBehaviour
         // Rastgele bir ilk dönüş hızı ver (Tumble)
         rb.angularVelocity = Random.insideUnitSphere * 10f; 
 
+        // SCATTER EFFECT (Dağılma Efekti)
+        // Özellikle Fever modunda objeler kaotik şekilde savrulsun
+        if (isFeverMode)
+        {
+            // Rastgele fırlat (Hafifçe havaya ve yana doğru)
+            rb.velocity = Random.insideUnitSphere * 5f; 
+            // Güçlü bir dönüş ver (Tumble)
+            rb.angularVelocity = Random.insideUnitSphere * 10f;
+        } 
+
         // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli)
         Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
         Collider[] nearbyGrounds = Physics.OverlapSphere(vTransform.position, 10f, LayerMask.GetMask("Default", "Ground", "Environment")); 
@@ -401,6 +513,9 @@ public class HoleMechanics : MonoBehaviour
             }
         }
 
+        // 4. KÜÇÜLME EFEKTİ İPTAL (Burada hemen yapma)
+        // vTransform.DOScale(Vector3.zero, 1.0f).SetEase(Ease.InBack);
+        
         // 4. KÜÇÜLME EFEKTİ (Girdap etkisi)
         // Düşerken küçülerek yok olsun
         vTransform.DOScale(Vector3.zero, 1.0f).SetEase(Ease.InBack);
@@ -464,6 +579,25 @@ public class HoleMechanics : MonoBehaviour
 
     void ProcessEatenObject(GameObject victim)
     {
+        // --- HYPERCASUAL PARTICLE EFFECT ---
+        // Kurbanın rengini bulmaya çalış
+        Color victimColor = Color.white;
+        Renderer r = victim.GetComponentInChildren<Renderer>();
+        if (r != null)
+        {
+            if (r.material.HasProperty("_Color")) victimColor = r.material.color;
+            else if (r.sharedMaterial != null && r.sharedMaterial.HasProperty("_Color")) victimColor = r.sharedMaterial.color;
+        }
+
+        // Zombi ise özel renk (Yeşil Kan / Asit efektleri popüler)
+        if (victim.CompareTag("Zombie")) victimColor = Color.green;
+        // İnsan ise Kırmızı (Kan) veya Beyaz
+        else if (victim.CompareTag("Human")) victimColor = Color.red;
+
+        // Efekti, delik yüzeyinde oynat (Dibin dibinde değil)
+        Vector3 surfacePos = new Vector3(victim.transform.position.x, transform.position.y + 0.2f, victim.transform.position.z);
+        PlayEatEffect(surfacePos, victimColor);
+
         // --- FEVER MODE BONUS ---
         if (isFeverMode)
         {
@@ -493,11 +627,8 @@ public class HoleMechanics : MonoBehaviour
             // Floating Text (+XP Green)
             SpawnFloatingText("+" + gainedXP, Color.green);
 
-            // --- PARTICLE EFFECT ---
-            if (xpParticles != null)
-            {
-                xpParticles.Play();
-            }
+            // Eski effect iptal (Yenisi yukarıda var)
+            // if (xpParticles != null) xpParticles.Play();
 
             // --- COMBO VIBRATION (SERİ YEME) ---
             // Eğer son zombiden bu yana geçen süre az ise combo yap

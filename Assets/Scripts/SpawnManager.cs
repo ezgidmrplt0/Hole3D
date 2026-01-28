@@ -3,6 +3,14 @@ using System.Collections.Generic;
 
 public class SpawnManager : MonoBehaviour
 {
+    public static SpawnManager Instance;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
     [Header("Prefabs")]
     [Tooltip("List of Human prefabs to spawn.")]
     public List<GameObject> humanPrefabs;
@@ -188,6 +196,12 @@ public class SpawnManager : MonoBehaviour
         // groundY bulunduysa onu kullan, yoksa bounds'un minimum Y değerini kullan
         float y = groundYDetected ? groundY : b.min.y;
         return new Vector3(x, y + 0.5f, z);
+    }
+
+    // Public getter for map bounds (Used by Hole Movement Limits)
+    public Bounds GetMapBounds()
+    {
+        return currentSpawnBounds;
     }
 
     public void SpawnLevel(int humans, int zombies, bool isHordeMode = false)

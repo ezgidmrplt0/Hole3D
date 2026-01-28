@@ -59,6 +59,8 @@ public class LevelManager : MonoBehaviour
         StartCoroutine(SafetyCheckLoop());
     }
 
+
+
     [Header("Special Levels")]
     public GameObject simplePlanePrefab; // Kullanıcı dilerse buraya kendi plane prefabını atabilir
 

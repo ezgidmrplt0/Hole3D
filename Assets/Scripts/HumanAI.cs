@@ -14,6 +14,7 @@ public class HumanAI : CharacterAI
 
     private Vector3 wanderTarget;
     private float timer;
+    private Transform currentChaser;
 
     protected override void Awake()
     {
@@ -31,14 +32,39 @@ public class HumanAI : CharacterAI
             return;
         }
 
-        // 1. Zombi kontrolü (Kaçış)
-        // 1. Zombi kontrolü (Kaçış)
-        Transform enemy = GetClosestEnemy();
-        if (enemy != null)
+        // 1. Zombi kontrolü (Kaçış - Hysteresis ile)
+        // Önce kritik mesafedeki (fearRadius) en yakın düşmanı bul
+        Transform immediateEnemy = GetClosestEnemy();
+        
+        if (immediateEnemy != null)
         {
-            Vector3 fleeDirection = transform.position - enemy.position;
+            // Yeni bir tehdit var, onu hedefle
+            currentChaser = immediateEnemy;
+        }
+        else if (currentChaser != null)
+        {
+            // Kritik mesafede kimse yok, ama eski kovalayanı kontrol et (Buffer Zone)
+            float dist = Vector3.Distance(transform.position, currentChaser.position);
+            
+            // Eğer zombi çok uzaklaştıysa veya öldüyse takibi bırak
+            if (dist > fearRadius * 1.5f || !currentChaser.gameObject.activeInHierarchy)
+            {
+                currentChaser = null;
+            }
+        }
+
+        // Eğer hala birinden kaçıyorsak
+        if (currentChaser != null)
+        {
+            Vector3 fleeDirection = transform.position - currentChaser.position;
             Move(fleeDirection, true); // Koşarak kaç
             return; // Kaçarken başka bir şey yapma
+        }
+        
+        // Eğer kimse yoksa currentChaser'ı temizle (Garanti olsun)
+        if (immediateEnemy == null && currentChaser == null)
+        {
+             // Wander kısmına geçecek
         }
 
         // 2. Rastgele Gezinme (Wander)

@@ -2756,9 +2756,9 @@ MonoBehaviour:
   collisionCheckRadius: 1
   minSpawnDistance: 2
   maxSpawnAttempts: 100
-  magnetPickupPrefab: {fileID: -8098169881513260187, guid: ea0dd27961ea24e43b3b5810ab1fa1fe, type: 3}
-  speedPickupPrefab: {fileID: -8098169881513260187, guid: 014e8c208d4a8fb4eab645a4b0703da7, type: 3}
-  shieldPickupPrefab: {fileID: 2933762385178985932, guid: 31f646d3a1f275e5e900f8f75a1cb75e, type: 3}
+  magnetPickupPrefab: {fileID: 89448664301603614, guid: cc0f50400b64592f48655ad18157dfef, type: 3}
+  speedPickupPrefab: {fileID: 8950522390162507897, guid: 2877311f0b131c5e987793c89f94e8f0, type: 3}
+  shieldPickupPrefab: {fileID: 1408239952547486256, guid: 66fe1d33cc940e6b4a809f0f72148371, type: 3}
   skillSpawnMinInterval: 15
   skillSpawnMaxInterval: 30
   maxSkillPickupsOnMap: 2

@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1109570572183620043}
   - component: {fileID: 2982155104789289132}
   - component: {fileID: 2788930403645994336}
-  - component: {fileID: 4627206904631514299}
+  - component: {fileID: 6104380881897282557}
   m_Layer: 0
   m_Name: Skill
   m_TagString: Untagged
@@ -98,6 +98,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   skillType: 0
+  magnetVisualPrefab: {fileID: -8098169881513260187, guid: ea0dd27961ea24e43b3b5810ab1fa1fe, type: 3}
+  speedVisualPrefab: {fileID: -8098169881513260187, guid: 014e8c208d4a8fb4eab645a4b0703da7, type: 3}
+  shieldVisualPrefab: {fileID: 0}
   magnetColor: {r: 0, g: 0, b: 1, a: 1}
   speedColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   shieldColor: {r: 0, g: 1, b: 0, a: 1}
@@ -105,8 +108,8 @@ MonoBehaviour:
   bobHeight: 0.3
   bobSpeed: 2
   rotateSpeed: 90
---- !u!65 &4627206904631514299
-BoxCollider:
+--- !u!64 &6104380881897282557
+MeshCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -120,9 +123,10 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}

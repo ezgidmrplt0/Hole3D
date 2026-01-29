@@ -39,6 +39,8 @@ public class LevelManager : MonoBehaviour
     public System.Action<int> OnHumanCountChanged; // New Event for Human Counter UI
 
     private GameObject currentMapInstance;
+    private bool isCurrentLevelSpecial = false; // Flag for special level fever logic
+    private int targetDisplayCount = -1; // -1 means use real count
 
     private void Awake()
     {
@@ -137,22 +139,30 @@ public class LevelManager : MonoBehaviour
         if (isSpecialHordeLevel)
         {
             // --- SPECIAL LEVEL (Her 3 Levelde Bir) ---
-            // "Sadece Plane olsun, 30 zombi olsun, dip dibe (Horde) olsun"
-            Debug.Log($"*** SPECIAL LEVEL {actualLevelNumber} *** -> Horde Mode Active!");
+            // "Eat Everything Mode Hazırlık": Başlangıçta sadece 30 zombi.
+            // Hepsini yiyince Fever Mode açılacak ve O ZAMAN 60 tane daha gelecek.
+            Debug.Log($"*** SPECIAL LEVEL {actualLevelNumber} *** -> Standard Start (30 Zombies), Mega Fever waiting...");
             
-            mapToSpawn = simplePlanePrefab; // Varsa prefab, yoksa null (aşağıda createPrimitive yaparız)
+            mapToSpawn = simplePlanePrefab; // Varsa prefab, yoksa null
             
-            desiredZombieCount = 30; // Sabit 30 zombi
-            desiredHumanCount = 0;   // İnsan yok
-            isHordeMode = true;      // Dip dibe spawn
+            desiredZombieCount = 30; // Start with 30 zombies
+            targetDisplayCount = -1; // Show real count (30)
+            
+            desiredHumanCount = 0;   // No humans
+            isHordeMode = false;     // Scattered
+            
+            isCurrentLevelSpecial = true; // Flag set
         }
         else
         {
             // --- NORMAL LEVEL ---
+            isCurrentLevelSpecial = false;
+            targetDisplayCount = -1; // Reset to normal;
+
             LevelData data = levels[currentLevelIndex % levels.Count];
             mapToSpawn = data.mapPrefab;
 
-            // Zombi Sayısı (Level * 5)
+            // Zombi Sayısı (Eski mantık: Level * 5)
             desiredZombieCount = actualLevelNumber * 5;
             desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
             isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
@@ -288,6 +298,17 @@ public class LevelManager : MonoBehaviour
         
         totalZombiesInLevel = realZombieCount;
 
+        // --- Calculate Ratio for UI ---
+        if (targetDisplayCount > 0 && totalZombiesInLevel > 0)
+        {
+            displayRatio = (float)targetDisplayCount / totalZombiesInLevel;
+            Debug.Log($"LevelManager: Display Ratio set to {displayRatio} (Real: {totalZombiesInLevel} -> Display: {targetDisplayCount})");
+        }
+        else
+        {
+            displayRatio = 1f;
+        }
+
         // Reset Progress (After spawn to get real count)
         currentZombiesEaten = 0;
         currentHumansEaten = 0; // Reset Human Count
@@ -377,6 +398,20 @@ public class LevelManager : MonoBehaviour
         isFeverSequenceActive = true;
         Debug.Log("Level Quota Met! Starting FEVER MODE.");
 
+        // --- SPECIAL LEVEL LOGIC: EAT EVERYTHING SPAWN ---
+        if (isCurrentLevelSpecial)
+        {
+             Debug.Log(">>> SPECIAL LEVEL FEVER: Spawning 75 EXTRA Zombies for Eat Everything Mode! <<<");
+             if (spawnManager != null)
+             {
+                 // 0 İnsan, 75 Zombi, HordeMode=False (Scattered)
+                 spawnManager.SpawnLevel(0, 75, false);
+                 
+                 // Not: Bu yeni zombileri "totalZombiesInLevel"a eklemiyoruz çünkü level zaten bitti sayılıyor.
+                 // Sadece görsel ve ekstra puan/haz için varlar.
+             }
+        }
+
         HoleMechanics hole = FindObjectOfType<HoleMechanics>();
         bool feverStarted = false;
 
@@ -435,6 +470,8 @@ public class LevelManager : MonoBehaviour
         StartLevel();
     }
 
+    private float displayRatio = 1f; // Ratio for UI counter scaling
+
     private void NotifyProgress()
     {
         if (totalZombiesInLevel > 0)
@@ -443,9 +480,13 @@ public class LevelManager : MonoBehaviour
             OnProgressUpdated?.Invoke(progress);
             
             // Update Zombie Counter (Remaining Quantity)
-            int remaining = totalZombiesInLevel - currentZombiesEaten;
-            if (remaining < 0) remaining = 0;
-            OnZombieCountChanged?.Invoke(remaining);
+            int remainingReal = totalZombiesInLevel - currentZombiesEaten;
+            if (remainingReal < 0) remainingReal = 0;
+            
+            // Apply display ratio for "Fake" count (e.g. 30 real -> 75 display)
+            int remainingDisplay = Mathf.CeilToInt(remainingReal * displayRatio);
+            
+            OnZombieCountChanged?.Invoke(remainingDisplay);
         }
     }
 }

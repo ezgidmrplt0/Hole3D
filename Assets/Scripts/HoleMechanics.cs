@@ -39,7 +39,7 @@ public class HoleMechanics : MonoBehaviour
     [Header("Level System")]
     public int holeLevel = 1;
     public int currentXP = 0;
-    public int xpToNextLevel = 5; // İlk başta 5 tane yiyince büyüsün
+    public int xpToNextLevel = 15; // Slowed down: Start with 15 (was 5)
 
     // Görselleri bul (Public yaptık ki editörden de sürükleyebilesin)
     public HoleVisuals visuals;
@@ -335,6 +335,16 @@ public class HoleMechanics : MonoBehaviour
              DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, growDuration);
         }
 
+        // Detect Camera if Child
+        Vector3? originalCamPos = null;
+        if (mainCam != null && mainCam.transform.IsChildOf(transform))
+        {
+             originalCamPos = mainCam.transform.localPosition;
+             // Hole büyüyünce kamera çok uzaklaşıyor. Yakınlaştırmak için local pozisyonu küçültüyoruz.
+             // 3.5x büyüdüğü için, 0.4x e çekersek -> Toplamda 1.4x uzaklaşmış olur (Daha makul).
+             mainCam.transform.DOLocalMove(originalCamPos.Value * 0.4f, growDuration).SetEase(Ease.OutElastic);
+        }
+
         SpawnFloatingText("FEVER MODE!", Color.red);
         SpawnFloatingText("EAT EVERYTHING!", Color.yellow);
 
@@ -354,6 +364,12 @@ public class HoleMechanics : MonoBehaviour
         {
              float targetRadius = voidRadius * preFeverScale.x;
              DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, 0.5f);
+        }
+
+        // Kamera Reset
+        if (originalCamPos.HasValue)
+        {
+             mainCam.transform.DOLocalMove(originalCamPos.Value, 0.5f).SetEase(Ease.InBack);
         }
 
         yield return new WaitForSeconds(0.5f); // Animasyon bitsin
@@ -721,7 +737,7 @@ public class HoleMechanics : MonoBehaviour
     {
         holeLevel++;
         currentXP = 0; 
-        xpToNextLevel = (int)(xpToNextLevel * 1.5f); 
+        xpToNextLevel = (int)(xpToNextLevel * 1.8f); // Harder scaling (was 1.5f)
 
         // Büyüme Oranı
         float growthFactor = 1.2f;
@@ -745,7 +761,14 @@ public class HoleMechanics : MonoBehaviour
             DOTween.To(() => maskController.currentRadius, x => maskController.currentRadius = x, targetRadius, duration).SetEase(Ease.OutElastic);
         }
         
-        // fallRadius kullanılmıyor, çünkü transform scale edilince collider da büyüyor
+        // 4. Kamera Uzaklığını Dengele (Normal Levels)
+        // User Request: "Her levelde aynı olsun sadece boyutuna göre biraz uzaklaşsın"
+        // Scale 1.2x artıyor, eğer kamerayı ellemezsek 1.2x uzaklaşır.
+        // Biz local pozisyonu 0.9x yaparsak -> 1.2 * 0.9 = 1.08x (Sadece %8 uzaklaşır, mantıklı "biraz")
+        if (mainCam != null && mainCam.transform.IsChildOf(transform))
+        {
+            mainCam.transform.DOLocalMove(mainCam.transform.localPosition * 0.9f, duration).SetEase(Ease.OutElastic);
+        }
         
         UpdateLevelText();
 

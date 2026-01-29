@@ -573,8 +573,13 @@ public class SpawnManager : MonoBehaviour
 
     // ========== SKILL PICKUP SPAWN SYSTEM ==========
     [Header("Skill Pickup Settings")]
-    [Tooltip("Skill Pickup Prefab (Unity'de oluşturulmalı)")]
-    public GameObject skillPickupPrefab;
+    [Tooltip("Magnet Skill Prefab")]
+    public GameObject magnetPickupPrefab;
+    [Tooltip("Speed Skill Prefab")]
+    public GameObject speedPickupPrefab;
+    [Tooltip("Shield Skill Prefab")]
+    public GameObject shieldPickupPrefab;
+    
     [Tooltip("Minimum spawn aralığı (saniye)")]
     public float skillSpawnMinInterval = 15f;
     [Tooltip("Maximum spawn aralığı (saniye)")]
@@ -633,15 +638,29 @@ public class SpawnManager : MonoBehaviour
             return;
         }
         
-        // Prefab var mı?
-        if (skillPickupPrefab == null)
-        {
-            Debug.LogWarning("[SpawnManager] Skill Pickup Prefab atanmamış!");
-            return;
-        }
-        
         // Rastgele skill tipi seç
         SkillType randomSkill = (SkillType)Random.Range(0, 3);
+        GameObject prefabToSpawn = null;
+
+        switch (randomSkill)
+        {
+            case SkillType.Magnet:
+                prefabToSpawn = magnetPickupPrefab;
+                break;
+            case SkillType.Speed:
+                prefabToSpawn = speedPickupPrefab;
+                break;
+            case SkillType.Shield:
+                prefabToSpawn = shieldPickupPrefab;
+                break;
+        }
+        
+        // Prefab var mı?
+        if (prefabToSpawn == null)
+        {
+            Debug.LogWarning($"[SpawnManager] {randomSkill} Prefab atanmamış! Atlıyor.");
+            return;
+        }
         
         // Spawn pozisyonu bul
         Vector3 spawnPos = FindSkillSpawnPosition();
@@ -653,9 +672,9 @@ public class SpawnManager : MonoBehaviour
         }
         
         // Spawn!
-        GameObject pickup = Instantiate(skillPickupPrefab, spawnPos, Quaternion.identity);
+        GameObject pickup = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
         
-        // Skill tipini ayarla
+        // Skill tipini garantiye al (Prefab üzerinde ayarlı olsa bile)
         SkillPickup skillComponent = pickup.GetComponent<SkillPickup>();
         if (skillComponent != null)
         {

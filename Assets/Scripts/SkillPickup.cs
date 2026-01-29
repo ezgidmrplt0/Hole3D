@@ -8,7 +8,15 @@ public class SkillPickup : MonoBehaviour
     [Header("Skill Settings")]
     public SkillType skillType;
     
-    [Header("Visuals")]
+    [Header("3D Visual Models")]
+    [Tooltip("Drag the Magnet 3D Model Prefab here")]
+    public GameObject magnetVisualPrefab;
+    [Tooltip("Drag the Speed/Lightning 3D Model Prefab here")]
+    public GameObject speedVisualPrefab;
+    [Tooltip("Drag the Shield 3D Model Prefab here")]
+    public GameObject shieldVisualPrefab;
+
+    [Header("Visuals (Fallback)")]
     public Color magnetColor = Color.blue;
     public Color speedColor = Color.yellow;
     public Color shieldColor = Color.green;
@@ -62,9 +70,11 @@ public class SkillPickup : MonoBehaviour
         }
         col.isTrigger = true;
         
-        // Renderer bul ve renk ayarla
+        // Renderer bul (Varsayılan küre varsa)
         meshRenderer = GetComponentInChildren<Renderer>();
-        ApplyColor();
+        
+        // Görseli Uygula (Model Yükle)
+        ApplyVisuals();
         
         // Hole referansını bul
         holeTransform = FindObjectOfType<HoleMechanics>()?.transform;
@@ -74,6 +84,45 @@ public class SkillPickup : MonoBehaviour
         transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack);
         
         Debug.Log($"[SkillPickup] {skillType} spawned at {transform.position}");
+    }
+    
+    private void ApplyVisuals()
+    {
+        GameObject prefabToSpawn = null;
+        
+        // 1. Tipine göre prefab seç
+        switch (skillType)
+        {
+            case SkillType.Magnet:
+                prefabToSpawn = magnetVisualPrefab;
+                break;
+            case SkillType.Speed:
+                prefabToSpawn = speedVisualPrefab;
+                break;
+            case SkillType.Shield:
+                prefabToSpawn = shieldVisualPrefab;
+                break;
+        }
+        
+        // 2. Prefab atanmışsa onu oluştur
+        if (prefabToSpawn != null)
+        {
+            // Varsayılan küreyi kapat (Renderer'ı kapatarak)
+            if (meshRenderer != null) meshRenderer.enabled = false;
+            
+            // Modeli oluştur
+            GameObject model = Instantiate(prefabToSpawn, transform);
+            model.transform.localPosition = Vector3.zero;
+            model.transform.localRotation = Quaternion.identity;
+            
+            // Eğer model çok büyükse veya küçükse burada scale ayarlayabilirsin
+            // model.transform.localScale = Vector3.one * 0.5f; 
+        }
+        else
+        {
+            // Prefab yoksa eski renk sistemini kullan (Fallback)
+            ApplyColor();
+        }
     }
     
     private Transform holeTransform;
@@ -208,7 +257,7 @@ public class SkillPickup : MonoBehaviour
             rb.useGravity = true;
         }
     }
-    
+
     void ApplyColor()
     {
         if (meshRenderer == null) return;

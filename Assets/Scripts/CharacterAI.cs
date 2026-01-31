@@ -87,12 +87,12 @@ public class CharacterAI : MonoBehaviour
         rb.constraints = RigidbodyConstraints.FreezeRotation; 
         rb.useGravity = true;
         
-        // Stabilize Physics - Daha yüksek drag ile tırmanmayı zorlaştır
-        rb.drag = 2f; 
-        rb.angularDrag = 10f;
+        // Stabilize Physics - Hafif drag ile tırmanmayı zorlaştır
+        rb.drag = 1f; 
+        rb.angularDrag = 5f;
         
-        // Daha ağır yap ki itilmesin/fırlamasın
-        rb.mass = 5f;
+        // Normal ağırlık (Magnet ile uyumlu)
+        rb.mass = 1.5f;
 
 
         // 3. Setup Collider (Zombilerin içine gömülmemesi için)

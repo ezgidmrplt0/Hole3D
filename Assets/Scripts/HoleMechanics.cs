@@ -34,6 +34,13 @@ public class HoleMechanics : MonoBehaviour
     // public float sinkDepth = 2f; // Removed duplicate
     public float minScale = 0.1f;
 
+    // Başlangıç değerleri (Reset için)
+    private Vector3 initialScale;
+    private Vector3 initialVisualsScale;
+    private Vector3 initialCameraLocalPos;
+    private Quaternion initialCameraLocalRot;
+    private bool cameraIsChildOfHole = false;
+
     // Eski ayarlar temizlendi
 
     [Header("Level System")]
@@ -54,12 +61,26 @@ public class HoleMechanics : MonoBehaviour
 
     private void Start()
     {
+        // Başlangıç scale'lerini kaydet (reset için)
+        initialScale = transform.localScale;
+        
         ResetLevelState(); 
         
         // --- HYPERCASUAL VFX SETUP ---
         SetupHypercasualVFX();
 
         mainCam = Camera.main;
+        
+        // Kamera başlangıç pozisyonunu kaydet (Fever Mode reset için)
+        if (mainCam != null)
+        {
+            cameraIsChildOfHole = mainCam.transform.IsChildOf(transform);
+            if (cameraIsChildOfHole)
+            {
+                initialCameraLocalPos = mainCam.transform.localPosition;
+                initialCameraLocalRot = mainCam.transform.localRotation;
+            }
+        }
 
         // Deliğin kendi colliderlarını (Siyah kısım, çerçeve vb.) hafızaya al
         holeCols = GetComponentsInChildren<Collider>();
@@ -83,6 +104,9 @@ public class HoleMechanics : MonoBehaviour
         }
         else
         {
+            // Visuals'ın başlangıç scale'ini kaydet
+            initialVisualsScale = visuals.transform.localScale;
+            
             // Bulduysak barı başlangıç durumuna (0) getir veya mevcut XP durumunu yansıt
             visuals.UpdateLocalProgress((float)currentXP / xpToNextLevel);
         }
@@ -128,8 +152,63 @@ public class HoleMechanics : MonoBehaviour
     // Yeni level başladığında veya fever bittiğinde çağrılmalı
     public void ResetLevelState()
     {
+        // Fever modunu kapat
         isFeverMode = false;
-        // Gerekirse başka resetler buraya
+        
+        // Tüm DOTween animasyonlarını iptal et
+        DOTween.Kill(transform);
+        if (visuals != null) DOTween.Kill(visuals.transform);
+        if (mainCam != null) DOTween.Kill(mainCam.transform);
+        
+        // Scale'i başlangıç değerine döndür
+        if (initialScale != Vector3.zero)
+        {
+            transform.localScale = initialScale;
+        }
+        else
+        {
+            // Fallback: 1,1,1
+            transform.localScale = Vector3.one;
+        }
+        
+        // Visuals scale'ini de resetle
+        if (visuals != null)
+        {
+            if (initialVisualsScale != Vector3.zero)
+            {
+                visuals.transform.localScale = initialVisualsScale;
+            }
+            else
+            {
+                visuals.transform.localScale = Vector3.one;
+            }
+        }
+        
+        // KAMERA RESET - Fever Mode sonrası bozulan açıyı düzelt
+        if (mainCam != null && cameraIsChildOfHole)
+        {
+            mainCam.transform.localPosition = initialCameraLocalPos;
+            mainCam.transform.localRotation = initialCameraLocalRot;
+        }
+        
+        // Mask radius'u da resetle
+        if (maskController != null)
+        {
+            float targetRadius = voidRadius * transform.localScale.x;
+            maskController.SetRadius(targetRadius);
+        }
+        
+        // Hole level ve XP'yi resetle (opsiyonel - her level başında sıfırdan başlamak istiyorsan)
+        // holeLevel = 1;
+        // currentXP = 0;
+        
+        // ObstructionFader'ı aktif et
+        if (obstructionFader != null)
+        {
+            obstructionFader.enabled = true;
+        }
+        
+        Debug.Log($"HoleMechanics: Reset completed. Scale: {transform.localScale}, Camera reset: {cameraIsChildOfHole}");
     }
 
     private void UpdateLevelText()
@@ -868,7 +947,8 @@ public class HoleMechanics : MonoBehaviour
                 }
 
                 CharacterAI charAI = col.GetComponent<CharacterAI>();
-                if (charAI != null) charAI.enabled = false; // Stop AI movement logic
+                // CharacterAI'yı tamamen kapatmak yerine sadece geçici olarak durdur
+                // (enabled = false yapmak sorunlara yol açıyor)
 
                 // 3. Apply Force with Heavy Damping (To stop orbiting)
                 Rigidbody targetRb = col.GetComponent<Rigidbody>();
@@ -877,9 +957,9 @@ public class HoleMechanics : MonoBehaviour
                     targetRb.isKinematic = false; 
 
                     // -- Physics Tweak --
-                    // 1. Apply high drag so they don't overshoot (Orbiting issue)
-                    targetRb.drag = 5f; 
-                    targetRb.angularDrag = 5f;
+                    // Magnet aktifken drag'i düşür ki çekebilsin
+                    targetRb.drag = 0.5f; 
+                    targetRb.angularDrag = 0.5f;
 
                     Vector3 diff = transform.position - col.transform.position;
                     float dist = diff.magnitude;
@@ -893,9 +973,9 @@ public class HoleMechanics : MonoBehaviour
                     Vector3 direction = diff / dist;
                     direction.y = 0; // Keep pull horizontal, gravity handles falling
 
-                    // Pull towards hole center
-                    // ForceMode.Force for smooth continuous pull against the drag
-                    targetRb.AddForce(direction * force, ForceMode.Force);
+                    // Pull towards hole center - GÜÇLÜ ÇEKİŞ
+                    // ForceMode.Acceleration kütle farkını yoksayar
+                    targetRb.AddForce(direction * force, ForceMode.Acceleration);
                     
                     // Draw debug line to confirm lock-on
                     Debug.DrawLine(transform.position, col.transform.position, Color.cyan);

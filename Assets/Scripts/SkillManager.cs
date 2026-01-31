@@ -35,10 +35,10 @@ public class SkillManager : MonoBehaviour
     // ========== BASE SETTINGS ==========
     [Header("Magnet Settings")]
     public float magnetBaseDuration = 8f;
-    public float magnetBaseRadius = 3f;
-    public float magnetBaseForce = 8f;
-    public float magnetRadiusPerLevel = 0.5f;  // Her level +0.5m
-    public float magnetForcePerLevel = 2f;     // Her level +2 force
+    public float magnetBaseRadius = 6f;     // Artırıldı (3 -> 6)
+    public float magnetBaseForce = 25f;     // Artırıldı (8 -> 25)
+    public float magnetRadiusPerLevel = 1f;  // Her level +1m (0.5 -> 1)
+    public float magnetForcePerLevel = 5f;   // Her level +5 force (2 -> 5)
 
     [Header("Speed Settings")]
     public float speedBaseDuration = 6f;

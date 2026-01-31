@@ -123,6 +123,13 @@ public class LevelManager : MonoBehaviour
         // Reset Logic
         isFeverSequenceActive = false;
         
+        // HOLE RESET - Fever sonrası büyük kalmayı önle
+        HoleMechanics hole = FindObjectOfType<HoleMechanics>();
+        if (hole != null)
+        {
+            hole.ResetLevelState();
+        }
+        
         // Skills reset per level
         if (SkillManager.Instance != null)
         {
@@ -149,6 +156,13 @@ public class LevelManager : MonoBehaviour
             // "Eat Everything Mode Hazırlık": Başlangıçta sadece 30 zombi.
             // Hepsini yiyince Fever Mode açılacak ve O ZAMAN 60 tane daha gelecek.
             Debug.Log($"*** SPECIAL LEVEL {actualLevelNumber} *** -> Standard Start (30 Zombies), Mega Fever waiting...");
+            
+            // HORDE BANNER GÖSTER
+            UIManager uiManager = FindObjectOfType<UIManager>();
+            if (uiManager != null)
+            {
+                uiManager.ShowHordeBanner();
+            }
             
             mapToSpawn = simplePlanePrefab; // Varsa prefab, yoksa null
             

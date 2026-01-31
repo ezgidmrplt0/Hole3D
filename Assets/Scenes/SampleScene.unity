@@ -653,6 +653,10 @@ MonoBehaviour:
     zombieCount: 5
     humanCount: 10
     isHordeLevel: 0
+  - mapPrefab: {fileID: 6862343356722946272, guid: 09bffd6b0363a12dc80b3d2fc65d621c, type: 3}
+    zombieCount: 5
+    humanCount: 10
+    isHordeLevel: 0
   currentLevelIndex: 0
   spawnManager: {fileID: 1517328783}
   currentZombiesEaten: 0
@@ -705,6 +709,9 @@ MonoBehaviour:
   zombieCounterPanel: {fileID: 1832182739}
   zombieCounterText: {fileID: 1256978198}
   humanCounterText: {fileID: 654121763}
+  hordeBannerPanel: {fileID: 0}
+  hordeBannerText: {fileID: 0}
+  hordeBannerDuration: 2
   marketPanel: {fileID: 1314362222}
   magnetButton: {fileID: 1486384442}
   magnetPriceText: {fileID: 1852650946}

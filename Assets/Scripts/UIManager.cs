@@ -13,6 +13,11 @@ public class UIManager : MonoBehaviour
     
     [Header("Human Counter")]
     public TextMeshProUGUI humanCounterText;
+    
+    [Header("Horde Banner")]
+    public GameObject hordeBannerPanel;
+    public TextMeshProUGUI hordeBannerText;
+    public float hordeBannerDuration = 2f;
 
     private void Start()
     {
@@ -97,6 +102,142 @@ public class UIManager : MonoBehaviour
             // Artık doğrudan kalan insan sayısını gösteriyoruz
             humanCounterText.text = remainingHumans.ToString();
         }
+    }
+    
+    // --- HORDE BANNER ---
+    public void ShowHordeBanner()
+    {
+        StartCoroutine(HordeBannerRoutine());
+    }
+    
+    private System.Collections.IEnumerator HordeBannerRoutine()
+    {
+        // Eğer panel yoksa, dinamik oluştur
+        if (hordeBannerPanel == null)
+        {
+            CreateHordeBannerDynamically();
+        }
+        
+        if (hordeBannerPanel != null)
+        {
+            hordeBannerPanel.SetActive(true);
+            
+            // Animasyonlu giriş (Scale ile)
+            RectTransform rect = hordeBannerPanel.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.localScale = Vector3.zero;
+                
+                // Büyüyerek gel
+                float elapsed = 0f;
+                float growDuration = 0.3f;
+                while (elapsed < growDuration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = elapsed / growDuration;
+                    rect.localScale = Vector3.Lerp(Vector3.zero, Vector3.one * 1.2f, t);
+                    yield return null;
+                }
+                
+                // Biraz küçül (bounce efekti)
+                elapsed = 0f;
+                float shrinkDuration = 0.15f;
+                while (elapsed < shrinkDuration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = elapsed / shrinkDuration;
+                    rect.localScale = Vector3.Lerp(Vector3.one * 1.2f, Vector3.one, t);
+                    yield return null;
+                }
+            }
+            
+            // Ekranda bekle
+            yield return new WaitForSeconds(hordeBannerDuration);
+            
+            // Küçülerek git
+            if (rect != null)
+            {
+                float elapsed = 0f;
+                float shrinkDuration = 0.2f;
+                while (elapsed < shrinkDuration)
+                {
+                    elapsed += Time.deltaTime;
+                    float t = elapsed / shrinkDuration;
+                    rect.localScale = Vector3.Lerp(Vector3.one, Vector3.zero, t);
+                    yield return null;
+                }
+            }
+            
+            hordeBannerPanel.SetActive(false);
+        }
+    }
+    
+    private void CreateHordeBannerDynamically()
+    {
+        // Ana UI Canvas'ı bul (Screen Space - Overlay veya Camera)
+        // World Space canvas'ları (Hole'un canvas'ı gibi) atla
+        Canvas[] allCanvases = FindObjectsOfType<Canvas>();
+        Canvas mainCanvas = null;
+        
+        foreach (Canvas c in allCanvases)
+        {
+            // World Space değilse ve renderMode Screen Space ise ana canvas
+            if (c.renderMode != RenderMode.WorldSpace)
+            {
+                mainCanvas = c;
+                break;
+            }
+        }
+        
+        // Hiç Screen Space canvas bulunamadıysa, World Space olmayan ilk canvas'ı kullan
+        if (mainCanvas == null)
+        {
+            // Son çare: Yeni bir canvas oluştur
+            GameObject canvasObj = new GameObject("HordeBannerCanvas");
+            mainCanvas = canvasObj.AddComponent<Canvas>();
+            mainCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            mainCanvas.sortingOrder = 100; // En üstte görünsün
+            canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>();
+            canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        }
+        
+        // Panel oluştur
+        hordeBannerPanel = new GameObject("HordeBannerPanel");
+        hordeBannerPanel.transform.SetParent(mainCanvas.transform, false);
+        
+        RectTransform panelRect = hordeBannerPanel.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.sizeDelta = new Vector2(800, 200);
+        
+        // Arkaplan YOK - sadece yazı görünsün
+        // (Image component eklemiyoruz)
+        
+        // Text oluştur
+        GameObject textObj = new GameObject("HordeText");
+        textObj.transform.SetParent(hordeBannerPanel.transform, false);
+        
+        RectTransform textRect = textObj.AddComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+        
+        hordeBannerText = textObj.AddComponent<TextMeshProUGUI>();
+        hordeBannerText.text = "HORDE!";
+        hordeBannerText.fontSize = 100; // Daha büyük
+        hordeBannerText.fontStyle = FontStyles.Bold;
+        hordeBannerText.color = Color.red;
+        hordeBannerText.alignment = TextAlignmentOptions.Center;
+        hordeBannerText.enableWordWrapping = false;
+        
+        // Güçlü outline efekti (okunabilirlik için)
+        hordeBannerText.outlineWidth = 0.3f;
+        hordeBannerText.outlineColor = Color.black;
+        
+        hordeBannerPanel.SetActive(false);
     }
     [Header("Panels")]
     public GameObject marketPanel;

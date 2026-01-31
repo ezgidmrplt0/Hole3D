@@ -321,9 +321,12 @@ public class SpawnManager : MonoBehaviour
                     // Şurada zombi var mı diye bak (Basit mesafe kontrolü)
                     if (IsPositionSafeForHorde(finalPos, minSeparation))
                     {
+                        // Pozisyonu groundY'ye zorla
+                        Vector3 safePos = new Vector3(finalPos.x, groundY + 0.1f, finalPos.z);
+                        
                         Quaternion rot = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                        Instantiate(selectedPrefab, finalPos, rot);
-                        spawnedPositions.Add(finalPos);
+                        Instantiate(selectedPrefab, safePos, rot);
+                        spawnedPositions.Add(safePos);
                         spawned = true;
                         break;
                     }
@@ -336,12 +339,13 @@ public class SpawnManager : MonoBehaviour
             {
                 Vector2 rnd = Random.insideUnitCircle * hordeRadius;
                 Vector3 forcedPos = hordeCenter + new Vector3(rnd.x, 0, rnd.y);
-                Vector3 finalForced = GetPositionAroundPoint(forcedPos, 0f);
+                forcedPos = ClampToBounds(forcedPos);
                 
-                if (!CheckValid(finalForced)) finalForced = forcedPos; // Son çare
+                // Zorla groundY'ye oturt
+                Vector3 safeForced = new Vector3(forcedPos.x, groundY + 0.1f, forcedPos.z);
 
-                Instantiate(selectedPrefab, finalForced, Quaternion.identity);
-                spawnedPositions.Add(finalForced);
+                Instantiate(selectedPrefab, safeForced, Quaternion.identity);
+                spawnedPositions.Add(safeForced);
                 Debug.Log("SpawnManager: Force spawned zombie (crowded area).");
             }
         }
@@ -352,6 +356,18 @@ public class SpawnManager : MonoBehaviour
     // Horde modu için daha hafif, sadece diğer zombileri kontrol eden güvenli alan
     private bool IsPositionSafeForHorde(Vector3 pos, float minDist)
     {
+         // Yükseklik kontrolü - groundY'den çok yüksekte mi?
+         if (pos.y > groundY + 0.5f)
+         {
+             return false;
+         }
+         
+         // Engel kontrolü
+         if (IsPositionBlockedByObstacle(pos))
+         {
+             return false;
+         }
+         
          // Sadece diğer spawnlanmış objelere bak, duvarlara vs çok takılma (Horde kaosu için)
          foreach (Vector3 spawnedPos in spawnedPositions)
          {
@@ -395,8 +411,16 @@ public class SpawnManager : MonoBehaviour
                 if (IsValidPosition(candidatePos))
                 {
                     Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    GameObject instance = Instantiate(selectedPrefab, candidatePos, randomRotation);
-                    spawnedPositions.Add(candidatePos); // Kaydet
+                    
+                    // Spawn pozisyonunu groundY'ye zorla (güvenlik)
+                    Vector3 safePos = new Vector3(candidatePos.x, groundY + 0.1f, candidatePos.z);
+                    
+                    GameObject instance = Instantiate(selectedPrefab, safePos, randomRotation);
+                    
+                    // Spawn sonrası pozisyonu düzelt (CharacterAI Awake'den önce)
+                    instance.transform.position = safePos;
+                    
+                    spawnedPositions.Add(safePos); // Kaydet
                     return instance; // Spawn successful, return obj
                 }
             }
@@ -409,11 +433,24 @@ public class SpawnManager : MonoBehaviour
     private bool IsValidPosition(Vector3 position)
     {
         if (!CheckValid(position)) return false;
+        
+        // 0. KRITIK: Yükseklik kontrolü - groundY'den çok yüksekte mi?
+        float maxAllowedY = groundY + 0.5f;
+        if (position.y > maxAllowedY)
+        {
+            return false; // Çok yüksekte, geçersiz
+        }
 
         // 1. Engel Kontrolü (Obstacle Layer)
         Vector3 checkPos = position + Vector3.up * (collisionCheckRadius + 0.2f);
         
         if (obstacleLayer.value != 0 && Physics.CheckSphere(checkPos, collisionCheckRadius, obstacleLayer))
+        {
+            return false;
+        }
+        
+        // 1.5 Engel altında mı kontrolü
+        if (IsPositionBlockedByObstacle(position))
         {
             return false;
         }
@@ -448,36 +485,61 @@ public class SpawnManager : MonoBehaviour
         targetPos = ClampToBounds(targetPos);
 
         // --- ZEMIN SEVİYESİNE OTURT ---
-        // Eğer groundY tespit edilmişse, doğrudan onu kullan
-        if (groundYDetected)
+        // KRITIK: Karakterler ASLA groundY'nin üzerinde spawn olmamalı
+        // Bu yüzden raycast kullanmak yerine doğrudan groundY kullanıyoruz
+        
+        float spawnY = groundYDetected ? groundY : 0f;
+        
+        // Pozisyonda engel var mı kontrol et
+        Vector3 candidateResult = new Vector3(targetPos.x, spawnY + spawnHeightOffset + 0.1f, targetPos.z);
+        
+        // Engel kontrolü - bu pozisyonda bir engel (taş, kristal vs) var mı?
+        if (IsPositionBlockedByObstacle(candidateResult))
         {
-            // Karakter yüksekliği için +0.1f offset (ayaklar zemine bassın)
-            Vector3 result = new Vector3(targetPos.x, groundY + spawnHeightOffset + 0.1f, targetPos.z);
-            return CheckValid(result) ? result : Vector3.negativeInfinity;
+            // Engel var, bu pozisyon geçersiz
+            return Vector3.negativeInfinity;
         }
         
-        // --- FALLBACK: RAYCAST ILE ZEMINE OTURT ---
-        // Yüksekten aşağıya bak
-        Vector3 rayStart = new Vector3(targetPos.x, centerPoint.y + raycastHeight, targetPos.z);
+        return CheckValid(candidateResult) ? candidateResult : Vector3.negativeInfinity;
+    }
+    
+    // Pozisyonda engel olup olmadığını kontrol et
+    private bool IsPositionBlockedByObstacle(Vector3 pos)
+    {
+        // Yukarıdan aşağıya raycast at
+        Vector3 rayStart = pos + Vector3.up * 5f;
+        RaycastHit hit;
         
-        // Geçici Maske Mantığı: Eğer Ground Layer ayarlanmamışsa, her şeyi zemin kabul et (~0)
-        LayerMask activeMask = groundLayer;
-        if (activeMask.value == 0) activeMask = ~0; // Everything
-
-        if (Physics.Raycast(rayStart, Vector3.down, out RaycastHit hit, raycastHeight * 2f, activeMask))
+        if (Physics.Raycast(rayStart, Vector3.down, out hit, 10f))
         {
-            // Zemin bulundu! Tam üstüne koy.
-            Vector3 result = hit.point + Vector3.up * (spawnHeightOffset + 0.1f);
-            return CheckValid(result) ? result : Vector3.negativeInfinity;
+            // Eğer çarptığımız şey groundY'den yüksekteyse, bu bir engeldir
+            float hitY = hit.point.y;
+            float tolerance = 0.3f;
+            
+            if (hitY > groundY + tolerance)
+            {
+                // Bu bir engel (taş, kristal, bina vs)
+                return true;
+            }
+            
+            // Ayrıca "Ground" tag'i olmayan ve yüksek olan objeleri de engelle
+            if (!hit.collider.CompareTag("Ground") && hitY > groundY + tolerance)
+            {
+                return true;
+            }
         }
-        else
+        
+        // Sphere check ile de engel kontrolü yap
+        if (obstacleLayer.value != 0)
         {
-             // --- FALLBACK (ZEMİN BULUNAMADI) ---
-             // groundY varsa onu kullan, yoksa centerPoint.y kullan
-             float fallbackY = groundYDetected ? groundY : centerPoint.y;
-             Vector3 fallbackResult = new Vector3(targetPos.x, fallbackY + spawnHeightOffset + 0.1f, targetPos.z);
-             return CheckValid(fallbackResult) ? fallbackResult : Vector3.negativeInfinity;
+            Collider[] obstacles = Physics.OverlapSphere(pos + Vector3.up * 0.5f, 0.5f, obstacleLayer);
+            if (obstacles.Length > 0)
+            {
+                return true;
+            }
         }
+        
+        return false;
     }
     
     private Vector3 ClampToBounds(Vector3 pos)

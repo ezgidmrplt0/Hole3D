@@ -31,6 +31,9 @@ public class LevelManager : MonoBehaviour
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
     public int currentHumansRemaining = 0; // Kalan insan sayısı
     public int currentHumansEaten = 0; // Hole tarafından yenilen (fail condition için)
+    
+    // Normal level index (horde levellar bu sayacı artırmaz)
+    private int normalLevelIndex = 0;
 
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
@@ -57,6 +60,10 @@ public class LevelManager : MonoBehaviour
 
     private void Start()
     {
+        // Reset indexes at game start
+        currentLevelIndex = 0;
+        normalLevelIndex = 0;
+        
         StartLevel();
         StartCoroutine(SafetyCheckLoop());
     }
@@ -159,7 +166,8 @@ public class LevelManager : MonoBehaviour
             isCurrentLevelSpecial = false;
             targetDisplayCount = -1; // Reset to normal;
 
-            LevelData data = levels[currentLevelIndex % levels.Count];
+            // Normal level için normalLevelIndex kullan (horde levelları saymaz)
+            LevelData data = levels[normalLevelIndex % levels.Count];
             mapToSpawn = data.mapPrefab;
 
             // Zombi Sayısı (Eski mantık: Level * 5)
@@ -167,7 +175,7 @@ public class LevelManager : MonoBehaviour
             desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
             isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
             
-            Debug.Log($"Level {actualLevelNumber}: Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
+            Debug.Log($"Level {actualLevelNumber} (Normal Index {normalLevelIndex}): Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
         }
 
         // --- MAP SWITCHING LOGIC ---
@@ -464,6 +472,14 @@ public class LevelManager : MonoBehaviour
         if (EconomyManager.Instance != null)
         {
             EconomyManager.Instance.AddCoins(20);
+        }
+
+        // Eğer şu anki level special (horde) DEĞİLSE, normalLevelIndex'i artır
+        int actualLevelNumber = currentLevelIndex + 1;
+        bool wasSpecialLevel = (actualLevelNumber % 3 == 0);
+        if (!wasSpecialLevel)
+        {
+            normalLevelIndex++;
         }
 
         currentLevelIndex++;

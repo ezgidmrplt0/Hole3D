@@ -83,12 +83,16 @@ public class CharacterAI : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
         
+        // Freeze Y rotation AND position to prevent climbing
         rb.constraints = RigidbodyConstraints.FreezeRotation; 
         rb.useGravity = true;
         
-        // Stabilize Physics
-        rb.drag = 1f; 
+        // Stabilize Physics - Daha yüksek drag ile tırmanmayı zorlaştır
+        rb.drag = 2f; 
         rb.angularDrag = 10f;
+        
+        // Daha ağır yap ki itilmesin/fırlamasın
+        rb.mass = 5f;
 
 
         // 3. Setup Collider (Zombilerin içine gömülmemesi için)
@@ -96,7 +100,7 @@ public class CharacterAI : MonoBehaviour
         if (IsPositionInvalid(transform.position))
         {
              Debug.LogWarning($"CharacterAI: {gameObject.name} initiated at invalid position {transform.position}. Resetting to zero.");
-             transform.position = new Vector3(0, 5f, 0);
+             transform.position = new Vector3(0, expectedGroundY + 0.5f, 0);
         }
 
         CapsuleCollider collider = GetComponent<CapsuleCollider>();
@@ -135,13 +139,11 @@ public class CharacterAI : MonoBehaviour
     [Header("Ground Check")]
     [Tooltip("Karakterin olması gereken zemin Y seviyesi (Plane Y değeri)")]
     public float expectedGroundY = 0f;
-    [Tooltip("Bu değerden fazla yüksekteyse itilmeye başlar")]
-    public float heightTolerance = 0.5f;
-    [Tooltip("İtilme kuvveti")]
-    public float pushForce = 3f;
+    [Tooltip("Bu değerden fazla yüksekteyse zorla aşağı indirilir")]
+    public float heightTolerance = 0.3f; // Daha katı tolerans
     
-    private Vector3 pushDirection;
-    private float pushTimer = 0f;
+    // Maximum allowed height above ground (hard clamp)
+    private const float MAX_HEIGHT_ABOVE_GROUND = 0.5f;
 
     protected virtual void LateUpdate()
     {
@@ -149,16 +151,17 @@ public class CharacterAI : MonoBehaviour
         if (IsPositionInvalid(transform.position))
         {
              Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting.");
-             transform.position = new Vector3(0, 2f, 0);
+             transform.position = new Vector3(0, expectedGroundY + 0.1f, 0);
              if (rb != null) rb.velocity = Vector3.zero;
         }
 
         // 2. FALLING CHECK (Yere Düşme Koruması)
-        // Eğer karakter haritanın altına düşerse, onu hemen yukarı ışınla.
-        if (transform.position.y < -2f)
+        // Eğer karakter haritanın ÇOK altına düşerse (delik vs), onu merkeze ışınla
+        // Ama normal düşüşe izin ver
+        if (transform.position.y < expectedGroundY - 5f)
         {
-            // Yere düştü! Kurtar.
-            transform.position = new Vector3(transform.position.x, 2f, transform.position.z);
+            // Çok aşağı düştü! Kurtar.
+            transform.position = new Vector3(0, expectedGroundY + 0.5f, 0);
             if (rb != null) 
             {
                 rb.velocity = Vector3.zero;
@@ -166,47 +169,64 @@ public class CharacterAI : MonoBehaviour
             }
         }
         
-        // 3. YÜKSEKTE KALMA KONTROLÜ
-        // Eğer karakter zemin seviyesinden yüksekteyse ve altında düzgün zemin yoksa, it
+        // 3. YÜKSEKTE KALMA KONTROLÜ - SERT CLAMP
+        // Karakter asla plane Y'sinin belirli bir miktarından fazla yukarıda olamaz
+        float maxAllowedY = expectedGroundY + MAX_HEIGHT_ABOVE_GROUND;
         float currentHeight = transform.position.y;
-        if (currentHeight > expectedGroundY + heightTolerance)
+        
+        if (currentHeight > maxAllowedY)
         {
-            // Altında gerçek zemin (plane) var mı kontrol et
-            RaycastHit hit;
-            bool hasGroundBelow = Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hit, 2f, groundLayer);
+            // Zorla aşağı indir - ANINDA
+            Vector3 pos = transform.position;
+            pos.y = expectedGroundY + 0.1f; // Doğrudan zemine indir
+            transform.position = pos;
             
-            // Eğer altında zemin yok VEYA zemin çok aşağıda (yani bir objenin üstündeyiz)
-            // Eğer altında zemin yok VEYA zemin çok aşağıda (yani bir objenin üstündeyiz veya boşluktayız)
-            if (!hasGroundBelow || hit.point.y > expectedGroundY + heightTolerance)
+            // Velocity'yi sıfırla
+            if (rb != null)
             {
-                // Merkeze doğru it (Güvenli Alan)
-                if (pushTimer <= 0f)
-                {
-                    Vector3 toCenter = (Vector3.zero - transform.position).normalized;
-                    // Y bileşenini sıfırla
-                    toCenter.y = 0; 
-                    
-                    pushDirection = toCenter;
-                    pushTimer = 0.5f; // 0.5 saniye boyunca 
-                }
-                
-                pushTimer -= Time.deltaTime;
-                
-                // İtme uygula (Yumuşakça)
-                if (rb != null)
-                {
-                    // Velocity'i sıfırla ki kayıp gitmesin
-                    Vector3 vel = rb.velocity;
-                    vel.x = 0; vel.z = 0;
-                    rb.velocity = vel;
-                    
-                    rb.AddForce(pushDirection * pushForce, ForceMode.VelocityChange);
-                }
-                else
-                {
-                    transform.position += pushDirection * pushForce * Time.deltaTime;
-                }
+                Vector3 vel = rb.velocity;
+                vel.y = 0;
+                rb.velocity = vel;
             }
+            
+            Debug.Log($"{gameObject.name}: Forced down from {currentHeight} to ground level {expectedGroundY}");
+        }
+        
+        // Eski merkeze itme mantığı kaldırıldı - artık doğrudan zemine indiriyoruz
+    }
+    
+    protected virtual void FixedUpdate()
+    {
+        // FixedUpdate'de de yükseklik kontrolü - fizik ile senkronize
+        ClampHeightToGround();
+    }
+    
+    private void ClampHeightToGround()
+    {
+        if (rb == null) return;
+        
+        float maxAllowedY = expectedGroundY + MAX_HEIGHT_ABOVE_GROUND;
+        
+        // Eğer karakter çok yüksekteyse
+        if (transform.position.y > maxAllowedY)
+        {
+            // Pozisyonu düzelt - doğrudan zemine indir
+            Vector3 pos = transform.position;
+            pos.y = expectedGroundY + 0.1f;
+            rb.MovePosition(pos);
+            
+            // Velocity'yi sıfırla
+            Vector3 vel = rb.velocity;
+            vel.y = 0;
+            rb.velocity = vel;
+        }
+        
+        // Eğer karakter yukarı doğru hareket ediyorsa ve zaten yüksekteyse, engelle
+        if (transform.position.y > expectedGroundY + heightTolerance && rb.velocity.y > 0.1f)
+        {
+            Vector3 vel = rb.velocity;
+            vel.y = 0;
+            rb.velocity = vel;
         }
     }
 
@@ -217,38 +237,88 @@ public class CharacterAI : MonoBehaviour
     
     private void DetectGroundLevel()
     {
-        // Yukarıdan aşağıya raycast at, en alttaki düz zemini bul
-        RaycastHit hit;
-        Vector3 rayStart = transform.position + Vector3.up * 10f; // Yukarıdan başla
+        // KRITIK: Sadece gerçek zemin objelerini ara (Floor, Plane vs.)
+        // Raycast'e güvenme çünkü taşlara da çarpabilir!
         
-        // "Ground" tag'li veya "floor/plane" isimli objeyi bul
-        if (Physics.Raycast(rayStart, Vector3.down, out hit, 50f))
+        // 1. Önce sahnede ismi "Floor", "Plane", "Ground" vs olan objeyi ara
+        string[] floorNames = { "Floor", "Plane", "Hole_Compatible_Floor", "SimplePlane", "SpecialPlane" };
+        
+        foreach (string name in floorNames)
         {
-            string hitName = hit.collider.name.ToLower();
-            
-            // Eğer floor, plane veya ground içeriyorsa, bu zemin seviyesidir
-            if (hitName.Contains("floor") || hitName.Contains("plane") || hit.collider.CompareTag("Ground"))
+            GameObject floor = GameObject.Find(name);
+            if (floor != null)
             {
-                expectedGroundY = hit.point.y;
+                // Objenin renderer veya collider bounds'undan Y değerini al
+                Renderer r = floor.GetComponent<Renderer>();
+                if (r != null)
+                {
+                    // Renderer'ın üst yüzeyini al
+                    expectedGroundY = r.bounds.max.y;
+                    Debug.Log($"CharacterAI: Ground detected from {name} renderer, Y = {expectedGroundY}");
+                    return;
+                }
+                
+                Collider c = floor.GetComponent<Collider>();
+                if (c != null)
+                {
+                    expectedGroundY = c.bounds.max.y;
+                    Debug.Log($"CharacterAI: Ground detected from {name} collider, Y = {expectedGroundY}");
+                    return;
+                }
+                
+                // Fallback: transform position
+                expectedGroundY = floor.transform.position.y;
+                Debug.Log($"CharacterAI: Ground detected from {name} transform, Y = {expectedGroundY}");
                 return;
             }
         }
         
-        // Alternatif: Sahnedeki "Floor" veya "Plane" objesini ara
-        GameObject floor = GameObject.Find("Floor");
-        if (floor == null) floor = GameObject.Find("Plane");
-        if (floor == null) floor = GameObject.Find("Ground");
-        if (floor == null) floor = GameObject.Find("Hole_Compatible_Floor");
+        // 2. SpawnManager'dan groundY al (eğer varsa)
+        if (SpawnManager.Instance != null && SpawnManager.Instance.groundY != 0f)
+        {
+            expectedGroundY = SpawnManager.Instance.groundY;
+            Debug.Log($"CharacterAI: Ground detected from SpawnManager, Y = {expectedGroundY}");
+            return;
+        }
         
-        if (floor != null)
+        // 3. Sahnenin en düşük noktasını bul (sadece düz, yatay objeler)
+        // Tag'e güvenme! İsmine bak.
+        GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
+        float lowestFloorY = float.MaxValue;
+        bool foundFloor = false;
+        
+        foreach (var obj in allObjects)
         {
-            expectedGroundY = floor.transform.position.y;
+            string objName = obj.name.ToLower();
+            // Sadece floor/plane isimleri kabul et
+            if (objName.Contains("floor") || objName.Contains("plane"))
+            {
+                // Taş, kristal vs olmadığından emin ol
+                if (objName.Contains("rock") || objName.Contains("stone") || objName.Contains("crystal")) continue;
+                
+                Renderer r = obj.GetComponent<Renderer>();
+                if (r != null)
+                {
+                    float topY = r.bounds.max.y;
+                    if (topY < lowestFloorY)
+                    {
+                        lowestFloorY = topY;
+                        foundFloor = true;
+                    }
+                }
+            }
         }
-        else
+        
+        if (foundFloor)
         {
-            // Bulunamadı, varsayılan 0 kullan
-            expectedGroundY = 0f;
+            expectedGroundY = lowestFloorY;
+            Debug.Log($"CharacterAI: Ground detected from scene scan, Y = {expectedGroundY}");
+            return;
         }
+        
+        // 4. Son çare: Varsayılan 0 kullan
+        expectedGroundY = 0f;
+        Debug.LogWarning("CharacterAI: Could not detect ground level, using default Y = 0");
     }
 
     protected virtual void OnEnable()
@@ -356,6 +426,12 @@ public class CharacterAI : MonoBehaviour
              
              // Check against explosion
              if (Mathf.Abs(velocity.y) > 50f) velocity.y = 50f; // Limit vertical speed
+             
+             // KRITIK: Eğer zaten yüksekteyse ve yukarı gidiyorsa, engelle
+             if (transform.position.y > expectedGroundY + heightTolerance && velocity.y > 0)
+             {
+                 velocity.y = 0; // Yukarı gitmeyi engelle
+             }
         }
         
         // --- CRITICAL SAFETY CHECK ---

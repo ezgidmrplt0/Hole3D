@@ -143,10 +143,17 @@ public class CharacterAI : MonoBehaviour
     public float heightTolerance = 0.3f; // Daha katı tolerans
     
     // Maximum allowed height above ground (hard clamp)
-    private const float MAX_HEIGHT_ABOVE_GROUND = 0.5f;
+    private const float MAX_HEIGHT_ABOVE_GROUND = 1.5f; // 0.5'ten 1.5'e artırıldı (düşmeye izin ver)
+    
+    // Magnet/Dış kuvvet tarafından çekiliyorsa true
+    [HideInInspector]
+    public bool isBeingPulled = false;
 
     protected virtual void LateUpdate()
     {
+        // Eğer dış kuvvet (magnet vs) tarafından çekiliyorsa, pozisyon kontrollerini ATLA
+        if (isBeingPulled) return;
+        
         // 1. Invalid Position Check
         if (IsPositionInvalid(transform.position))
         {
@@ -197,6 +204,9 @@ public class CharacterAI : MonoBehaviour
     
     protected virtual void FixedUpdate()
     {
+        // Eğer dış kuvvet tarafından çekiliyorsa, clamp yapma
+        if (isBeingPulled) return;
+        
         // FixedUpdate'de de yükseklik kontrolü - fizik ile senkronize
         ClampHeightToGround();
     }
@@ -381,6 +391,9 @@ public class CharacterAI : MonoBehaviour
 
     protected void Move(Vector3 targetDirection, bool isRunning)
     {
+        // Eğer dış kuvvet tarafından çekiliyorsa, kendi hareketimizi yapma
+        if (isBeingPulled) return;
+        
         // Infinity/NaN Check to prevent confusing errors
         if (float.IsNaN(targetDirection.x) || float.IsNaN(targetDirection.y) || float.IsNaN(targetDirection.z)) return;
 

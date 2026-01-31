@@ -11,6 +11,9 @@ public class GameFlowManager : MonoBehaviour
     public Transform tapToPlayText; // Text'in transformu (Scale efekti için)
     public Transform tapToNextLevelText; // Level geçiş yazısı
     public Transform tapToRetryText; // Retry yazısı
+    
+    [Header("Market UI")]
+    public GameObject levelMarketPanel; // Controls the visibility of the market buttons
 
     public bool IsGameActive { get; private set; } = false;
     private bool isLevelCompleteState = false; // Hangi moddayız? (Start vs Next Level)
@@ -45,7 +48,10 @@ public class GameFlowManager : MonoBehaviour
             // Initial State: Sadece TapToPlay açık olsun
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
             if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
-
+            
+            // Show Market
+            if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+            
             IsGameActive = false;
             Time.timeScale = 0f; // Zamanı durdur (Fizik ve hareketler durur)
 
@@ -106,6 +112,9 @@ public class GameFlowManager : MonoBehaviour
             tapToPlayPanel.SetActive(true);
             IsGameActive = false;
             Time.timeScale = 1f; // KEEP TIME RUNNING for animations! (Critical for auto-transition timers)
+            
+            // Show Market
+            if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
 
             // Yazıları Değiştir
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
@@ -136,8 +145,17 @@ public class GameFlowManager : MonoBehaviour
          if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
          if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false); 
          
+         // Show Market
+         if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+         
          // Animate Play Text again
          AnimateText(tapToPlayText);
+         
+         // Skill satın alma sayaçlarını sıfırla (yeni level)
+         if (SkillManager.Instance != null)
+         {
+             SkillManager.Instance.ResetLevelPurchases();
+         }
          
          // Pause time until user taps
          Time.timeScale = 0f;
@@ -186,6 +204,9 @@ public class GameFlowManager : MonoBehaviour
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
             if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
             
+            // Show Market
+            if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+            
             if (tapToRetryText != null) 
             {
                 tapToRetryText.gameObject.SetActive(true);
@@ -207,8 +228,17 @@ public class GameFlowManager : MonoBehaviour
         if (tapToRetryText != null) tapToRetryText.gameObject.SetActive(false);
         if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
         
+        // Show Market
+        if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+        
         // Restart Logic via LevelManager
         if (LevelManager.Instance != null) LevelManager.Instance.RestartCurrentLevel();
+        
+        // Skill satın almalarını sıfırla
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.ResetLevelPurchases();
+        }
         
         // Start Game Immediately (or show TapToPlay again? User said "Retry textim çalışacak tıkladığımda o level tekrar oynanacak")
         // Genelde direkt başlar.
@@ -223,7 +253,10 @@ public class GameFlowManager : MonoBehaviour
         {
             tapToPlayPanel.SetActive(false);
         }
-
+        
+        // Hide Market
+        if (levelMarketPanel != null) levelMarketPanel.SetActive(false);
+        
         // Tween'leri temizle (Performans için)
         if (tapToPlayText != null) tapToPlayText.DOKill();
         if (tapToNextLevelText != null) tapToNextLevelText.DOKill();
@@ -232,4 +265,5 @@ public class GameFlowManager : MonoBehaviour
         Time.timeScale = 1f; // Zamanı başlat
         Debug.Log("Game Started!");
     }
+    
 }

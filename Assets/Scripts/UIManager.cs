@@ -21,10 +21,72 @@ public class UIManager : MonoBehaviour
 
     private void Start()
     {
+        // AUTO-WIRE LEVEL MARKET BUTTONS
+        if (levelMagnetButton == null || levelSpeedButton == null || levelShieldButton == null)
+        {
+            Transform tapPanel = transform.Find("TapToPanel"); // Assuming UIManager is on Canvas
+            if (tapPanel == null) 
+            {
+                // Try finding globally if UIManager is not on Canvas
+                GameObject panelObj = GameObject.Find("TapToPanel");
+                if (panelObj != null) tapPanel = panelObj.transform;
+            }
+
+            if (tapPanel != null)
+            {
+                Transform skills = tapPanel.Find("Skills");
+                if (skills != null)
+                {
+                    // Magnet
+                    Transform tMag = skills.Find("Magnet");
+                    // Eğer doğrudan butonsa
+                    if (tMag != null)
+                    {
+                        if (levelMagnetButton == null) levelMagnetButton = tMag.GetComponent<UnityEngine.UI.Button>();
+                        if (levelMagnetButton == null) levelMagnetButton = tMag.GetComponentInChildren<UnityEngine.UI.Button>(); // Container ise
+                        
+                        if (levelMagnetPriceText == null && tMag != null) levelMagnetPriceText = tMag.GetComponentInChildren<TextMeshProUGUI>();
+                    }
+
+                    // Speed
+                    Transform tSpeed = skills.Find("Speed");
+                    if (tSpeed != null)
+                    {
+                        if (levelSpeedButton == null) levelSpeedButton = tSpeed.GetComponent<UnityEngine.UI.Button>();
+                        if (levelSpeedButton == null) levelSpeedButton = tSpeed.GetComponentInChildren<UnityEngine.UI.Button>();
+                        
+                        if (levelSpeedPriceText == null && tSpeed != null) levelSpeedPriceText = tSpeed.GetComponentInChildren<TextMeshProUGUI>();
+                    }
+
+                    // Shield
+                    Transform tShield = skills.Find("Shield");
+                    if (tShield != null)
+                    {
+                        if (levelShieldButton == null) levelShieldButton = tShield.GetComponent<UnityEngine.UI.Button>();
+                        if (levelShieldButton == null) levelShieldButton = tShield.GetComponentInChildren<UnityEngine.UI.Button>();
+                        
+                        if (levelShieldPriceText == null && tShield != null) levelShieldPriceText = tShield.GetComponentInChildren<TextMeshProUGUI>();
+                    }
+                }
+            }
+        }
+
+        // Add Listeners - ONLY if no persistent listener exists (to avoid duplicates with Editor Tool)
+        if (levelMagnetButton != null && levelMagnetButton.onClick.GetPersistentEventCount() == 0) 
+            levelMagnetButton.onClick.AddListener(BuyLevelMagnet);
+            
+        if (levelSpeedButton != null && levelSpeedButton.onClick.GetPersistentEventCount() == 0) 
+            levelSpeedButton.onClick.AddListener(BuyLevelSpeed);
+            
+        if (levelShieldButton != null && levelShieldButton.onClick.GetPersistentEventCount() == 0) 
+            levelShieldButton.onClick.AddListener(BuyLevelShield);
+
         // Subscribe to events
         if (EconomyManager.Instance != null)
         {
             EconomyManager.Instance.OnCoinsChanged += UpdateCoinText;
+            EconomyManager.Instance.OnCoinsChanged += (amount) => UpdateSkillUI(); // Update buttons when coins change
+            // Force update initial value
             // Force update initial value
             UpdateCoinText(EconomyManager.Instance.CurrentCoins);
         }
@@ -284,6 +346,16 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI shieldPriceText;
     public TextMeshProUGUI shieldLevelText;
     
+    [Header("Level Market (Single Use)")]
+    public UnityEngine.UI.Button levelMagnetButton;
+    public TextMeshProUGUI levelMagnetPriceText;
+    
+    public UnityEngine.UI.Button levelSpeedButton;
+    public TextMeshProUGUI levelSpeedPriceText;
+    
+    public UnityEngine.UI.Button levelShieldButton;
+    public TextMeshProUGUI levelShieldPriceText;
+    
     [Header("Active Skill Indicator (In-Game)")]
     public GameObject activeSkillPanel;
     public UnityEngine.UI.Image activeSkillIcon;
@@ -344,6 +416,28 @@ public class UIManager : MonoBehaviour
             
             if (shieldLevelText != null)
                 shieldLevelText.text = "Lv." + level;
+        }
+        
+        // --- LEVEL MARKET UPDATE ---
+        if (levelMagnetButton != null)
+        {
+            int price = SkillManager.Instance.magnetPrice;
+            levelMagnetButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Magnet);
+            if (levelMagnetPriceText != null) levelMagnetPriceText.text = price.ToString();
+        }
+        
+        if (levelSpeedButton != null)
+        {
+            int price = SkillManager.Instance.speedPrice;
+            levelSpeedButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Speed);
+            if (levelSpeedPriceText != null) levelSpeedPriceText.text = price.ToString();
+        }
+        
+        if (levelShieldButton != null)
+        {
+            int price = SkillManager.Instance.shieldPrice;
+            levelShieldButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Shield);
+            if (levelShieldPriceText != null) levelShieldPriceText.text = price.ToString();
         }
     }
     
@@ -435,6 +529,36 @@ public class UIManager : MonoBehaviour
     
     // Eski API uyumluluk (Scene'de Repellent butonu varsa çalışsın)
     public void UpgradeRepellent() => UpgradeShield();
+
+    // --- LEVEL MARKET METHODS ---
+    // Assign these to the buttons in the Inspector
+    
+    public void BuyLevelMagnet()
+    {
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.BuyMagnet();
+            UpdateSkillUI(); // Update buttons immediately
+        }
+    }
+    
+    public void BuyLevelSpeed()
+    {
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.BuySpeed();
+            UpdateSkillUI();
+        }
+    }
+    
+    public void BuyLevelShield()
+    {
+        if (SkillManager.Instance != null)
+        {
+            SkillManager.Instance.BuyShield();
+            UpdateSkillUI();
+        }
+    }
 
     private void OnEnable()
     {

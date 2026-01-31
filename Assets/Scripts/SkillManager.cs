@@ -297,4 +297,193 @@ public class SkillManager : MonoBehaviour
     
     [ContextMenu("Test Activate Shield")]
     public void TestActivateShield() => ActivateSkill(SkillType.Shield);
+
+    // ========== LEVEL MARKET (Tek kullanımlık satın alma) ==========
+    [Header("Level Market Prices")]
+    public int magnetPrice = 50;
+    public int speedPrice = 40;
+    public int shieldPrice = 60;
+    
+    [Header("Skill Prefabs (Spawn edilecek)")]
+    public GameObject magnetPickupPrefab;
+    public GameObject speedPickupPrefab;
+    public GameObject shieldPickupPrefab;
+    
+    // Satın alma sayaçları (her level sıfırlanır)
+    private int magnetPurchasedThisLevel = 0;
+    private int speedPurchasedThisLevel = 0;
+    private int shieldPurchasedThisLevel = 0;
+
+    /// <summary>
+    /// Level başında satın alma sayaçlarını sıfırla
+    /// </summary>
+    public void ResetLevelPurchases()
+    {
+        magnetPurchasedThisLevel = 0;
+        speedPurchasedThisLevel = 0;
+        shieldPurchasedThisLevel = 0;
+    }
+
+    /// <summary>
+    /// Magnet satın al (Button OnClick için)
+    /// </summary>
+    public void BuyMagnet()
+    {
+        if (magnetPurchasedThisLevel > 0) return; // Prevent double buy
+        
+        if (TryPurchaseSkill(magnetPrice))
+        {
+            magnetPurchasedThisLevel++;
+            SpawnSkillPickup(SkillType.Magnet);
+            Debug.Log("[SkillManager] Magnet satın alındı ve spawn edildi!");
+            OnUpgradesChanged?.Invoke(); // Notify UI to update buttons
+        }
+    }
+    
+    /// <summary>
+    /// Speed satın al (Button OnClick için)
+    /// </summary>
+    public void BuySpeed()
+    {
+        if (speedPurchasedThisLevel > 0) return;
+
+        if (TryPurchaseSkill(speedPrice))
+        {
+            speedPurchasedThisLevel++;
+            SpawnSkillPickup(SkillType.Speed);
+            Debug.Log("[SkillManager] Speed satın alındı ve spawn edildi!");
+            OnUpgradesChanged?.Invoke();
+        }
+    }
+    
+    /// <summary>
+    /// Shield satın al (Button OnClick için)
+    /// </summary>
+    public void BuyShield()
+    {
+        if (shieldPurchasedThisLevel > 0) return;
+
+        if (TryPurchaseSkill(shieldPrice))
+        {
+            shieldPurchasedThisLevel++;
+            SpawnSkillPickup(SkillType.Shield);
+            Debug.Log("[SkillManager] Shield satın alındı ve spawn edildi!");
+            OnUpgradesChanged?.Invoke();
+        }
+    }
+    
+    private bool TryPurchaseSkill(int price)
+    {
+        if (EconomyManager.Instance == null) return false;
+        
+        if (EconomyManager.Instance.CurrentCoins >= price)
+        {
+            EconomyManager.Instance.SpendCoins(price);
+            return true;
+        }
+        
+        Debug.Log($"[SkillManager] Yetersiz altın! Gerekli: {price}, Mevcut: {EconomyManager.Instance.CurrentCoins}");
+        return false;
+    }
+    
+    private void SpawnSkillPickup(SkillType type)
+    {
+        // SpawnManager varsa onu kullan
+        if (SpawnManager.Instance != null)
+        {
+            SpawnManager.Instance.SpawnSkillPickupForMarket(type);
+            return;
+        }
+        
+        // SpawnManager yoksa fallback - prefab kullan
+        GameObject prefab = type switch
+        {
+            SkillType.Magnet => magnetPickupPrefab,
+            SkillType.Speed => speedPickupPrefab,
+            SkillType.Shield => shieldPickupPrefab,
+            _ => null
+        };
+        
+        if (prefab == null)
+        {
+            // Prefab yoksa, doğrudan skill'i aktif et
+            Debug.LogWarning($"[SkillManager] {type} prefab atanmamış, skill doğrudan aktif ediliyor.");
+            ActivateSkill(type);
+            return;
+        }
+        
+        // Hole'un yakınında spawn et
+        Vector3 spawnPos = GetSkillSpawnPosition();
+        GameObject pickup = Instantiate(prefab, spawnPos, Quaternion.identity);
+        
+        // SkillPickup component'i varsa type'ı ayarla
+        SkillPickup skillPickup = pickup.GetComponent<SkillPickup>();
+        if (skillPickup != null)
+        {
+            skillPickup.skillType = type;
+        }
+    }
+    
+    private Vector3 GetSkillSpawnPosition()
+    {
+        // Hole'u bul
+        HoleMechanics hole = FindObjectOfType<HoleMechanics>();
+        Vector3 basePos = hole != null ? hole.transform.position : Vector3.zero;
+        
+        // Hole'un 3-5 birim önünde rastgele bir yere spawn et
+        Vector2 randomOffset = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range(3f, 5f);
+        Vector3 spawnPos = basePos + new Vector3(randomOffset.x, 0, randomOffset.y);
+        
+        // Y değerini zemine ayarla
+        if (SpawnManager.Instance != null)
+        {
+            spawnPos.y = SpawnManager.Instance.groundY + 0.5f;
+        }
+        else
+        {
+            spawnPos.y = 0.5f;
+        }
+        
+        return spawnPos;
+    }
+    
+    /// <summary>
+    /// Belirli bir skill'i alabilir mi kontrol et (yeterli altın var mı)
+    /// </summary>
+    public bool CanBuySkill(SkillType type)
+    {
+        // Check limitation
+        int purchased = type switch {
+            SkillType.Magnet => magnetPurchasedThisLevel,
+            SkillType.Speed => speedPurchasedThisLevel,
+            SkillType.Shield => shieldPurchasedThisLevel,
+            _ => 1
+        };
+        
+        if (purchased > 0) return false;
+
+        int price = type switch
+        {
+            SkillType.Magnet => magnetPrice,
+            SkillType.Speed => speedPrice,
+            SkillType.Shield => shieldPrice,
+            _ => 999999
+        };
+        
+        return EconomyManager.Instance != null && EconomyManager.Instance.CurrentCoins >= price;
+    }
+    
+    /// <summary>
+    /// Skill fiyatını al
+    /// </summary>
+    public int GetSkillPrice(SkillType type)
+    {
+        return type switch
+        {
+            SkillType.Magnet => magnetPrice,
+            SkillType.Speed => speedPrice,
+            SkillType.Shield => shieldPrice,
+            _ => 0
+        };
+    }
 }

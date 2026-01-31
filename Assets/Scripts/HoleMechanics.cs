@@ -858,17 +858,28 @@ public class HoleMechanics : MonoBehaviour
     public GameObject shieldVisualEffect; // Inspector'dan ata (yeşil halo/ring prefab)
     private bool wasShieldActive = false;
 
+    private bool wasMagnetActive = false;
+
     private void Update()
     {
         // --- SKILL EFFECTS ---
         if (SkillManager.Instance != null)
         {
-            if (SkillManager.Instance.IsMagnetActive)
+            bool magnetNow = SkillManager.Instance.IsMagnetActive;
+            
+            if (magnetNow)
             {
                 ApplyMagnetEffect();
             }
+            else if (wasMagnetActive && !magnetNow)
+            {
+                // Magnet bitti - tüm zombilerin isBeingPulled flag'ini sıfırla
+                ResetAllPulledFlags();
+            }
             
-            // Shield görsel efekti
+            wasMagnetActive = magnetNow;
+            
+            // Shield görsel efekti ve İNSAN İTME
             bool shieldNow = SkillManager.Instance.IsShieldActive;
             if (shieldNow != wasShieldActive)
             {
@@ -880,10 +891,74 @@ public class HoleMechanics : MonoBehaviour
                 
                 if (shieldNow)
                 {
-                    Debug.Log("[HoleMechanics] Shield aktif! Tüm zombileri yiyebilirsin!");
+                    Debug.Log("[HoleMechanics] Shield aktif! İnsanlar itilecek!");
+                }
+            }
+            
+            // Shield aktifken insanları it
+            if (shieldNow)
+            {
+                ApplyShieldRepelEffect();
+            }
+        }
+    }
+    
+    void ApplyShieldRepelEffect()
+    {
+        // Shield radius - SkillManager'dan al veya sabit değer kullan
+        float repelRadius = 8f; // İtme alanı
+        float repelForce = 15f; // İtme kuvveti
+        
+        // Yakındaki insanları bul
+        Collider[] nearby = Physics.OverlapSphere(transform.position, repelRadius);
+        
+        foreach (var col in nearby)
+        {
+            // SADECE İNSANLARI İT
+            if (col.CompareTag("Human"))
+            {
+                Rigidbody targetRb = col.GetComponent<Rigidbody>();
+                if (targetRb != null)
+                {
+                    // Hole'dan uzaklaştırma yönü
+                    Vector3 diff = col.transform.position - transform.position;
+                    float dist = diff.magnitude;
+                    
+                    if (dist < 0.1f) continue; // Çok yakın, atla
+                    
+                    Vector3 direction = diff / dist;
+                    direction.y = 0; // Yatay itme
+                    
+                    // Mesafeye göre kuvvet (yakında daha güçlü)
+                    float distanceFactor = 1f - (dist / repelRadius);
+                    float actualForce = repelForce * distanceFactor;
+                    
+                    targetRb.AddForce(direction * actualForce, ForceMode.Acceleration);
                 }
             }
         }
+    }
+    
+    private void ResetAllPulledFlags()
+    {
+        // Tüm zombilerin isBeingPulled flag'ini sıfırla
+        CharacterAI[] allChars = FindObjectsOfType<CharacterAI>();
+        foreach (var charAI in allChars)
+        {
+            if (charAI != null)
+            {
+                charAI.isBeingPulled = false;
+                
+                // Drag değerlerini de normale döndür
+                Rigidbody rb = charAI.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.drag = 1f;
+                    rb.angularDrag = 5f;
+                }
+            }
+        }
+        Debug.Log("[HoleMechanics] Magnet bitti, tüm zombiler serbest.");
     }
 
     // Skill değerleri artık SkillManager'dan dinamik olarak alınıyor
@@ -947,8 +1022,11 @@ public class HoleMechanics : MonoBehaviour
                 }
 
                 CharacterAI charAI = col.GetComponent<CharacterAI>();
-                // CharacterAI'yı tamamen kapatmak yerine sadece geçici olarak durdur
-                // (enabled = false yapmak sorunlara yol açıyor)
+                // CharacterAI'ya "çekiliyorsun" diye haber ver
+                if (charAI != null)
+                {
+                    charAI.isBeingPulled = true;
+                }
 
                 // 3. Apply Force with Heavy Damping (To stop orbiting)
                 Rigidbody targetRb = col.GetComponent<Rigidbody>();

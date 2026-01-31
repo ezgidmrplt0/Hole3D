@@ -824,4 +824,70 @@ public class SpawnManager : MonoBehaviour
             }
         }
     }
+    
+    /// <summary>
+    /// SkillManager tarafından çağrılır - Satın alınan skill'i spawn eder
+    /// </summary>
+    public void SpawnSkillPickupForMarket(SkillType skillType)
+    {
+        GameObject prefabToSpawn = skillType switch
+        {
+            SkillType.Magnet => magnetPickupPrefab,
+            SkillType.Speed => speedPickupPrefab,
+            SkillType.Shield => shieldPickupPrefab,
+            _ => null
+        };
+        
+        if (prefabToSpawn == null)
+        {
+            Debug.LogWarning($"[SpawnManager] Market: {skillType} prefab bulunamadı! Skill doğrudan aktif ediliyor.");
+            if (SkillManager.Instance != null)
+            {
+                SkillManager.Instance.ActivateSkill(skillType);
+            }
+            return;
+        }
+        
+        // Hole yakınında spawn et
+        Vector3 spawnPos = FindSkillSpawnPositionNearHole();
+        
+        GameObject pickup = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
+        
+        SkillPickup skillComponent = pickup.GetComponent<SkillPickup>();
+        if (skillComponent != null)
+        {
+            skillComponent.skillType = skillType;
+        }
+        
+        activeSkillPickups.Add(pickup);
+        Debug.Log($"[SpawnManager] Market Skill Pickup spawned: {skillType} at {spawnPos}");
+    }
+    
+    /// <summary>
+    /// Hole yakınında spawn pozisyonu bul (Market satın alımları için)
+    /// </summary>
+    private Vector3 FindSkillSpawnPositionNearHole()
+    {
+        HoleMechanics hole = FindObjectOfType<HoleMechanics>();
+        Vector3 basePos = hole != null ? hole.transform.position : Vector3.zero;
+        
+        // Hole'un 3-5 birim ilerisinde rastgele pozisyon
+        for (int i = 0; i < 10; i++)
+        {
+            Vector2 randomOffset = Random.insideUnitCircle.normalized * Random.Range(3f, 6f);
+            Vector3 candidatePos = basePos + new Vector3(randomOffset.x, 0, randomOffset.y);
+            
+            // Y değerini zemine ayarla
+            candidatePos.y = groundY + 0.5f;
+            
+            // Engel kontrolü
+            if (!IsPositionBlockedByObstacle(candidatePos))
+            {
+                return candidatePos;
+            }
+        }
+        
+        // Fallback: Hole'un biraz önünde
+        return basePos + new Vector3(4f, groundY + 0.5f, 0f);
+    }
 }

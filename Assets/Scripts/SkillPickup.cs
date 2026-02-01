@@ -13,6 +13,9 @@ public class SkillPickup : MonoBehaviour
     [Tooltip("Bu pickup hangi skill'i aktif edecek?")]
     public SkillType skillType;
     
+    [Tooltip("Bu pickup alındığında skill kalıcı mı olacak?")]
+    public bool isPermanentPickup = false;
+    
     [Header("Lifetime")]
     [Tooltip("Alınmazsa kaç saniye sonra kaybolsun")]
     public float lifetime = 45f;
@@ -191,8 +194,9 @@ public class SkillPickup : MonoBehaviour
         // Skill aktif et
         if (SkillManager.Instance != null)
         {
-            SkillManager.Instance.ActivateSkill(skillType);
-            Debug.Log($"[SkillPickup] {skillType} skill aktif edildi!");
+            // Pickup üzerindeki flag'i kullanarak manager'a bildir
+            SkillManager.Instance.ActivateSkill(skillType, isPermanentPickup);
+            Debug.Log($"[SkillPickup] {skillType} skill aktif edildi! (Permanent: {isPermanentPickup})");
         }
         
         // Yok ol

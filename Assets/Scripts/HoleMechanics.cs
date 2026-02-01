@@ -770,9 +770,13 @@ public class HoleMechanics : MonoBehaviour
             SkillPickup pickup = victim.GetComponent<SkillPickup>();
             if (pickup != null && SkillManager.Instance != null)
             {
-                SkillManager.Instance.ActivateSkill(pickup.skillType);
-                SpawnFloatingText(pickup.skillType.ToString() + "!", Color.cyan);
-                Debug.Log($"[HoleMechanics] Skill pickup yutuldu: {pickup.skillType}");
+                // Permanent flag'ini de gönder!
+                SkillManager.Instance.ActivateSkill(pickup.skillType, pickup.isPermanentPickup);
+                
+                string durationText = pickup.isPermanentPickup ? " (∞)" : "";
+                SpawnFloatingText(pickup.skillType.ToString() + durationText + "!", Color.cyan);
+                
+                Debug.Log($"[HoleMechanics] Skill pickup yutuldu: {pickup.skillType} (Permanent: {pickup.isPermanentPickup})");
             }
         }
         else if (isFeverMode)

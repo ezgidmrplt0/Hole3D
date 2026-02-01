@@ -133,7 +133,7 @@ public class LevelManager : MonoBehaviour
         // Skills reset per level
         if (SkillManager.Instance != null)
         {
-            SkillManager.Instance.ResetSkills();
+            SkillManager.Instance.ResetLevelPurchases(); // Fiyatları güncelle ve skilleri sıfırla
         }
 
         // --- INFINITE LEVEL LOGIC ---

@@ -655,14 +655,57 @@ public class SpawnManager : MonoBehaviour
     
     public void StartSkillSpawning()
     {
-        // Random spawning disabled requested by user
+        // Kullanıcı isteği: Otomatik spawn yerine butonla spawn istendi.
         // skillSpawningEnabled = true;
-        Debug.Log("[SpawnManager] Skill random spawning is disabled.");
+        // ScheduleNextSkillSpawn(); 
+        Debug.Log("[SpawnManager] Auto skill spawning disabled (User controls via buttons).");
+    }
+    
+    // BUTONLA ÇAĞRILACAK YENİ METOT
+    public void SpawnSkillImmediately(SkillType type, bool isPermanent)
+    {
+        GameObject prefabToSpawn = null;
+
+        switch (type)
+        {
+            case SkillType.Magnet:
+                prefabToSpawn = magnetPickupPrefab;
+                break;
+            case SkillType.Speed:
+                prefabToSpawn = speedPickupPrefab;
+                break;
+            case SkillType.Shield:
+                prefabToSpawn = shieldPickupPrefab;
+                break;
+        }
+
+        if (prefabToSpawn == null)
+        {
+            Debug.LogWarning($"[SpawnManager] {type} Prefab atanmamış!");
+            return;
+        }
+
+        // Oyuncunun yakınına yer bul
+        Vector3 spawnPos = FindSkillSpawnPosition();
+
+        // Spawn et
+        GameObject pickup = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
+
+        // Ayarlarını yap
+        SkillPickup skillComponent = pickup.GetComponent<SkillPickup>();
+        if (skillComponent != null)
+        {
+            skillComponent.skillType = type;
+            skillComponent.isPermanentPickup = isPermanent; // Kalıcılık ayarı
+        }
+        
+        activeSkillPickups.Add(pickup);
+        Debug.Log($"[SpawnManager] Skill INSTANTLY spawned: {type} at {spawnPos} (Permanent: {isPermanent})");
     }
     
     public void StopSkillSpawning()
     {
-        // skillSpawningEnabled = false;
+        skillSpawningEnabled = false;
         
         // Mevcut pickup'ları temizle
         foreach (var pickup in activeSkillPickups)
@@ -674,14 +717,11 @@ public class SpawnManager : MonoBehaviour
     
     void Update()
     {
-        // Skill spawn kontrolü disabled
-        /*
         if (skillSpawningEnabled && Time.time >= nextSkillSpawnTime)
         {
             TrySpawnSkillPickup();
             ScheduleNextSkillSpawn();
         }
-        */
         
         // Null referansları temizle (yutulmuş veya timeout olmuş pickup'lar)
         activeSkillPickups.RemoveAll(p => p == null);
@@ -689,6 +729,7 @@ public class SpawnManager : MonoBehaviour
     
     void ScheduleNextSkillSpawn()
     {
+        // Sonraki spawnlar normal aralıkta (15-30sn)
         nextSkillSpawnTime = Time.time + Random.Range(skillSpawnMinInterval, skillSpawnMaxInterval);
     }
     
@@ -697,7 +738,6 @@ public class SpawnManager : MonoBehaviour
         // Max limite ulaşıldı mı?
         if (activeSkillPickups.Count >= maxSkillPickupsOnMap)
         {
-            Debug.Log("[SpawnManager] Max skill pickups on map, skipping spawn.");
             return;
         }
         
@@ -721,23 +761,17 @@ public class SpawnManager : MonoBehaviour
         // Prefab var mı?
         if (prefabToSpawn == null)
         {
-            Debug.LogWarning($"[SpawnManager] {randomSkill} Prefab atanmamış! Atlıyor.");
+            Debug.LogWarning($"[SpawnManager] {randomSkill} Prefab atanmamış! Lütfen Inspector'dan atayın.");
             return;
         }
         
         // Spawn pozisyonu bul
         Vector3 spawnPos = FindSkillSpawnPosition();
         
-        if (spawnPos == Vector3.zero)
-        {
-            Debug.LogWarning("[SpawnManager] Skill pickup için uygun pozisyon bulunamadı.");
-            return;
-        }
-        
         // Spawn!
         GameObject pickup = Instantiate(prefabToSpawn, spawnPos, Quaternion.identity);
         
-        // Skill tipini garantiye al (Prefab üzerinde ayarlı olsa bile)
+        // Skill tipini garantiye al
         SkillPickup skillComponent = pickup.GetComponent<SkillPickup>();
         if (skillComponent != null)
         {
@@ -750,34 +784,50 @@ public class SpawnManager : MonoBehaviour
     
     Vector3 FindSkillSpawnPosition()
     {
+        // --- OYUNCUNUN YAKININA SPAWN ET ---
+        HoleMechanics player = FindObjectOfType<HoleMechanics>();
+        Vector3 centerPos = Vector3.zero;
+        
+        if (player != null)
+        {
+            centerPos = player.transform.position;
+        }
+        else
+        {
+            Debug.LogWarning("[SpawnManager] HoleMechanics (Player) bulunamadı! Harita merkezi kullanılıyor.");
+            if (currentSpawnBounds.size.sqrMagnitude > 0.1f) centerPos = currentSpawnBounds.center;
+        }
+
         int maxAttempts = 20;
+        float minDistance = 3f; 
+        float maxDistance = 8f; 
         
         for (int i = 0; i < maxAttempts; i++)
         {
             Vector3 candidatePos;
             
-            // Bounds varsa kullan
-            if (currentSpawnBounds.size.sqrMagnitude > 0.1f)
-            {
-                candidatePos = GetRandomPosInBounds(currentSpawnBounds);
-            }
-            else
-            {
-                // Fallback: Rastgele pozisyon
-                candidatePos = new Vector3(Random.Range(-15f, 15f), groundY + 1f, Random.Range(-15f, 15f));
-            }
+            // Oyuncu etrafında rastgele nokta
+            Vector2 randomDir = Random.insideUnitCircle.normalized;
+            float randomDist = Random.Range(minDistance, maxDistance);
             
-            // Yüksekliği ayarla (zeminden 2m yukarı - SkillPickup kendi raycast ile düşecek)
-            candidatePos.y = groundY + 2f;
+            // Yön hesabı
+            candidatePos = centerPos + new Vector3(randomDir.x, 0f, randomDir.y) * randomDist;
+            
+            // Bounds içinde mi?
+            candidatePos = ClampToBounds(candidatePos);
+            
+            // Yüksekliği ayarla (zeminden 3m yukarı - daha yüksekten düşsün ki görünsün)
+            candidatePos.y = groundY + 3f;
             
             // Engel kontrolü
-            if (!Physics.CheckSphere(candidatePos, 1f, obstacleLayer))
+            Vector3 groundCheckPos = new Vector3(candidatePos.x, groundY + 0.5f, candidatePos.z);
+            if (!IsPositionBlockedByObstacle(groundCheckPos))
             {
-                // Diğer pickup'lara yakın mı?
+                // Diğer pickup'lara çok yakın mı?
                 bool tooClose = false;
                 foreach (var existingPickup in activeSkillPickups)
                 {
-                    if (existingPickup != null && Vector3.Distance(existingPickup.transform.position, candidatePos) < 5f)
+                    if (existingPickup != null && Vector3.Distance(existingPickup.transform.position, candidatePos) < 2f)
                     {
                         tooClose = true;
                         break;
@@ -791,7 +841,16 @@ public class SpawnManager : MonoBehaviour
             }
         }
         
-        return Vector3.zero; // Bulunamadı
+        // FALLBACK: Eğer 20 denemede yer bulamazsa, ZORLA spawn et (Görülsün)
+        // Oyuncunun biraz ilerisine, havadan at
+        Debug.Log("[SpawnManager] Uygun boş yer bulunamadı, FALLBACK pozisyona spawn ediliyor.");
+        Vector3 fallbackPos = centerPos + Vector3.forward * 4f + Vector3.up * 4f;
+        
+        // Bounds dışına çıkmasın yine de
+        fallbackPos = ClampToBounds(fallbackPos);
+        fallbackPos.y = groundY + 4f; // Yükseklik korunsun
+        
+        return fallbackPos;
     }
 
     private void OnDrawGizmosSelected()

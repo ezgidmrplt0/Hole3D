@@ -167,7 +167,39 @@ public class SkillManager : MonoBehaviour
         magnetPurchased = false;
         speedPurchased = false;
         shieldPurchased = false;
+        
+        // --- PROGRESIVE PRICING ---
+        // Her levelda fiyatları artır
+        IncreaseSkillPrices();
+        
         ResetSkills();
+    }
+    
+    private void IncreaseSkillPrices()
+    {
+        int currentLevel = 1;
+        if (LevelManager.Instance != null) currentLevel = LevelManager.Instance.currentLevelIndex;
+        // Level index 0 dan baslar, o yuzden carpani levelIndex ile yaparsak: 0, 1, 2...
+        
+        // Formül: Base + (LevelIndex * 20)
+        // Level 1: Base
+        // Level 2: Base + 20
+        // Level 3: Base + 40
+        // vb.
+        
+        int increment = currentLevel * 20; 
+        
+        // Base fiyatları hardcode tutmak yerine, artışı ekliyoruz.
+        // NOT: Burası biraz riskli çünkü her reset çağrıldığında artar.
+        // Doğrusu: Base fiyatları sabit tutup, get sırasında hesaplamaktır.
+        // Ama UI direkt bu değişkenleri okuyor.
+        // O yüzden en sağlıklısı: ResetLevelPurchases çağrıldığında fiyatları "Base + Artış" olarak set etmek.
+        
+        magnetPrice = 50 + increment;
+        speedPrice = 40 + increment;
+        shieldPrice = 60 + increment;
+        
+        Debug.Log($"[SkillManager] New Prices: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
     }
 
     public void ResetSkills()
@@ -186,8 +218,12 @@ public class SkillManager : MonoBehaviour
         if (magnetPurchased) return;
         if (TryPurchaseSkill(magnetPrice))
         {
-            magnetPurchased = true;
-            ActivateSkill(SkillType.Magnet, true); // Permanent
+            // magnetPurchased = true; // Tekrar alımı engellemek istersen aç
+            // YENİ: Direkt aktif etme, spawn et!
+            if (SpawnManager.Instance != null)
+            {
+                SpawnManager.Instance.SpawnSkillImmediately(SkillType.Magnet, true);
+            }
             OnUpgradesChanged?.Invoke();
         }
     }
@@ -197,8 +233,11 @@ public class SkillManager : MonoBehaviour
         if (speedPurchased) return;
         if (TryPurchaseSkill(speedPrice))
         {
-            speedPurchased = true;
-            ActivateSkill(SkillType.Speed, true); // Permanent
+            // speedPurchased = true;
+            if (SpawnManager.Instance != null)
+            {
+                SpawnManager.Instance.SpawnSkillImmediately(SkillType.Speed, true);
+            }
             OnUpgradesChanged?.Invoke();
         }
     }
@@ -208,8 +247,11 @@ public class SkillManager : MonoBehaviour
         if (shieldPurchased) return;
         if (TryPurchaseSkill(shieldPrice))
         {
-            shieldPurchased = true;
-            ActivateSkill(SkillType.Shield, true); // Permanent
+            // shieldPurchased = true;
+            if (SpawnManager.Instance != null)
+            {
+                SpawnManager.Instance.SpawnSkillImmediately(SkillType.Shield, true);
+            }
             OnUpgradesChanged?.Invoke();
         }
     }

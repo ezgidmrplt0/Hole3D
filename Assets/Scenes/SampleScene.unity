@@ -4015,7 +4015,7 @@ MonoBehaviour:
   minSpawnDistance: 2
   maxSpawnAttempts: 100
   magnetPickupPrefab: {fileID: 89448664301603614, guid: cc0f50400b64592f48655ad18157dfef, type: 3}
-  speedPickupPrefab: {fileID: 4821464110557111511, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
+  speedPickupPrefab: {fileID: 7670250018758076685, guid: a5af92aa66fa329d0a80fb26008b56a0, type: 3}
   shieldPickupPrefab: {fileID: 1408239952547486256, guid: 66fe1d33cc940e6b4a809f0f72148371, type: 3}
   skillSpawnMinInterval: 15
   skillSpawnMaxInterval: 30
@@ -6126,63 +6126,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: ef94f707182732b4fb45389fc2da750f, type: 3}
---- !u!1001 &3559418641342998990
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 810.0138
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 2276.1475
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -377.55472
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 3041676751641645362, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4821464110557111511, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
-      propertyPath: m_Name
-      value: Speed2
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 0586dd7a6e25ae14f8e6af44ab0ce671, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -6198,4 +6141,3 @@ SceneRoots:
   - {fileID: 1008246403}
   - {fileID: 832010508}
   - {fileID: 2074062848}
-  - {fileID: 3559418641342998990}

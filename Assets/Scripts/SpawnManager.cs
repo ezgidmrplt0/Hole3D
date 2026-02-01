@@ -655,14 +655,14 @@ public class SpawnManager : MonoBehaviour
     
     public void StartSkillSpawning()
     {
-        skillSpawningEnabled = true;
-        ScheduleNextSkillSpawn();
-        Debug.Log("[SpawnManager] Skill pickup spawning started.");
+        // Random spawning disabled requested by user
+        // skillSpawningEnabled = true;
+        Debug.Log("[SpawnManager] Skill random spawning is disabled.");
     }
     
     public void StopSkillSpawning()
     {
-        skillSpawningEnabled = false;
+        // skillSpawningEnabled = false;
         
         // Mevcut pickup'ları temizle
         foreach (var pickup in activeSkillPickups)
@@ -670,17 +670,18 @@ public class SpawnManager : MonoBehaviour
             if (pickup != null) Destroy(pickup);
         }
         activeSkillPickups.Clear();
-        Debug.Log("[SpawnManager] Skill pickup spawning stopped.");
     }
     
     void Update()
     {
-        // Skill spawn kontrolü
+        // Skill spawn kontrolü disabled
+        /*
         if (skillSpawningEnabled && Time.time >= nextSkillSpawnTime)
         {
             TrySpawnSkillPickup();
             ScheduleNextSkillSpawn();
         }
+        */
         
         // Null referansları temizle (yutulmuş veya timeout olmuş pickup'lar)
         activeSkillPickups.RemoveAll(p => p == null);

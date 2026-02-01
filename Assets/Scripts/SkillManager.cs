@@ -16,18 +16,7 @@ public class SkillManager : MonoBehaviour
     // ========== EVENTS ==========
     public event Action<SkillType, float> OnSkillActivated;  // Skill tipi ve süre
     public event Action<SkillType> OnSkillDeactivated;
-    public event Action OnUpgradesChanged;
-
-    // ========== UPGRADE LEVELS (Kalıcı - PlayerPrefs) ==========
-    private const string MAGNET_UPGRADE_KEY = "Upgrade_Magnet";
-    private const string SPEED_UPGRADE_KEY = "Upgrade_Speed";
-    private const string SHIELD_UPGRADE_KEY = "Upgrade_Shield";
-    
-    public const int MAX_UPGRADE_LEVEL = 10;
-    
-    public int MagnetUpgradeLevel { get; private set; } = 0;
-    public int SpeedUpgradeLevel { get; private set; } = 0;
-    public int ShieldUpgradeLevel { get; private set; } = 0;
+    public event Action OnUpgradesChanged; // Kept for UI updates
 
     // ========== ACTIVE SKILL TIMERS ==========
     private Dictionary<SkillType, float> activeSkillTimers = new Dictionary<SkillType, float>();
@@ -37,21 +26,13 @@ public class SkillManager : MonoBehaviour
     public float magnetBaseDuration = 8f;
     public float magnetBaseRadius = 6f;     // Artırıldı (3 -> 6)
     public float magnetBaseForce = 25f;     // Artırıldı (8 -> 25)
-    public float magnetRadiusPerLevel = 1f;  // Her level +1m (0.5 -> 1)
-    public float magnetForcePerLevel = 5f;   // Her level +5 force (2 -> 5)
 
     [Header("Speed Settings")]
     public float speedBaseDuration = 6f;
     public float speedBaseMultiplier = 1.5f;   // %50 hız artışı
-    public float speedBonusPerLevel = 0.1f;    // Her level +%10
 
     [Header("Shield Settings")]
     public float shieldBaseDuration = 10f;
-    public float shieldDurationPerLevel = 1f;  // Her level +1 saniye
-
-    [Header("Upgrade Prices")]
-    public int baseUpgradePrice = 100;
-    public float priceMultiplier = 1.5f;       // Her level fiyat 1.5x artar
 
     // ========== UNITY LIFECYCLE ==========
     void Awake()
@@ -59,7 +40,6 @@ public class SkillManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            LoadUpgrades();
         }
         else
         {
@@ -74,20 +54,37 @@ public class SkillManager : MonoBehaviour
     }
 
     // ========== SKILL ACTIVATION ==========
-    public void ActivateSkill(SkillType type)
+    // ========== SKILL ACTIVATION ==========
+    public void ActivateSkill(SkillType type, bool permanent = false)
     {
-        float duration = GetSkillDuration(type);
-        
-        // Eğer zaten aktifse, süreyi uzat (stack)
-        if (activeSkillTimers.ContainsKey(type))
+        // 1. Permanent Check
+        if (permanent)
         {
-            activeSkillTimers[type] += duration;
-            Debug.Log($"[SkillManager] {type} süresi uzatıldı. Toplam: {activeSkillTimers[type]:F1}s");
+            // If already permanent, do nothing or log ?
+            // Just set duration to infinite (using a magic number like 9999 or separate flag)
+            // But let's use the dictionary with a very high value
+            activeSkillTimers[type] = 999999f;
+            Debug.Log($"[SkillManager] {type} PERMANENTLY activated for this level!");
         }
         else
         {
-            activeSkillTimers[type] = duration;
-            Debug.Log($"[SkillManager] {type} aktif edildi. Süre: {duration:F1}s");
+            // Normal activation (pickup) - but pickups are disabled now?
+            // User said "skiller level bitene kadar bitmeyecek" (skills wont end until level ends)
+            // So seemingly ALL activations should be permanent?
+            // But just in case, let's keep the parameter but default to permanent if bought.
+            
+            float duration = GetSkillDuration(type);
+            if (activeSkillTimers.ContainsKey(type))
+            {
+                 // If already infinite, don't overwrite with short duration
+                 if (activeSkillTimers[type] > 900000f) return;
+                 
+                 activeSkillTimers[type] += duration;
+            }
+            else
+            {
+                activeSkillTimers[type] = duration;
+            }
         }
         
         OnSkillActivated?.Invoke(type, activeSkillTimers[type]);
@@ -95,29 +92,25 @@ public class SkillManager : MonoBehaviour
 
     void UpdateActiveSkills()
     {
-        List<SkillType> expiredSkills = new List<SkillType>();
+        // Only count down if not "infinite"
         List<SkillType> keys = new List<SkillType>(activeSkillTimers.Keys);
         
         foreach (var type in keys)
         {
+            float val = activeSkillTimers[type];
+            if (val > 900000f) continue; // Infinite / Permanent
+            
             activeSkillTimers[type] -= Time.deltaTime;
             
             if (activeSkillTimers[type] <= 0)
             {
-                expiredSkills.Add(type);
+                activeSkillTimers.Remove(type);
+                OnSkillDeactivated?.Invoke(type);
             }
-        }
-        
-        // Süresi biten skill'leri kaldır
-        foreach (var type in expiredSkills)
-        {
-            activeSkillTimers.Remove(type);
-            OnSkillDeactivated?.Invoke(type);
-            Debug.Log($"[SkillManager] {type} süresi doldu.");
         }
     }
 
-    // ========== SKILL QUERIES ==========
+    // ========== HELPER PROPERTIES / METHODS ==========
     public bool IsSkillActive(SkillType type)
     {
         return activeSkillTimers.ContainsKey(type) && activeSkillTimers[type] > 0;
@@ -128,136 +121,58 @@ public class SkillManager : MonoBehaviour
         return activeSkillTimers.ContainsKey(type) ? activeSkillTimers[type] : 0f;
     }
 
-    // Kısayollar (Eski kodla uyumluluk için)
     public bool IsMagnetActive => IsSkillActive(SkillType.Magnet);
     public bool IsSpeedActive => IsSkillActive(SkillType.Speed);
     public bool IsShieldActive => IsSkillActive(SkillType.Shield);
-    
-    // Eski uyumluluk (Repellent kaldırıldı ama referans varsa hata vermesin)
-    public bool IsRepellentActive => false;
+    public bool IsRepellentActive => false; // Compatibility
 
-    // ========== SKILL VALUES (Upgrade'e göre hesaplanır) ==========
+    // ========== SKILL VALUES ==========
     public float GetSkillDuration(SkillType type)
     {
         return type switch
         {
             SkillType.Magnet => magnetBaseDuration,
             SkillType.Speed => speedBaseDuration,
-            SkillType.Shield => shieldBaseDuration + (ShieldUpgradeLevel * shieldDurationPerLevel),
+            SkillType.Shield => shieldBaseDuration,
             _ => 5f
         };
     }
 
-    public float GetMagnetRadius()
-    {
-        return magnetBaseRadius + (MagnetUpgradeLevel * magnetRadiusPerLevel);
-    }
-
-    public float GetMagnetForce()
-    {
-        return magnetBaseForce + (MagnetUpgradeLevel * magnetForcePerLevel);
-    }
-
-    public float GetSpeedMultiplier()
-    {
-        return speedBaseMultiplier + (SpeedUpgradeLevel * speedBonusPerLevel);
-    }
-
-    public float GetShieldDuration()
-    {
-        return shieldBaseDuration + (ShieldUpgradeLevel * shieldDurationPerLevel);
-    }
+    public float GetMagnetRadius() => magnetBaseRadius; // Fixed values, no upgrades
+    public float GetMagnetForce() => magnetBaseForce;
+    public float GetSpeedMultiplier() => speedBaseMultiplier;
+    public float GetShieldDuration() => shieldBaseDuration;
     
-    // Eski uyumluluk (Repellent kaldırıldı)
+    // Eski uyumluluk
     public float GetRepellentRadius() => 0f;
     public float GetRepellentForce() => 0f;
+    public int GetUpgradeLevel(SkillType type) => 1; // Always 1
+    public int GetUpgradePrice(SkillType type) => 0; // No upgrades
+    public bool CanUpgrade(SkillType type) => false;
+    public bool TryUpgrade(SkillType type) => false;
 
-    // ========== UPGRADE SYSTEM ==========
-    public int GetUpgradeLevel(SkillType type)
+    // ========== LEVEL MARKET (Tek kullanımlık -> Kalıcı) ==========
+    [Header("Level Market Prices")]
+    public int magnetPrice = 50;
+    public int speedPrice = 40;
+    public int shieldPrice = 60;
+    
+    // Satın alma sayaçları (her level sıfırlanır)
+    private bool magnetPurchased = false;
+    private bool speedPurchased = false;
+    private bool shieldPurchased = false;
+
+    public void ResetLevelPurchases()
     {
-        return type switch
-        {
-            SkillType.Magnet => MagnetUpgradeLevel,
-            SkillType.Speed => SpeedUpgradeLevel,
-            SkillType.Shield => ShieldUpgradeLevel,
-            _ => 0
-        };
+        magnetPurchased = false;
+        speedPurchased = false;
+        shieldPurchased = false;
+        ResetSkills();
     }
 
-    public int GetUpgradePrice(SkillType type)
-    {
-        int level = GetUpgradeLevel(type);
-        if (level >= MAX_UPGRADE_LEVEL) return -1; // Max level
-        
-        return Mathf.RoundToInt(baseUpgradePrice * Mathf.Pow(priceMultiplier, level));
-    }
-
-    public bool CanUpgrade(SkillType type)
-    {
-        int price = GetUpgradePrice(type);
-        if (price < 0) return false; // Max level
-        
-        return EconomyManager.Instance != null && EconomyManager.Instance.CurrentCoins >= price;
-    }
-
-    public bool TryUpgrade(SkillType type)
-    {
-        int price = GetUpgradePrice(type);
-        if (price < 0)
-        {
-            Debug.Log($"[SkillManager] {type} zaten max level!");
-            return false;
-        }
-        
-        if (EconomyManager.Instance == null || !EconomyManager.Instance.SpendCoins(price))
-        {
-            Debug.Log($"[SkillManager] Yetersiz altın! Gerekli: {price}");
-            return false;
-        }
-        
-        // Upgrade başarılı
-        switch (type)
-        {
-            case SkillType.Magnet:
-                MagnetUpgradeLevel++;
-                break;
-            case SkillType.Speed:
-                SpeedUpgradeLevel++;
-                break;
-            case SkillType.Shield:
-                ShieldUpgradeLevel++;
-                break;
-        }
-        
-        SaveUpgrades();
-        OnUpgradesChanged?.Invoke();
-        
-        Debug.Log($"[SkillManager] {type} upgraded to level {GetUpgradeLevel(type)}!");
-        return true;
-    }
-
-    // ========== PERSISTENCE ==========
-    void LoadUpgrades()
-    {
-        MagnetUpgradeLevel = PlayerPrefs.GetInt(MAGNET_UPGRADE_KEY, 0);
-        SpeedUpgradeLevel = PlayerPrefs.GetInt(SPEED_UPGRADE_KEY, 0);
-        ShieldUpgradeLevel = PlayerPrefs.GetInt(SHIELD_UPGRADE_KEY, 0);
-        
-        Debug.Log($"[SkillManager] Upgrades loaded: Magnet={MagnetUpgradeLevel}, Speed={SpeedUpgradeLevel}, Shield={ShieldUpgradeLevel}");
-    }
-
-    void SaveUpgrades()
-    {
-        PlayerPrefs.SetInt(MAGNET_UPGRADE_KEY, MagnetUpgradeLevel);
-        PlayerPrefs.SetInt(SPEED_UPGRADE_KEY, SpeedUpgradeLevel);
-        PlayerPrefs.SetInt(SHIELD_UPGRADE_KEY, ShieldUpgradeLevel);
-        PlayerPrefs.Save();
-    }
-
-    // ========== LEVEL RESET (Her level başında - Aktif skill'ler sıfırlanır) ==========
     public void ResetSkills()
     {
-        // Sadece aktif skill'leri sıfırla, upgrade'ler kalıcı
+        // Sadece aktif skill'leri sıfırla
         foreach (var type in new List<SkillType>(activeSkillTimers.Keys))
         {
             OnSkillDeactivated?.Invoke(type);
@@ -266,201 +181,59 @@ public class SkillManager : MonoBehaviour
         Debug.Log("[SkillManager] Active skills reset for new level.");
     }
 
-    // ========== DEBUG ==========
-    [ContextMenu("Reset All Upgrades")]
-    public void ResetAllUpgrades()
-    {
-        MagnetUpgradeLevel = 0;
-        SpeedUpgradeLevel = 0;
-        ShieldUpgradeLevel = 0;
-        SaveUpgrades();
-        OnUpgradesChanged?.Invoke();
-        Debug.Log("[SkillManager] All upgrades reset to 0.");
-    }
-
-    [ContextMenu("Max All Upgrades")]
-    public void MaxAllUpgrades()
-    {
-        MagnetUpgradeLevel = MAX_UPGRADE_LEVEL;
-        SpeedUpgradeLevel = MAX_UPGRADE_LEVEL;
-        ShieldUpgradeLevel = MAX_UPGRADE_LEVEL;
-        SaveUpgrades();
-        OnUpgradesChanged?.Invoke();
-        Debug.Log("[SkillManager] All upgrades set to MAX.");
-    }
-    
-    [ContextMenu("Test Activate Magnet")]
-    public void TestActivateMagnet() => ActivateSkill(SkillType.Magnet);
-    
-    [ContextMenu("Test Activate Speed")]
-    public void TestActivateSpeed() => ActivateSkill(SkillType.Speed);
-    
-    [ContextMenu("Test Activate Shield")]
-    public void TestActivateShield() => ActivateSkill(SkillType.Shield);
-
-    // ========== LEVEL MARKET (Tek kullanımlık satın alma) ==========
-    [Header("Level Market Prices")]
-    public int magnetPrice = 50;
-    public int speedPrice = 40;
-    public int shieldPrice = 60;
-    
-    [Header("Skill Prefabs (Spawn edilecek)")]
-    public GameObject magnetPickupPrefab;
-    public GameObject speedPickupPrefab;
-    public GameObject shieldPickupPrefab;
-    
-    // Satın alma sayaçları (her level sıfırlanır)
-    private int magnetPurchasedThisLevel = 0;
-    private int speedPurchasedThisLevel = 0;
-    private int shieldPurchasedThisLevel = 0;
-
-    /// <summary>
-    /// Level başında satın alma sayaçlarını sıfırla
-    /// </summary>
-    public void ResetLevelPurchases()
-    {
-        magnetPurchasedThisLevel = 0;
-        speedPurchasedThisLevel = 0;
-        shieldPurchasedThisLevel = 0;
-    }
-
-    /// <summary>
-    /// Magnet satın al (Button OnClick için)
-    /// </summary>
     public void BuyMagnet()
     {
-        if (magnetPurchasedThisLevel > 0) return; // Prevent double buy
-        
+        if (magnetPurchased) return;
         if (TryPurchaseSkill(magnetPrice))
         {
-            magnetPurchasedThisLevel++;
-            SpawnSkillPickup(SkillType.Magnet);
-            Debug.Log("[SkillManager] Magnet satın alındı ve spawn edildi!");
-            OnUpgradesChanged?.Invoke(); // Notify UI to update buttons
-        }
-    }
-    
-    /// <summary>
-    /// Speed satın al (Button OnClick için)
-    /// </summary>
-    public void BuySpeed()
-    {
-        if (speedPurchasedThisLevel > 0) return;
-
-        if (TryPurchaseSkill(speedPrice))
-        {
-            speedPurchasedThisLevel++;
-            SpawnSkillPickup(SkillType.Speed);
-            Debug.Log("[SkillManager] Speed satın alındı ve spawn edildi!");
+            magnetPurchased = true;
+            ActivateSkill(SkillType.Magnet, true); // Permanent
             OnUpgradesChanged?.Invoke();
         }
     }
     
-    /// <summary>
-    /// Shield satın al (Button OnClick için)
-    /// </summary>
+    public void BuySpeed()
+    {
+        if (speedPurchased) return;
+        if (TryPurchaseSkill(speedPrice))
+        {
+            speedPurchased = true;
+            ActivateSkill(SkillType.Speed, true); // Permanent
+            OnUpgradesChanged?.Invoke();
+        }
+    }
+    
     public void BuyShield()
     {
-        if (shieldPurchasedThisLevel > 0) return;
-
+        if (shieldPurchased) return;
         if (TryPurchaseSkill(shieldPrice))
         {
-            shieldPurchasedThisLevel++;
-            SpawnSkillPickup(SkillType.Shield);
-            Debug.Log("[SkillManager] Shield satın alındı ve spawn edildi!");
+            shieldPurchased = true;
+            ActivateSkill(SkillType.Shield, true); // Permanent
             OnUpgradesChanged?.Invoke();
         }
     }
     
     private bool TryPurchaseSkill(int price)
     {
-        if (EconomyManager.Instance == null) return false;
-        
-        if (EconomyManager.Instance.CurrentCoins >= price)
+        if (EconomyManager.Instance != null && EconomyManager.Instance.CurrentCoins >= price)
         {
             EconomyManager.Instance.SpendCoins(price);
             return true;
         }
-        
-        Debug.Log($"[SkillManager] Yetersiz altın! Gerekli: {price}, Mevcut: {EconomyManager.Instance.CurrentCoins}");
         return false;
     }
-    
-    private void SpawnSkillPickup(SkillType type)
-    {
-        // SpawnManager varsa onu kullan
-        if (SpawnManager.Instance != null)
-        {
-            SpawnManager.Instance.SpawnSkillPickupForMarket(type);
-            return;
-        }
-        
-        // SpawnManager yoksa fallback - prefab kullan
-        GameObject prefab = type switch
-        {
-            SkillType.Magnet => magnetPickupPrefab,
-            SkillType.Speed => speedPickupPrefab,
-            SkillType.Shield => shieldPickupPrefab,
-            _ => null
-        };
-        
-        if (prefab == null)
-        {
-            // Prefab yoksa, doğrudan skill'i aktif et
-            Debug.LogWarning($"[SkillManager] {type} prefab atanmamış, skill doğrudan aktif ediliyor.");
-            ActivateSkill(type);
-            return;
-        }
-        
-        // Hole'un yakınında spawn et
-        Vector3 spawnPos = GetSkillSpawnPosition();
-        GameObject pickup = Instantiate(prefab, spawnPos, Quaternion.identity);
-        
-        // SkillPickup component'i varsa type'ı ayarla
-        SkillPickup skillPickup = pickup.GetComponent<SkillPickup>();
-        if (skillPickup != null)
-        {
-            skillPickup.skillType = type;
-        }
-    }
-    
-    private Vector3 GetSkillSpawnPosition()
-    {
-        // Hole'u bul
-        HoleMechanics hole = FindObjectOfType<HoleMechanics>();
-        Vector3 basePos = hole != null ? hole.transform.position : Vector3.zero;
-        
-        // Hole'un 3-5 birim önünde rastgele bir yere spawn et
-        Vector2 randomOffset = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range(3f, 5f);
-        Vector3 spawnPos = basePos + new Vector3(randomOffset.x, 0, randomOffset.y);
-        
-        // Y değerini zemine ayarla
-        if (SpawnManager.Instance != null)
-        {
-            spawnPos.y = SpawnManager.Instance.groundY + 0.5f;
-        }
-        else
-        {
-            spawnPos.y = 0.5f;
-        }
-        
-        return spawnPos;
-    }
-    
-    /// <summary>
-    /// Belirli bir skill'i alabilir mi kontrol et (yeterli altın var mı)
-    /// </summary>
+
     public bool CanBuySkill(SkillType type)
     {
-        // Check limitation
-        int purchased = type switch {
-            SkillType.Magnet => magnetPurchasedThisLevel,
-            SkillType.Speed => speedPurchasedThisLevel,
-            SkillType.Shield => shieldPurchasedThisLevel,
-            _ => 1
+        bool purchased = type switch {
+            SkillType.Magnet => magnetPurchased,
+            SkillType.Speed => speedPurchased,
+            SkillType.Shield => shieldPurchased,
+            _ => true
         };
         
-        if (purchased > 0) return false;
+        if (purchased) return false;
 
         int price = type switch
         {
@@ -471,19 +244,5 @@ public class SkillManager : MonoBehaviour
         };
         
         return EconomyManager.Instance != null && EconomyManager.Instance.CurrentCoins >= price;
-    }
-    
-    /// <summary>
-    /// Skill fiyatını al
-    /// </summary>
-    public int GetSkillPrice(SkillType type)
-    {
-        return type switch
-        {
-            SkillType.Magnet => magnetPrice,
-            SkillType.Speed => speedPrice,
-            SkillType.Shield => shieldPrice,
-            _ => 0
-        };
     }
 }

@@ -113,15 +113,26 @@ MonoBehaviour:
   targetTags:
   - Zombie
   - Human
+  shakeDuration: 0.15
+  shakeStrength: 0.4
+  shakeVibrato: 20
+  comboTimeWindow: 0.8
+  minComboShake: 2
   levelText: {fileID: 0}
+  damageFont: {fileID: 11400000, guid: 204de1c1ba42511499fce6c31f911f33, type: 2}
   fallDuration: 0.5
   minScale: 0.1
   holeLevel: 1
   currentXP: 0
   xpToNextLevel: 5
   visuals: {fileID: 1351557672186379684}
+  xpParticles: {fileID: 0}
+  isFeverMode: 0
   voidRadius: 0.5
   sinkDepth: 3
+  pullForce: 150
+  rotationSpeed: 360
+  shieldVisualEffect: {fileID: 0}
 --- !u!135 &4152202531580559102
 SphereCollider:
   m_ObjectHideFlags: 0

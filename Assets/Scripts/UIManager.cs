@@ -18,6 +18,7 @@ public class UIManager : MonoBehaviour
     public GameObject hordeBannerPanel;
     public TextMeshProUGUI hordeBannerText;
     public float hordeBannerDuration = 2f;
+    public TMP_FontAsset bannerFont; // Added for dynamic font assignment
 
     private void Start()
     {
@@ -289,6 +290,7 @@ public class UIManager : MonoBehaviour
         
         hordeBannerText = textObj.AddComponent<TextMeshProUGUI>();
         hordeBannerText.text = "HORDE!";
+        if (bannerFont != null) hordeBannerText.font = bannerFont; // Assign Custom Font
         hordeBannerText.fontSize = 100; // Daha büyük
         hordeBannerText.fontStyle = FontStyles.Bold;
         hordeBannerText.color = Color.red;
@@ -323,7 +325,6 @@ public class UIManager : MonoBehaviour
     }
 
     // Shop butonlarına (Unity Inspector'dan) bu fonksiyonu verip, parametre olarak coin miktarını girebilirsiniz.
-    // Shop butonlarına (Unity Inspector'dan) bu fonksiyonu verip, parametre olarak coin miktarını girebilirsiniz.
     public void BuyCoinPack(int amount)
     {
         if (EconomyManager.Instance != null)
@@ -333,18 +334,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    [Header("Skill Upgrade UI (Store)")]
-    public UnityEngine.UI.Button magnetButton;
-    public TextMeshProUGUI magnetPriceText;
-    public TextMeshProUGUI magnetLevelText;
-
-    public UnityEngine.UI.Button speedButton;
-    public TextMeshProUGUI speedPriceText;
-    public TextMeshProUGUI speedLevelText;
-
-    public UnityEngine.UI.Button shieldButton;  // Repellent -> Shield olarak değişti
-    public TextMeshProUGUI shieldPriceText;
-    public TextMeshProUGUI shieldLevelText;
+    // [Header("Skill Upgrade UI (Store)")] REMOVED
     
     [Header("Level Market (Single Use)")]
     public UnityEngine.UI.Button levelMagnetButton;
@@ -369,54 +359,6 @@ public class UIManager : MonoBehaviour
     private void UpdateSkillUI()
     {
         if (SkillManager.Instance == null) return;
-
-        // Magnet
-        if (magnetButton != null)
-        {
-            int level = SkillManager.Instance.MagnetUpgradeLevel;
-            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Magnet);
-            bool isMaxLevel = price < 0;
-            
-            magnetButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Magnet);
-            
-            if (magnetPriceText != null)
-                magnetPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
-            
-            if (magnetLevelText != null)
-                magnetLevelText.text = "Lv." + level;
-        }
-
-        // Speed
-        if (speedButton != null)
-        {
-            int level = SkillManager.Instance.SpeedUpgradeLevel;
-            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Speed);
-            bool isMaxLevel = price < 0;
-            
-            speedButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Speed);
-            
-            if (speedPriceText != null)
-                speedPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
-            
-            if (speedLevelText != null)
-                speedLevelText.text = "Lv." + level;
-        }
-
-        // Shield
-        if (shieldButton != null)
-        {
-            int level = SkillManager.Instance.ShieldUpgradeLevel;
-            int price = SkillManager.Instance.GetUpgradePrice(SkillType.Shield);
-            bool isMaxLevel = price < 0;
-            
-            shieldButton.interactable = !isMaxLevel && SkillManager.Instance.CanUpgrade(SkillType.Shield);
-            
-            if (shieldPriceText != null)
-                shieldPriceText.text = isMaxLevel ? "MAX" : price.ToString() + " Gold";
-            
-            if (shieldLevelText != null)
-                shieldLevelText.text = "Lv." + level;
-        }
         
         // --- LEVEL MARKET UPDATE ---
         if (levelMagnetButton != null)
@@ -460,6 +402,7 @@ public class UIManager : MonoBehaviour
             if (SkillManager.Instance.IsSkillActive(type))
             {
                 float remaining = SkillManager.Instance.GetRemainingTime(type);
+                // 900000f is our magic logic for "Permanent"
                 if (remaining > maxTime)
                 {
                     maxTime = remaining;
@@ -487,7 +430,15 @@ public class UIManager : MonoBehaviour
             // Timer göster
             if (activeSkillTimerText != null)
             {
-                activeSkillTimerText.text = maxTime.ToString("F1") + "s";
+                // Permanent check
+                if (maxTime > 900000f) 
+                {
+                    activeSkillTimerText.text = "∞"; // Infinite symbol
+                }
+                else
+                {
+                    activeSkillTimerText.text = maxTime.ToString("F1") + "s";
+                }
             }
         }
         else
@@ -496,39 +447,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // Assign to Button OnClick
-    public void UpgradeMagnet()
-    {
-        Debug.Log("UIManager: UpgradeMagnet clicked.");
-
-        if (SkillManager.Instance == null) return;
-
-        if (SkillManager.Instance.TryUpgrade(SkillType.Magnet))
-        {
-            UpdateSkillUI();
-        }
-    }
-
-    public void UpgradeSpeed()
-    {
-        Debug.Log("UIManager: UpgradeSpeed clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.TryUpgrade(SkillType.Speed))
-        {
-            UpdateSkillUI();
-        }
-    }
-
-    public void UpgradeShield()  // Eski: UpgradeRepellent
-    {
-        Debug.Log("UIManager: UpgradeShield clicked.");
-        if (SkillManager.Instance != null && SkillManager.Instance.TryUpgrade(SkillType.Shield))
-        {
-            UpdateSkillUI();
-        }
-    }
-    
-    // Eski API uyumluluk (Scene'de Repellent butonu varsa çalışsın)
-    public void UpgradeRepellent() => UpgradeShield();
+    // Upgrade methods REMOVED
 
     // --- LEVEL MARKET METHODS ---
     // Assign these to the buttons in the Inspector

@@ -28,6 +28,7 @@ public class HoleMechanics : MonoBehaviour
 
     [Header("UI")]
     public TMP_Text levelText;
+    public TMP_FontAsset damageFont; // Added for dynamic font assignment
 
     [Header("Animation Settings")]
     public float fallDuration = 0.5f;
@@ -809,7 +810,7 @@ public class HoleMechanics : MonoBehaviour
 
         // Floating Logic
         FloatingText ft = go.AddComponent<FloatingText>();
-        ft.Setup(text, color);
+        ft.Setup(text, color, damageFont);
     }
 
     void LevelUp()

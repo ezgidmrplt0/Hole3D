@@ -8,7 +8,7 @@ public class FloatingText : MonoBehaviour
     private float lifeTime = 1f;
     private float timer;
 
-    public void Setup(string text, Color color)
+    public void Setup(string text, Color color, TMP_FontAsset font = null)
     {
         // Setup TMP if not already
         if (tmpText == null) tmpText = GetComponent<TextMeshProUGUI>();
@@ -16,6 +16,7 @@ public class FloatingText : MonoBehaviour
 
         tmpText.text = text;
         tmpText.color = color;
+        if (font != null) tmpText.font = font; // Assign font
         tmpText.fontSize = 6; // Start small/readable
         tmpText.alignment = TextAlignmentOptions.Center;
         tmpText.enableWordWrapping = false;

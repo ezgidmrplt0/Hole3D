@@ -114,7 +114,8 @@ public class GameFlowManager : MonoBehaviour
             Time.timeScale = 1f; // KEEP TIME RUNNING for animations! (Critical for auto-transition timers)
             
             // Show Market
-            if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+            // Hide Market (User request: Don't show in Next Level Panel)
+            if (levelMarketPanel != null) levelMarketPanel.SetActive(false);
 
             // Yazıları Değiştir
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
@@ -205,7 +206,8 @@ public class GameFlowManager : MonoBehaviour
             if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
             
             // Show Market
-            if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+            // Hide Market (User request: Don't show in Retry Panel)
+            if (levelMarketPanel != null) levelMarketPanel.SetActive(false);
             
             if (tapToRetryText != null) 
             {

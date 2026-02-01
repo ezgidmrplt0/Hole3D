@@ -218,7 +218,7 @@ public class SkillManager : MonoBehaviour
         if (magnetPurchased) return;
         if (TryPurchaseSkill(magnetPrice))
         {
-            // magnetPurchased = true; // Tekrar alımı engellemek istersen aç
+            magnetPurchased = true; 
             // YENİ: Direkt aktif etme, spawn et!
             if (SpawnManager.Instance != null)
             {
@@ -233,7 +233,7 @@ public class SkillManager : MonoBehaviour
         if (speedPurchased) return;
         if (TryPurchaseSkill(speedPrice))
         {
-            // speedPurchased = true;
+            speedPurchased = true;
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Speed, true);
@@ -247,7 +247,7 @@ public class SkillManager : MonoBehaviour
         if (shieldPurchased) return;
         if (TryPurchaseSkill(shieldPrice))
         {
-            // shieldPurchased = true;
+            shieldPurchased = true;
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Shield, true);

@@ -24,7 +24,14 @@ public class ZombieAI : CharacterAI
     public float wanderRadius = 5f;
     public float roamInterval = 4f;
     private Vector3 roamTarget;
+
     private float roamTimer;
+    
+    // --- CAGE LOGIC ---
+    private bool isTrapped = false;
+    private Vector3 trappedCenter; // Kafes merkezi
+
+
 
     void Start()
     {
@@ -68,7 +75,20 @@ public class ZombieAI : CharacterAI
         transform.localScale = Vector3.one * scaleFactor;
 
         UpdateLevelText();
+        UpdateLevelText();
     }
+
+    public void SetTrapped(bool state)
+    {
+        isTrapped = state;
+        if (state)
+        {
+             trappedCenter = transform.position; // Doğduğu yeri merkez kabul et (Kafes içi)
+        }
+    }
+
+
+
 
     void CreateLevelUI()
     {
@@ -135,13 +155,39 @@ public class ZombieAI : CharacterAI
             levelText.transform.parent.rotation = camTransform.rotation;
         }
 
-        // Eğer çarpışma sonrası serseri modundaysak
         if (wanderTimer > 0)
         {
             wanderTimer -= Time.deltaTime;
             Move(wanderDirection, false); // Çarpınca YÜRÜYEREK uzaklaş (Sakince)
             return;
         }
+
+        // CAGE CHECK
+        if (isTrapped)
+        {
+            // Kafes içinde panik halinde gezinsinler
+            roamTimer -= Time.deltaTime;
+            if (roamTimer <= 0)
+            {
+                // Kafes merkezine (veya kendi doğduğu yere) yakın bir yer seç
+                // Kafes boyutu yaklaşık 3-4 birimse, radius 1.5 iyidir.
+                Vector2 rnd = Random.insideUnitCircle * 1.5f; 
+                roamTarget = trappedCenter + new Vector3(rnd.x, 0, rnd.y);
+                roamTimer = Random.Range(0.5f, 2.0f); 
+            }
+            
+            Vector3 dir = roamTarget - transform.position;
+            // Çok uzaklaşırsa merkeze dön (Duvarların içinden geçmeyi önlemek için ekstra güvenlik)
+            if (Vector3.Distance(transform.position, trappedCenter) > 2.5f)
+            {
+                dir = trappedCenter - transform.position;
+            }
+            
+            Move(dir, false); // Yürü
+            return;
+        }
+
+
 
         Transform prey = GetClosestPrey();
         if (prey != null)

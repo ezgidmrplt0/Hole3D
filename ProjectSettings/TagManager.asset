@@ -9,6 +9,7 @@ TagManager:
   - Human
   - Main Camera
   - SkillPickup
+  - CageSpawn
   layers:
   - Default
   - TransparentFX

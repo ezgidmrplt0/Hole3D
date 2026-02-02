@@ -10,6 +10,9 @@ public struct LevelData
     
     [Header("Special Modes")]
     public bool isHordeLevel; // Eğer true ise, zombiler dip dibe (Horde) olarak spawn olur
+
+    [Header("Time Settings")]
+    public int timeLimit; // Level süresi (saniye). 0 ise varsayılan kullanılır.
 }
 
 public class LevelManager : MonoBehaviour
@@ -31,6 +34,12 @@ public class LevelManager : MonoBehaviour
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
     public int currentHumansRemaining = 0; // Kalan insan sayısı
     public int currentHumansEaten = 0; // Hole tarafından yenilen (fail condition için)
+
+    [Header("Timer Settings")]
+    public float defaultTimeLimit = 60f; // Eğer LevelData'da belirtilmediyse
+    public float currentTimeRemaining = 0f;
+    private bool isTimeOver = false;
+
     
     // Normal level index (horde levellar bu sayacı artırmaz)
     private int normalLevelIndex = 0;
@@ -40,6 +49,8 @@ public class LevelManager : MonoBehaviour
     public System.Action<int> OnLevelChanged; // New event for level text update
     public System.Action<int> OnZombieCountChanged; // Event for Zombie Counter UI
     public System.Action<int> OnHumanCountChanged; // New Event for Human Counter UI
+    public System.Action<float> OnLevelTimeChanged; // New Event for Timer UI
+
 
     private GameObject currentMapInstance;
     private bool isCurrentLevelSpecial = false; // Flag for special level fever logic
@@ -73,6 +84,42 @@ public class LevelManager : MonoBehaviour
         StartLevel();
         StartCoroutine(SafetyCheckLoop());
     }
+
+    private void Update()
+    {
+        // Oyun aktif değilse veya Fever modundaysak sayaç işlemesin
+        if (GameFlowManager.Instance == null || !GameFlowManager.Instance.IsGameActive || isFeverSequenceActive || isTimeOver) 
+            return;
+
+        if (currentTimeRemaining > 0)
+        {
+            currentTimeRemaining -= Time.deltaTime;
+            
+            // UI Update optimization: Her frame event fırlatmak yerine saniye başı veya değişimde?
+            // Ancak smooth bir bar veya text için her frame olması iyidir.
+            OnLevelTimeChanged?.Invoke(currentTimeRemaining);
+
+            if (currentTimeRemaining <= 0)
+            {
+                currentTimeRemaining = 0;
+                HandleTimeOver();
+            }
+        }
+    }
+
+    private void HandleTimeOver()
+    {
+        if (isTimeOver) return;
+        isTimeOver = true;
+        
+        Debug.Log("Time Over! Level Failed.");
+        
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.ShowRetry();
+        }
+    }
+    
 
 
 
@@ -128,6 +175,8 @@ public class LevelManager : MonoBehaviour
         
         // Reset Logic
         isFeverSequenceActive = false;
+        isTimeOver = false;
+
         
         // HOLE RESET - Fever sonrası büyük kalmayı önle
         HoleMechanics hole = FindObjectOfType<HoleMechanics>();
@@ -176,9 +225,12 @@ public class LevelManager : MonoBehaviour
             targetDisplayCount = -1; // Show real count (30)
             
             desiredHumanCount = 0;   // No humans
-            isHordeMode = false;     // Scattered
             
             isCurrentLevelSpecial = true; // Flag set
+
+            // Special Level Time
+            currentTimeRemaining = defaultTimeLimit;
+
         }
         else
         {
@@ -195,7 +247,11 @@ public class LevelManager : MonoBehaviour
             desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
             isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
             
+            // Set Timer
+            currentTimeRemaining = (data.timeLimit > 0) ? data.timeLimit : defaultTimeLimit;
+            
             Debug.Log($"Level {actualLevelNumber} (Normal Index {normalLevelIndex}): Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
+
         }
 
         // --- MAP SWITCHING LOGIC ---

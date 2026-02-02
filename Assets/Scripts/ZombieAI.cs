@@ -81,6 +81,11 @@ public class ZombieAI : CharacterAI
     public void SetTrapped(bool state, Vector3? center = null)
     {
         isTrapped = state;
+        
+        // FIX: Kafesteyken "duvardan kaçınma" mekaniğini kapat.
+        // Bu mekanik dar alanda zombilerin sürekli titremesine ve duvara itilmesine yol açıyor.
+        enableObstacleAvoidance = !state; 
+        
         if (state)
         {
              if (center.HasValue)
@@ -177,8 +182,9 @@ public class ZombieAI : CharacterAI
             if (roamTimer <= 0)
             {
                 // Kafes merkezine (veya kendi doğduğu yere) yakın bir yer seç
-                // Kafes boyutu dar olduğu için radius çok küçük olmalı: 0.5f
-                Vector2 rnd = Random.insideUnitCircle * 0.5f; 
+                // Kafes boyutu dar olduğu için radius çok küçük olmalı: 0.5f -> 1.5f yaptık (alan var)
+                // FIX: Radius'u artırdık ki "yürüyecek yol" bulsunlar, hemen durmasınlar.
+                Vector2 rnd = Random.insideUnitCircle * 1.5f; 
                 roamTarget = trappedCenter + new Vector3(rnd.x, 0, rnd.y);
                 roamTimer = Random.Range(0.5f, 2.0f); 
             }
@@ -194,6 +200,17 @@ public class ZombieAI : CharacterAI
             {
                 dir = trappedCenter - transform.position;
                 dir.y = 0;
+            }
+            
+            // FIX: Hard Leash - Eğer fizik ile dışarı itildiyse zorla içeri al
+            // 3.0f çok genişti, 1.5f'e çektik (Kafes dışına çıkmalarına izin verme)
+            if (distToCenter > 1.5f)
+            {
+                // Çok uzaklaşmış! Işınla veya sert it.
+                // Yumuşak geçiş için Lerp, ama kesin çözüm için direk atama.
+                Vector3 rescuePos = Vector3.Lerp(transform.position, trappedCenter, 0.1f);
+                transform.position = rescuePos;
+                if (GetComponent<Rigidbody>() != null) GetComponent<Rigidbody>().velocity = Vector3.zero;
             }
             
             // Titremeyi Önleme: Hedefe çok yakınsa hareket etmeyi kes (Idle dur)

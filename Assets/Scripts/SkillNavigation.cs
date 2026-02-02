@@ -8,7 +8,8 @@ public class SkillNavigation : MonoBehaviour
     public Sprite navigationIcon; 
     public float iconSize = 150f; // Increased to match zombie indicator
     public float padding = 50f; 
-    public float rotationOffset = 0f; // Calculated to be correct based on previous visual debug (0 = Right)
+    [Tooltip("Adjust this if the pin points in the wrong direction. 90 is usually good for Down-pointing pins.")]
+    public float rotationOffset = 90f;
     
     [Header("Manual Setup (Optional)")]
     // ... (lines 13-118 are fine, skipping to UpdateIndicator logic modification if needed, but variables are at top)
@@ -250,6 +251,11 @@ public class SkillNavigation : MonoBehaviour
         }
     }
 
+    [Header("Visual Feedback")]
+    public float minScale = 0.8f;
+    public float maxScale = 1.2f;
+    public float scaleDistance = 20f; // Distance at which scaling maxes out
+
     void UpdateIndicator(Vector3 targetWorldPos)
     {
         if (indicatorRect == null) return;
@@ -258,14 +264,27 @@ public class SkillNavigation : MonoBehaviour
 
         Vector3 screenPos = mainCam.WorldToScreenPoint(targetWorldPos);
 
-        // If behind the camera, flip the point (Matches ZombieNavigation logic)
+        // If behind the camera, flip the point
         if (screenPos.z < 0)
         {
             screenPos *= -1; 
         }
 
-        Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
-        Vector3 dir = (screenPos - screenCenter).normalized;
+        // --- DIRECTION CALCULATION FIX ---
+        // Calculate direction from the PLAYER'S screen position, not just the screen center.
+        // This fixes inaccuracies if the camera is offset or lagging.
+        Vector3 originPos;
+        if (playerTransform != null)
+        {
+            originPos = mainCam.WorldToScreenPoint(playerTransform.position);
+            originPos.z = 0; // Flatten
+        }
+        else
+        {
+            originPos = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
+        }
+
+        Vector3 dir = (screenPos - originPos).normalized;
 
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         indicatorRect.rotation = Quaternion.Euler(0, 0, angle + rotationOffset); 
@@ -286,7 +305,8 @@ public class SkillNavigation : MonoBehaviour
         
         float t = Mathf.Min(Mathf.Abs(tX), Mathf.Abs(tY));
         
-        Vector3 finalPos = screenCenter + (dir * t);
+        // Use originPos (Player Center) for the base of the clamped position
+        Vector3 finalPos = originPos + (dir * t); // Was screenCenter + ...
         
         // Convert to Local
         if (navCanvas != null)
@@ -294,6 +314,23 @@ public class SkillNavigation : MonoBehaviour
             Vector2 localPoint;
             RectTransformUtility.ScreenPointToLocalPointInRectangle(navCanvas.GetComponent<RectTransform>(), finalPos, navCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCam, out localPoint);
             indicatorRect.anchoredPosition = localPoint;
+        }
+
+        // --- DISTANCE SCALING ---
+        // "Yakınlaştıkça netleşecek" -> Scale up as we get closer
+        if (playerTransform != null)
+        {
+            float dist = Vector3.Distance(playerTransform.position, targetWorldPos);
+            // Example: Clamped 0..1 factor where 0 is far, 1 is close (within scaleDistance)
+            // But usually we are "Far" when navigating.
+            // Let's invert: Close (< scaleDistance) = maxScale. Far (> 2*scaleDistance) = minScale.
+            
+            float factor = 1f - Mathf.Clamp01(dist / scaleDistance); 
+            // dist = 0 -> factor = 1 (Max Scale)
+            // dist = scaleDistance -> factor = 0 (Min Scale)
+            
+            float targetScale = Mathf.Lerp(minScale, maxScale, factor);
+            indicatorRect.localScale = Vector3.one * targetScale;
         }
     }
 }

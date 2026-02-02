@@ -45,6 +45,9 @@ public class LevelManager : MonoBehaviour
     private bool isCurrentLevelSpecial = false; // Flag for special level fever logic
     private int targetDisplayCount = -1; // -1 means use real count
 
+    private const string PREF_LEVEL_INDEX = "CurrentLevelIndex";
+    private const string PREF_NORMAL_LEVEL_INDEX = "NormalLevelIndex";
+
     private void Awake()
     {
         if (Instance == null)
@@ -61,8 +64,11 @@ public class LevelManager : MonoBehaviour
     private void Start()
     {
         // Reset indexes at game start
-        currentLevelIndex = 0;
-        normalLevelIndex = 0;
+        // Load saved level or default to 0
+        currentLevelIndex = PlayerPrefs.GetInt(PREF_LEVEL_INDEX, 0);
+        normalLevelIndex = PlayerPrefs.GetInt(PREF_NORMAL_LEVEL_INDEX, 0);
+        
+        Debug.Log($"[LevelManager] Loaded Progress - Level Index: {currentLevelIndex}, Normal Index: {normalLevelIndex}");
         
         StartLevel();
         StartCoroutine(SafetyCheckLoop());
@@ -497,6 +503,13 @@ public class LevelManager : MonoBehaviour
         }
 
         currentLevelIndex++;
+        
+        // Save Progress
+        PlayerPrefs.SetInt(PREF_LEVEL_INDEX, currentLevelIndex);
+        PlayerPrefs.SetInt(PREF_NORMAL_LEVEL_INDEX, normalLevelIndex);
+        PlayerPrefs.Save();
+        Debug.Log("[LevelManager] Progress Saved.");
+
         StartLevel();
     }
 

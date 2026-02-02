@@ -153,9 +153,10 @@ public class SkillManager : MonoBehaviour
 
     // ========== LEVEL MARKET (Tek kullanımlık -> Kalıcı) ==========
     [Header("Level Market Prices")]
-    public int magnetPrice = 50;
-    public int speedPrice = 40;
-    public int shieldPrice = 60;
+    [Header("Level Market Prices")]
+    public int magnetPrice = 1000;
+    public int speedPrice = 1000;
+    public int shieldPrice = 1000;
     
     // Satın alma sayaçları (her level sıfırlanır)
     private bool magnetPurchased = false;
@@ -173,6 +174,7 @@ public class SkillManager : MonoBehaviour
         IncreaseSkillPrices();
         
         ResetSkills();
+        OnUpgradesChanged?.Invoke();
     }
     
     private void IncreaseSkillPrices()
@@ -195,9 +197,9 @@ public class SkillManager : MonoBehaviour
         // Ama UI direkt bu değişkenleri okuyor.
         // O yüzden en sağlıklısı: ResetLevelPurchases çağrıldığında fiyatları "Base + Artış" olarak set etmek.
         
-        magnetPrice = 50 + increment;
-        speedPrice = 40 + increment;
-        shieldPrice = 60 + increment;
+        magnetPrice = 1000 + increment;
+        speedPrice = 1000 + increment;
+        shieldPrice = 1000 + increment;
         
         Debug.Log($"[SkillManager] Level {currentLevel + 1} Prices Updated: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
     }

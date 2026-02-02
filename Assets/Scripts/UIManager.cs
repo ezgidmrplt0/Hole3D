@@ -143,6 +143,8 @@ public class UIManager : MonoBehaviour
             LevelManager.Instance.OnHumanCountChanged += UpdateHumanCounter;
             UpdateHumanCounter(LevelManager.Instance.currentHumansEaten);
         }
+        
+        UpdateSkillUI();
     }
 
     private void OnDestroy()

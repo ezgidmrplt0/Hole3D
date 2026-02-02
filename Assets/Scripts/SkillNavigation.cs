@@ -36,6 +36,10 @@ public class SkillNavigation : MonoBehaviour
 
     void Start()
     {
+        // Enforce correct rotation offset for standard pin sprites (Tip pointing Down)
+        // This overrides any potentially incorrect Inspector values (like 0).
+        rotationOffset = 90f; 
+
         AutoLoadSprite();
         Invoke(nameof(SetupSystem), 0.1f);
     }
@@ -270,43 +274,31 @@ public class SkillNavigation : MonoBehaviour
             screenPos *= -1; 
         }
 
-        // --- DIRECTION CALCULATION FIX ---
-        // Calculate direction from the PLAYER'S screen position, not just the screen center.
-        // This fixes inaccuracies if the camera is offset or lagging.
-        Vector3 originPos;
-        if (playerTransform != null)
-        {
-            originPos = mainCam.WorldToScreenPoint(playerTransform.position);
-            originPos.z = 0; // Flatten
-        }
-        else
-        {
-            originPos = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
-        }
-
-        Vector3 dir = (screenPos - originPos).normalized;
+        Vector3 screenCenter = new Vector3(Screen.width / 2f, Screen.height / 2f, 0);
+        Vector3 dir = (screenPos - screenCenter).normalized;
 
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         indicatorRect.rotation = Quaternion.Euler(0, 0, angle + rotationOffset); 
 
         // Clamp to edges
-        float w = Screen.width * 0.9f; 
+        float w = Screen.width * 0.9f; // 90% of screen width (Padding built in)
         float h = Screen.height * 0.9f; 
         
         float boundaryX = w / 2f;
         float boundaryY = h / 2f;
 
         // Intersect ray with box
+        // avoid div/0
         if (Mathf.Abs(dir.x) < 0.001f) dir.x = Mathf.Sign(dir.x) * 0.001f; 
         if (Mathf.Abs(dir.y) < 0.001f) dir.y = Mathf.Sign(dir.y) * 0.001f;
 
         float tX = (dir.x > 0 ? boundaryX : -boundaryX) / dir.x;
         float tY = (dir.y > 0 ? boundaryY : -boundaryY) / dir.y;
         
+        // Smallest positive t is the intersection
         float t = Mathf.Min(Mathf.Abs(tX), Mathf.Abs(tY));
         
-        // Use originPos (Player Center) for the base of the clamped position
-        Vector3 finalPos = originPos + (dir * t); // Was screenCenter + ...
+        Vector3 finalPos = screenCenter + (dir * t);
         
         // Convert to Local
         if (navCanvas != null)
@@ -316,19 +308,14 @@ public class SkillNavigation : MonoBehaviour
             indicatorRect.anchoredPosition = localPoint;
         }
 
-        // --- DISTANCE SCALING ---
-        // "Yakınlaştıkça netleşecek" -> Scale up as we get closer
+        // --- DISTANCE SCALING (KEPT OPTIONAL) ---
+        // Zombi scriptinde bu yok, ama skill için "netleşme" efekti güzel olabilir.
+        // Eğer kullanıcı tamamen aynı olsun isterse burayı silebiliriz.
+        // Şimdilik tutuyorum çünkü şikayet "yön/gösterme" üzerineydi.
         if (playerTransform != null)
         {
             float dist = Vector3.Distance(playerTransform.position, targetWorldPos);
-            // Example: Clamped 0..1 factor where 0 is far, 1 is close (within scaleDistance)
-            // But usually we are "Far" when navigating.
-            // Let's invert: Close (< scaleDistance) = maxScale. Far (> 2*scaleDistance) = minScale.
-            
             float factor = 1f - Mathf.Clamp01(dist / scaleDistance); 
-            // dist = 0 -> factor = 1 (Max Scale)
-            // dist = scaleDistance -> factor = 0 (Min Scale)
-            
             float targetScale = Mathf.Lerp(minScale, maxScale, factor);
             indicatorRect.localScale = Vector3.one * targetScale;
         }

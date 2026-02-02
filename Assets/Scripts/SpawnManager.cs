@@ -11,6 +11,17 @@ public class SpawnManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
+    private void Start()
+    {
+        // Ensure SkillNavigation exists
+        if (FindObjectOfType<SkillNavigation>() == null)
+        {
+            GameObject navObj = new GameObject("SkillNavigationSystem");
+            navObj.AddComponent<SkillNavigation>();
+            Debug.Log("[SpawnManager] Auto-created SkillNavigation system.");
+        }
+    }
+
     [Header("Prefabs")]
     [Tooltip("List of Human prefabs to spawn.")]
     public List<GameObject> humanPrefabs;

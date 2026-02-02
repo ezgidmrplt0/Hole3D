@@ -40,13 +40,25 @@ public class UIManager : MonoBehaviour
                 {
                     // Magnet
                     Transform tMag = skills.Find("Magnet");
-                    // Eğer doğrudan butonsa
                     if (tMag != null)
                     {
                         if (levelMagnetButton == null) levelMagnetButton = tMag.GetComponent<UnityEngine.UI.Button>();
-                        if (levelMagnetButton == null) levelMagnetButton = tMag.GetComponentInChildren<UnityEngine.UI.Button>(); // Container ise
+                        if (levelMagnetButton == null) levelMagnetButton = tMag.GetComponentInChildren<UnityEngine.UI.Button>(); 
                         
-                        if (levelMagnetPriceText == null && tMag != null) levelMagnetPriceText = tMag.GetComponentInChildren<TextMeshProUGUI>();
+                        if (levelMagnetPriceText == null) 
+                        {
+                            // Akıllı Arama: İsmi "Price" içeren Text'i bul (Örn: PriceText)
+                            // Bu sayede "Title" gibi diğer yazıları yanlışlıkla almaz.
+                            var allTexts = tMag.GetComponentsInChildren<TextMeshProUGUI>(true);
+                            foreach(var txt in allTexts) {
+                                if (txt.gameObject.name.Contains("Price") || txt.gameObject.name.Contains("Cost")) {
+                                    levelMagnetPriceText = txt;
+                                    break;
+                                }
+                            }
+                            // Bulamazsa ilk bulduğu text'i al (Fallback)
+                            if (levelMagnetPriceText == null) levelMagnetPriceText = tMag.GetComponentInChildren<TextMeshProUGUI>();
+                        }
                     }
 
                     // Speed
@@ -56,7 +68,17 @@ public class UIManager : MonoBehaviour
                         if (levelSpeedButton == null) levelSpeedButton = tSpeed.GetComponent<UnityEngine.UI.Button>();
                         if (levelSpeedButton == null) levelSpeedButton = tSpeed.GetComponentInChildren<UnityEngine.UI.Button>();
                         
-                        if (levelSpeedPriceText == null && tSpeed != null) levelSpeedPriceText = tSpeed.GetComponentInChildren<TextMeshProUGUI>();
+                        if (levelSpeedPriceText == null) 
+                        {
+                            var allTexts = tSpeed.GetComponentsInChildren<TextMeshProUGUI>(true);
+                            foreach(var txt in allTexts) {
+                                if (txt.gameObject.name.Contains("Price") || txt.gameObject.name.Contains("Cost")) {
+                                    levelSpeedPriceText = txt;
+                                    break;
+                                }
+                            }
+                            if (levelSpeedPriceText == null) levelSpeedPriceText = tSpeed.GetComponentInChildren<TextMeshProUGUI>();
+                        }
                     }
 
                     // Shield
@@ -66,7 +88,17 @@ public class UIManager : MonoBehaviour
                         if (levelShieldButton == null) levelShieldButton = tShield.GetComponent<UnityEngine.UI.Button>();
                         if (levelShieldButton == null) levelShieldButton = tShield.GetComponentInChildren<UnityEngine.UI.Button>();
                         
-                        if (levelShieldPriceText == null && tShield != null) levelShieldPriceText = tShield.GetComponentInChildren<TextMeshProUGUI>();
+                        if (levelShieldPriceText == null) 
+                        {
+                            var allTexts = tShield.GetComponentsInChildren<TextMeshProUGUI>(true);
+                            foreach(var txt in allTexts) {
+                                if (txt.gameObject.name.Contains("Price") || txt.gameObject.name.Contains("Cost")) {
+                                    levelShieldPriceText = txt;
+                                    break;
+                                }
+                            }
+                            if (levelShieldPriceText == null) levelShieldPriceText = tShield.GetComponentInChildren<TextMeshProUGUI>();
+                        }
                     }
                 }
             }

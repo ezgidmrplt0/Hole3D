@@ -1,10 +1,10 @@
 using UnityEngine;
 using TMPro;
+using DG.Tweening;
 
 public class FloatingText : MonoBehaviour
 {
     private TextMeshProUGUI tmpText;
-    private float moveSpeed = 2f;
     private float lifeTime = 1f;
     private float timer;
 
@@ -26,27 +26,36 @@ public class FloatingText : MonoBehaviour
         timer = lifeTime;
     }
 
-    void Update()
+    void Start()
     {
-        // Move Up
-        transform.position += Vector3.up * moveSpeed * Time.deltaTime;
-
-        // Fade Out
-        if (timer > 0)
+        // Billboard (Look at Camera) - Start'ta bir kere ayarla, sürekli dönmesine gerek yok (veya Update'de kalsın ama performans için Start yeterli olabilir, yine de dinamik kamera varsa Update daha iyi)
+        if (Camera.main != null)
         {
-            timer -= Time.deltaTime;
-            if (tmpText != null && timer < lifeTime * 0.5f) // Fade locally in second half
-            {
-                float alpha = timer / (lifeTime * 0.5f);
-                tmpText.alpha = alpha;
-            }
+            transform.rotation = Camera.main.transform.rotation;
+        }
+
+        // --- JUICY ANIMATION (DOTween) ---
+        // 1. Scale Up (Pop Effect)
+        transform.localScale = Vector3.zero;
+        transform.DOScale(Vector3.one * 0.15f, 0.4f).SetEase(Ease.OutBack); // 0.1f -> 0.15f (Daha büyük)
+
+        // 2. Move Up & Fade
+        transform.DOMoveY(transform.position.y + 3f, 1.0f).SetEase(Ease.OutQuad);
+        
+        if (tmpText != null)
+        {
+            // 3. Fade Out (Sonlara doğru)
+            tmpText.DOFade(0f, 0.5f).SetDelay(0.5f).OnComplete(() => Destroy(gameObject));
         }
         else
         {
-            Destroy(gameObject);
+             Destroy(gameObject, 1.0f);
         }
+    }
 
-        // Billboard (Look at Camera)
+    void Update()
+    {
+        // Kamera hareketliyse sürekli bakması lazım
         if (Camera.main != null)
         {
             transform.rotation = Camera.main.transform.rotation;

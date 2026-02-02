@@ -143,10 +143,12 @@ public class HoleMechanics : MonoBehaviour
         }
 
         // --- SETUP XP PARTICLES ---
+        /*
         if (xpParticles == null)
         {
             CreateDefaultXPParticles();
         }
+        */
     }
 
     // --- RESET LOGIC ---
@@ -232,47 +234,86 @@ public class HoleMechanics : MonoBehaviour
         var renderer = vfxObj.GetComponent<ParticleSystemRenderer>();
         var sizeOverLifetime = eatVFX.sizeOverLifetime;
         var limitVelocity = eatVFX.limitVelocityOverLifetime;
+        var rotationOverLifetime = eatVFX.rotationOverLifetime;
 
-        // 2. MAIN AYARLAR (Daha yumuşak ve canlı)
+        // 2. MAIN AYARLAR (CONFETTI BLAST)
         main.loop = false;
         main.playOnAwake = false;
         main.duration = 1.0f;
-        main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.7f); // Hızlı yok olsun
-        main.startSpeed = new ParticleSystem.MinMaxCurve(6f, 12f); // Patlama hızı
-        main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.35f); // Çeşitli boylar
-        main.gravityModifier = 1.5f; // Yerçekimi
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 0.8f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(8f, 16f); // Daha hızlı patlasın!
+        main.startSize = new ParticleSystem.MinMaxCurve(0.2f, 0.4f); // Biraz daha büyük parçalar
+        main.gravityModifier = 2.0f; // Hızlı düşsünler
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.maxParticles = 100;
 
         // 3. MOTION (Sürtünme hissi - Pop etkisi)
         limitVelocity.enabled = true;
-        limitVelocity.dampen = 0.15f; // Hızla yavaşlasın (Drag)
-        limitVelocity.limit = 0f; // Limit yok, sadece dampen kullanıyoruz
+        limitVelocity.dampen = 0.2f; // Havada fren yapıp süzülme hissi
+        limitVelocity.limit = 0f; 
 
         // 4. EMISSION
         emission.enabled = false; 
 
-        // 5. SHAPE (Daha geniş koni)
+        // 5. SHAPE (Geniş Koni)
         shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 45f; // Geniş açı
-        shape.radius = 0.3f;
+        shape.angle = 60f; // Daha geniş saçılma
+        shape.radius = 0.5f;
 
-        // 6. VISUALS (Yuvarlak Texture ve Shrink Effect)
+        // 6. ROTATION (Dönerek düşsünler - Konfeti hissi)
+        rotationOverLifetime.enabled = true;
+        rotationOverLifetime.z = new ParticleSystem.MinMaxCurve(-360f, 360f);
+
+        // 7. VISUALS (Kare Texture ve Shrink)
         sizeOverLifetime.enabled = true;
         AnimationCurve curve = new AnimationCurve();
-        curve.AddKey(0.0f, 1.0f); // Başta tam boyut
+        curve.AddKey(0.0f, 0.0f); // Pop-in (Sıfırdan başla)
+        curve.AddKey(0.2f, 1.0f); // Hızla büyü
         curve.AddKey(1.0f, 0.0f); // Sonunda sıfır
         sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1.0f, curve);
 
-        // Texture oluştur (Yuvarlak)
-        Texture2D circleTex = GenerateCircleTexture();
+        // Texture oluştur (KARE - Confetti için)
+        Texture2D confetiTex = GenerateSquareTexture();
         
         // Shader ve Material
-        Material particleMat = new Material(Shader.Find("Mobile/Particles/Alpha Blended"));
-        particleMat.mainTexture = circleTex;
+        // Shader ve Material
+        // "Legacy Shaders/Particles/Alpha Blended" yerine "Particles/Standard Unlit" kullanıyoruz.
+        // Bu sayede renkler daha "Solid" ve parlak görünecek, transparanlık sorunu çözülecek.
+        Material particleMat = new Material(Shader.Find("Particles/Standard Unlit")); 
+        particleMat.enableInstancing = true;
+        
+        // Render Mode ayarları (Opaque/Cutout gibi davranması için)
+        particleMat.SetFloat("_Mode", 2); // Transparent
+        particleMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        particleMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        particleMat.SetInt("_ZWrite", 0);
+        particleMat.EnableKeyword("_ALPHABLEND_ON");
+        particleMat.renderQueue = 3000;
+        
+        particleMat.mainTexture = confetiTex;
         renderer.material = particleMat;
         renderer.renderMode = ParticleSystemRenderMode.Billboard;
     }
+    
+    // Runtime'da basit bir KARE texture oluşturur (Confetti)
+    private Texture2D GenerateSquareTexture()
+    {
+        int size = 32;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.ARGB32, false);
+        Color[] colors = new Color[size * size];
+        
+        // Düz beyaz kare (SOLID - Transparan kenar YOK)
+        for (int i = 0; i < colors.Length; i++)
+        {
+            colors[i] = Color.white; // Tam opak beyaz
+        }
+
+        tex.SetPixels(colors);
+        tex.Apply();
+        return tex;
+    }
+    
+
 
     // Runtime'da basit bir yuvarlak texture oluşturur
     private Texture2D GenerateCircleTexture()
@@ -306,8 +347,8 @@ public class HoleMechanics : MonoBehaviour
             var main = eatVFX.main;
             main.startColor = color; // Direkt renk ata
             
-            // Patlat! (Büyük parça sayısı)
-            eatVFX.Emit(25);
+            // Patlat! (Büyük parça sayısı - Confetti Shower)
+            eatVFX.Emit(40);
         }
     }
 
@@ -685,13 +726,14 @@ public class HoleMechanics : MonoBehaviour
             else if (r.sharedMaterial != null && r.sharedMaterial.HasProperty("_Color")) victimColor = r.sharedMaterial.color;
         }
 
-        // Zombi ise özel renk (Yeşil Kan / Asit efektleri popüler)
-        if (victim.CompareTag("Zombie")) victimColor = Color.green;
-        // İnsan ise Kırmızı (Kan) veya Beyaz
-        else if (victim.CompareTag("Human")) victimColor = Color.red;
+        // Zombi ise özel renk (Neon Yeşil - Confetti)
+        if (victim.CompareTag("Zombie")) victimColor = new Color(0.2f, 1.0f, 0.1f); // Neon Green
+        // İnsan ise Hot Pink / Red
+        else if (victim.CompareTag("Human")) victimColor = new Color(1.0f, 0.2f, 0.6f); // Hot Pink
 
         // Efekti, delik yüzeyinde oynat (Dibin dibinde değil)
         Vector3 surfacePos = new Vector3(victim.transform.position.x, transform.position.y + 0.2f, victim.transform.position.z);
+        // 1. Partikül Patlaması
         PlayEatEffect(surfacePos, victimColor);
 
         // --- FEVER MODE BONUS ---

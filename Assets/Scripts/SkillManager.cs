@@ -177,17 +177,17 @@ public class SkillManager : MonoBehaviour
     
     private void IncreaseSkillPrices()
     {
-        int currentLevel = 1;
+        int currentLevel = 0;
         if (LevelManager.Instance != null) currentLevel = LevelManager.Instance.currentLevelIndex;
         // Level index 0 dan baslar, o yuzden carpani levelIndex ile yaparsak: 0, 1, 2...
         
-        // Formül: Base + (LevelIndex * 20)
+        // Formül: Base + (LevelIndex * 50)
         // Level 1: Base
-        // Level 2: Base + 20
-        // Level 3: Base + 40
+        // Level 2: Base + 50
+        // Level 3: Base + 100
         // vb.
         
-        int increment = currentLevel * 20; 
+        int increment = currentLevel * 50; 
         
         // Base fiyatları hardcode tutmak yerine, artışı ekliyoruz.
         // NOT: Burası biraz riskli çünkü her reset çağrıldığında artar.
@@ -199,7 +199,7 @@ public class SkillManager : MonoBehaviour
         speedPrice = 40 + increment;
         shieldPrice = 60 + increment;
         
-        Debug.Log($"[SkillManager] New Prices: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
+        Debug.Log($"[SkillManager] Level {currentLevel + 1} Prices Updated: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
     }
 
     public void ResetSkills()

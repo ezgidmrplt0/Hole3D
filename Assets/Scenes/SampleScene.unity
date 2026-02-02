@@ -1193,6 +1193,7 @@ GameObject:
   m_Component:
   - component: {fileID: 419618936}
   - component: {fileID: 419618935}
+  - component: {fileID: 419618937}
   m_Layer: 0
   m_Name: SkillManager
   m_TagString: Untagged
@@ -1236,6 +1237,27 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &419618937
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 419618934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 269c7ccd87c4b1b42ac6f9b0e4d67a7e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  navigationIcon: {fileID: 21300000, guid: a056431345514144cb7568966235d4d0, type: 3}
+  iconSize: 150
+  padding: 50
+  rotationOffset: 0
+  assignedCanvas: {fileID: 0}
+  assignedIndicator: {fileID: 0}
+  showDebug: 0
+  skillCount: 0
+  status: Running
 --- !u!1 &467509981
 GameObject:
   m_ObjectHideFlags: 0

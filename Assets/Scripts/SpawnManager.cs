@@ -263,7 +263,7 @@ public class SpawnManager : MonoBehaviour
                 if (!isHordeMode) 
                 {
                     isCageScenarioActive = true;
-                    cagedZombieCount = Mathf.CeilToInt(zombieCount * 0.20f); // %20
+                    cagedZombieCount = Mathf.CeilToInt(zombieCount * 0.10f); // %10 (Kullanıcı İsteği)
                     
                     Debug.Log($"[SpawnManager] Cage Scenario Active! Trapped Zombies: {cagedZombieCount}");
                     activeCageController = SpawnCageAndKey();
@@ -303,12 +303,14 @@ public class SpawnManager : MonoBehaviour
                 {
                     // KAFES İÇİNE SPAWN
                     // KAFES İÇİNE SPAWN
-                    Vector3 cagePos = activeCageController.transform.position;
-                    // Kafes boyutuna göre rastgele dağıt
-                    Vector2 rnd = Random.insideUnitCircle * 1.2f; 
-                    // Zombilerin ayakları yere basmalı. CagePos biraz yukarıda olabilir.
-                    // groundY değişkenini kullanarak garantiye alıyoruz.
-                    Vector3 spawnPos = new Vector3(cagePos.x + rnd.x, groundY, cagePos.z + rnd.y);
+                    // Artık CageController içindeki "SpawnPoint" veya "Trigger" alanını kullanıyoruz.
+                    // Bu sayede tam olarak yeşil kutunun içinde spawn olacaklar.
+                    Vector3 preciseSpawnPos = activeCageController.GetRandomSpawnPosition();
+                    
+                    // Zombilerin ayakları yere basmalı.
+                    // CageController: ZombieSpawnPoint'in MAX.Y değerini döndürüyor (Zeminin tam üstü).
+                    // Çok az bir offset ile z-fighting ve mikro gömülmeleri önlüyoruz.
+                    Vector3 spawnPos = new Vector3(preciseSpawnPos.x, preciseSpawnPos.y + 0.05f, preciseSpawnPos.z);
 
                     
                     GameObject selectedPrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Count)];
@@ -420,9 +422,24 @@ public class SpawnManager : MonoBehaviour
         KeyPickup keyPickup = keyObj.GetComponent<KeyPickup>();
         if (keyPickup == null) keyPickup = keyObj.AddComponent<KeyPickup>();
         
+        // --- FIX: Ensure Key has a Collider and it is a Trigger ---
+        Collider keyCol = keyObj.GetComponent<Collider>();
+        if (keyCol == null) keyCol = keyObj.AddComponent<BoxCollider>();
+        keyCol.isTrigger = true;
+        
+        // Ensure Key has a Rigidbody (Kinematic) for better Trigger detection
+        Rigidbody keyRb = keyObj.GetComponent<Rigidbody>();
+        if (keyRb == null) keyRb = keyObj.AddComponent<Rigidbody>();
+        keyRb.isKinematic = true;
+        keyRb.useGravity = false;
+        
+        // Tag ve Layer ayarları
+        if (keyObj.layer == 0) keyObj.layer = LayerMask.NameToLayer("Default");
+        keyObj.tag = "Key"; // Etiket varsa kullan
+        
         keyPickup.Setup(controller);
         
-        Debug.Log($"[SpawnManager] Spawned CAGE at {cagePos} and KEY at {keyActualPos}");
+        Debug.Log($"[SpawnManager] Spawned CAGE at {cagePos} and KEY at {keyActualPos} with Trigger Setup.");
         
         return controller;
     }

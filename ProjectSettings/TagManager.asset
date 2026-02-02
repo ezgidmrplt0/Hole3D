@@ -10,6 +10,7 @@ TagManager:
   - Main Camera
   - SkillPickup
   - CageSpawn
+  - ZombieSpawnPoint
   layers:
   - Default
   - TransparentFX

@@ -11,15 +11,24 @@ public class KeyPickup : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        // Hole'un physics handler'ı veya kendisi "Hole" veya "Player" olabilir.
-        // Genelde Hole Physics Trigger'ı ile etkileşime girer.
-        // Hole Physics Handler'da "Ignore Collision" var ama Trigger çalışır.
-        
-        // HoleMechanics'in olduğu obje veya physics collider'ı
+        // Debug Log to understand what is touching the key
+        // Debug.Log($"Key Triggered by: {other.name} (Tag: {other.tag})");
+
+        // 1. Component Search (Preferred)
         HoleMechanics hole = other.GetComponentInParent<HoleMechanics>();
         
-        // Eğer parentta bulamazsa direkt çarpana bak (Hole kendisi trigger olabilir)
+        // 2. Direct Component Search
         if (hole == null) hole = other.GetComponent<HoleMechanics>();
+        
+        // 3. Tag Search (Backup)
+        if (hole == null)
+        {
+            if (other.CompareTag("Player") || other.CompareTag("Hole"))
+            {
+                // If the object is tagged Player but script not found on it, refer to the global instance
+                hole = FindObjectOfType<HoleMechanics>();
+            }
+        }
 
         if (hole != null)
         {

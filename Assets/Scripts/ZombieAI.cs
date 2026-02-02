@@ -78,12 +78,19 @@ public class ZombieAI : CharacterAI
         UpdateLevelText();
     }
 
-    public void SetTrapped(bool state)
+    public void SetTrapped(bool state, Vector3? center = null)
     {
         isTrapped = state;
         if (state)
         {
-             trappedCenter = transform.position; // Doğduğu yeri merkez kabul et (Kafes içi)
+             if (center.HasValue)
+             {
+                 trappedCenter = center.Value;
+             }
+             else
+             {
+                 trappedCenter = transform.position; // Fallback
+             }
         }
     }
 
@@ -170,20 +177,34 @@ public class ZombieAI : CharacterAI
             if (roamTimer <= 0)
             {
                 // Kafes merkezine (veya kendi doğduğu yere) yakın bir yer seç
-                // Kafes boyutu yaklaşık 3-4 birimse, radius 1.5 iyidir.
-                Vector2 rnd = Random.insideUnitCircle * 1.5f; 
+                // Kafes boyutu dar olduğu için radius çok küçük olmalı: 0.5f
+                Vector2 rnd = Random.insideUnitCircle * 0.5f; 
                 roamTarget = trappedCenter + new Vector3(rnd.x, 0, rnd.y);
                 roamTimer = Random.Range(0.5f, 2.0f); 
             }
             
             Vector3 dir = roamTarget - transform.position;
-            // Çok uzaklaşırsa merkeze dön (Duvarların içinden geçmeyi önlemek için ekstra güvenlik)
-            if (Vector3.Distance(transform.position, trappedCenter) > 2.5f)
+            dir.y = 0; // Y eksenini yoksay (Sadece yatay hareket)
+
+            // Çok uzaklaşırsa merkeze dön
+            float distToCenter = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), 
+                                                new Vector3(trappedCenter.x, 0, trappedCenter.z));
+            
+            if (distToCenter > 1.5f) // Biraz tolerans tanı (1.0 -> 1.5)
             {
                 dir = trappedCenter - transform.position;
+                dir.y = 0;
             }
             
-            Move(dir, false); // Yürü
+            // Titremeyi Önleme: Hedefe çok yakınsa hareket etmeyi kes (Idle dur)
+            if (dir.magnitude < 0.3f) 
+            {
+                Move(Vector3.zero, false);
+            }
+            else
+            {
+                Move(dir, false); 
+            }
             return;
         }
 
@@ -320,6 +341,9 @@ public class ZombieAI : CharacterAI
         }
 
         // 2. DUVAR/ENGEL MANTIĞI
+        // Eğer kafesteysek duvarlardan sekme mantığını devre dışı bırak (Titremeyi ve garip dönüşleri önler)
+        if (isTrapped) return;
+
         // Duvara veya herhangi bir engele çarparsa
         foreach (ContactPoint contact in collision.contacts)
         {

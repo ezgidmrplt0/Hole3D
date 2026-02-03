@@ -12,12 +12,7 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI zombieCounterText;
     
     [Header("Human Counter")]
-    [Header("Human Counter")]
     public TextMeshProUGUI humanCounterText;
-
-    [Header("Timer")]
-    public TextMeshProUGUI timerText;
-
     
     [Header("Horde Banner")]
     public GameObject hordeBannerPanel;
@@ -147,11 +142,6 @@ public class UIManager : MonoBehaviour
             // Subscribe to Human Count
             LevelManager.Instance.OnHumanCountChanged += UpdateHumanCounter;
             UpdateHumanCounter(LevelManager.Instance.currentHumansEaten);
-
-            // Subscribe to Timer
-            LevelManager.Instance.OnLevelTimeChanged += UpdateTimerUI;
-            UpdateTimerUI(LevelManager.Instance.currentTimeRemaining);
-
         }
         
         UpdateSkillUI();
@@ -170,8 +160,6 @@ public class UIManager : MonoBehaviour
             LevelManager.Instance.OnLevelChanged -= UpdateLevelText;
             LevelManager.Instance.OnZombieCountChanged -= UpdateZombieCounter;
             LevelManager.Instance.OnHumanCountChanged -= UpdateHumanCounter;
-            LevelManager.Instance.OnLevelTimeChanged -= UpdateTimerUI;
-
         }
     }
 
@@ -212,19 +200,6 @@ public class UIManager : MonoBehaviour
             humanCounterText.text = remainingHumans.ToString();
         }
     }
-
-    private void UpdateTimerUI(float remainingTime)
-    {
-        if (timerText != null)
-        {
-            // Format: 00:00
-            int totalSeconds = Mathf.CeilToInt(remainingTime);
-            int minutes = totalSeconds / 60;
-            int seconds = totalSeconds % 60;
-            timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
-        }
-    }
-
     
     // --- HORDE BANNER ---
     public void ShowHordeBanner()

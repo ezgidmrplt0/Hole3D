@@ -26,13 +26,7 @@ public class SpawnManager : MonoBehaviour
     [Tooltip("List of Human prefabs to spawn.")]
     public List<GameObject> humanPrefabs;
     [Tooltip("List of Zombie prefabs to spawn.")]
-
     public List<GameObject> zombiePrefabs;
-    
-    [Header("Cage Scenario Prefabs")]
-    public GameObject cagePrefab;
-    public GameObject keyPrefab;
-
 
 
 
@@ -118,9 +112,6 @@ public class SpawnManager : MonoBehaviour
             foreach (Transform t in zombieContainer) zombieSpawnPoints.Add(t);
         }
 
-        // ALWAYS Calculate Bounds (needed for Props/Cage even if spawn points exist)
-        CalculateMapBounds(mapRoot);
-
         // 3. Fallback: Use Map Bounds (Floor) if list is empty
         if (humanSpawnPoints.Count == 0 || zombieSpawnPoints.Count == 0)
         {
@@ -131,7 +122,7 @@ public class SpawnManager : MonoBehaviour
         Debug.Log($"SpawnManager: Initialized with {humanSpawnPoints.Count} Human points and {zombieSpawnPoints.Count} Zombie points.");
     }
 
-    private void CalculateMapBounds(Transform mapRoot)
+    private void GenerateDynamicSpawnPoints(Transform mapRoot)
     {
         // Try to find "Floor" or "Ground" or "Plane"
         Transform floor = mapRoot.Find("Floor");
@@ -157,7 +148,7 @@ public class SpawnManager : MonoBehaviour
             if (r != null) 
             {
                 bounds = r.bounds;
-                Debug.Log($"[SpawnManager] Floor bounds calculated: Center={bounds.center}, Size={bounds.size}");
+                Debug.Log($"[SpawnManager] Floor bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
             }
             else 
             {
@@ -165,33 +156,21 @@ public class SpawnManager : MonoBehaviour
                 if (c != null) 
                 {
                     bounds = c.bounds;
-                    Debug.Log($"[SpawnManager] Floor collider bounds calculated: Center={bounds.center}, Size={bounds.size}");
+                    Debug.Log($"[SpawnManager] Floor collider bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
                 }
             }
         }
         else
         {
-            Debug.LogWarning("[SpawnManager] Floor/Plane not found for bounds calculation! Using default small area.");
+            // Floor bulunamadı - uyarı ver ve küçük alan kullan
+            Debug.LogWarning("[SpawnManager] Floor/Plane bulunamadı! Varsayılan küçük alan kullanılıyor.");
+            bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20));
         }
         
-        // Update global variable
+        // Bounds'u kaydet (spawn sırasında sınır kontrolü için)
         currentSpawnBounds = bounds;
-    }
-
-    private void GenerateDynamicSpawnPoints(Transform mapRoot)
-    {
-        // Bounds should already be calculated by CalculateMapBounds
-        Bounds bounds = currentSpawnBounds;
-        
-        if (bounds.size.sqrMagnitude < 0.1f)
-        {
-            // Just in case it wasn't calculated or failed significantly, recalculate or use default
-             bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20));
-             currentSpawnBounds = bounds;
-        }
 
         // Create temporary spawn points
-
         GameObject dynamicRoot = new GameObject("DynamicSpawnPoints_Temp");
         dynamicRoot.transform.SetParent(mapRoot);
         
@@ -247,30 +226,6 @@ public class SpawnManager : MonoBehaviour
             SpawnRandomPrefab(humanPrefabs, humanSpawnPoints, "Human");
         }
 
-        // Initialize Cage Variables
-        bool isCageScenarioActive = false;
-        int cagedZombieCount = 0;
-        CageController activeCageController = null;
-
-        // Level 2+ Kontrolü (Index 1+)
-        if (LevelManager.Instance != null && LevelManager.Instance.currentLevelIndex >= 1)
-        {
-            if (cagePrefab != null && keyPrefab != null)
-            {
-                // Horde Modunda Cage olsun mu? Kullanıcı belirtmedi ama şimdilik sadece Normal modda olsun
-                // Veya karışıklık olmasın diye sadece !isHordeMode içine koyabiliriz.
-                // Ama kod yapısını temizlemek için burada calculate edip aşağıda kullanacağız.
-                if (!isHordeMode) 
-                {
-                    isCageScenarioActive = true;
-                    cagedZombieCount = Mathf.CeilToInt(zombieCount * 0.20f); // %20
-                    
-                    Debug.Log($"[SpawnManager] Cage Scenario Active! Trapped Zombies: {cagedZombieCount}");
-                    activeCageController = SpawnCageAndKey();
-                }
-            }
-        }
-
         // Spawn Zombies
         if (isHordeMode)
         {
@@ -279,57 +234,12 @@ public class SpawnManager : MonoBehaviour
         else
         {
             // Normal Spawn
-
-            // Cage logic moved up
-
-
-            int zombieSpawnIndex = 0;
-
-            List<ZombieAI> trappedZombiesList = new List<ZombieAI>();
-
             for (int i = 0; i < zombieCount; i++)
             {
-                // Cage içindekiler mi, normal mi?
-                bool isTrapped = false;
-                if (isCageScenarioActive && zombieSpawnIndex < cagedZombieCount)
-                {
-                    isTrapped = true;
-                }
+                GameObject newZombie = SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
                 
-                // Spawn
-                GameObject newZombie = null;
-                
-                if (isTrapped && activeCageController != null)
-                {
-                    // KAFES İÇİNE SPAWN
-                    // KAFES İÇİNE SPAWN
-                    Vector3 cagePos = activeCageController.transform.position;
-                    // Kafes boyutuna göre rastgele dağıt
-                    Vector2 rnd = Random.insideUnitCircle * 1.2f; 
-                    // Zombilerin ayakları yere basmalı. CagePos biraz yukarıda olabilir.
-                    // groundY değişkenini kullanarak garantiye alıyoruz.
-                    Vector3 spawnPos = new Vector3(cagePos.x + rnd.x, groundY, cagePos.z + rnd.y);
-
-                    
-                    GameObject selectedPrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Count)];
-                    newZombie = Instantiate(selectedPrefab, spawnPos, Quaternion.Euler(0, 180, 0)); 
-                    
-                    // Kaydet
-                    ZombieAI zAI = newZombie.GetComponent<ZombieAI>();
-                    if (zAI != null)
-                    {
-                        trappedZombiesList.Add(zAI);
-                    }
-                }
-                else
-                {
-                    // NORMAL SPAWN
-                    newZombie = SpawnRandomPrefab(zombiePrefabs, zombieSpawnPoints, "Zombie");
-                }
-                
-                zombieSpawnIndex++;
-
                 // --- LEVEL ASSIGNMENT ---
+                // Eğer oyun leveli 3'ten büyükse, level ilerledikçe artan oranda güçlü zombi gelsin
                 if (newZombie != null)
                 {
                     int gameLevel = 1;
@@ -337,13 +247,20 @@ public class SpawnManager : MonoBehaviour
 
                     if (gameLevel > 3)
                     {
+                        // Formül: Level 4'te %15 başla, her levelde %5 artır. Max %70.
+                        // Örn: Lvl 4 -> %15, Lvl 10 -> %45, Lvl 20 -> %70
                         float chance = 0.15f + ((gameLevel - 3) * 0.05f);
                         chance = Mathf.Clamp(chance, 0f, 0.7f);
 
                         if (Random.value < chance)
                         {
+                            // Level ne kadar yüksekse, zombinin Level 3 olma şansı da artsın
+                            // Basitçe: 2 ile (GameLevel/5 + 2) arasında. 
+                            // Ancak şimdilik sadece 2 ve 3 var.
+                            // Çok ileride belki Level 4 zombiler de gelir.
+                            
                             int maxZombieLvl = 3;
-                            if (gameLevel > 10) maxZombieLvl = 4;
+                            if (gameLevel > 10) maxZombieLvl = 4; // Level 10'dan sonra devasa lvl 4 zombiler
                             
                             int randomLevel = Random.Range(2, maxZombieLvl + 1); 
                             
@@ -353,154 +270,8 @@ public class SpawnManager : MonoBehaviour
                     }
                 }
             }
-            
-            // Eğer Cage aktifse, listeyi ver
-            if (isCageScenarioActive && activeCageController != null && trappedZombiesList.Count > 0)
-            {
-                activeCageController.Setup(trappedZombiesList);
-            }
         }
     }
-
-    // SpawnCageAndKey implementation
-    private CageController SpawnCageAndKey()
-    {
-        Vector3 cagePos;
-        
-        // 0. Öncelikli: Sahneye yerleştirilmiş "CageSpawn" objelerini ara
-        GameObject[] explicitSpawnPoints = GameObject.FindGameObjectsWithTag("CageSpawn");
-        
-        if (explicitSpawnPoints != null && explicitSpawnPoints.Length > 0)
-        {
-            GameObject selectedPoint = explicitSpawnPoints[Random.Range(0, explicitSpawnPoints.Length)];
-            cagePos = selectedPoint.transform.position;
-            Debug.Log($"[SpawnManager] Found explicit 'CageSpawn' point at {cagePos}");
-        }
-        else
-        {
-            // 1. Fallback: Otomatik yer bul
-            cagePos = FindSafeSpotForProp();
-        }
-        
-        // Return check fixed: Zero is invalid in our context if bounds failed
-        if (cagePos == Vector3.negativeInfinity || (cagePos == Vector3.zero && currentSpawnBounds.size.sqrMagnitude < 0.1f)) 
-        {
-            Debug.LogError("[SpawnManager] FAILED to find spot for Cage! Spawn canceled.");
-            return null;
-        }
-
-
-
-        // 2. Anahtar için güvenli bir yer bul (Kafesten biraz uzakta)
-        Vector3 keyPos = FindSafeSpotForProp();
-        int attempts = 0;
-        while (Vector3.Distance(cagePos, keyPos) < 5f && attempts < 10)
-        {
-            keyPos = FindSafeSpotForProp();
-            attempts++;
-        }
-        
-        // Spawn Cage
-        // Spawn Cage
-        // Yükseklik ayarı: Kafesin pivotuna göre gömülmemesi için biraz yukarı alıyoruz
-        // Yükseklik ayarı: Kafesin pivotuna göre gömülmemesi için biraz yukarı alıyoruz
-        // Kullanıcı isteği: 1.2f
-        Vector3 finalCagePos = cagePos + Vector3.up * 1.2f; 
-        GameObject cageObj = Instantiate(cagePrefab, finalCagePos, Quaternion.identity);
-        
-        // Spawn Key
-        // Anahtar biraz havada dursun veya yerde (yere bırakalım)
-        Vector3 keyActualPos = keyPos + Vector3.up * 0.5f; 
-        GameObject keyObj = Instantiate(keyPrefab, keyActualPos, Quaternion.identity);
-        
-        // Setup Logic
-        CageController controller = cageObj.GetComponent<CageController>();
-        if (controller == null) controller = cageObj.AddComponent<CageController>();
-        
-        KeyPickup keyPickup = keyObj.GetComponent<KeyPickup>();
-        if (keyPickup == null) keyPickup = keyObj.AddComponent<KeyPickup>();
-        
-        keyPickup.Setup(controller);
-        
-        Debug.Log($"[SpawnManager] Spawned CAGE at {cagePos} and KEY at {keyActualPos}");
-        
-        return controller;
-    }
-    
-    private Vector3 FindSafeSpotForProp()
-    {
-        // Random point in bounds
-        if (currentSpawnBounds.size.sqrMagnitude < 0.1f) return Vector3.negativeInfinity; 
-
-        // 1. Try finding a valid empty spot (More strict for Cage/Props)
-        // Daha fazla deneme yapalım (40 -> 100)
-        for (int i=0; i<100; i++)
-        {
-            Vector3 candidate = GetRandomPosInBounds(currentSpawnBounds);
-            // Zemin check ve temel validasyon
-            if (IsValidPosition(candidate))
-            {
-                // EKSTRA GENİŞ ALAN KONTROLÜ
-                // Layer'a güvenmek yerine, OverlapSphere ile o bölgedeki her şeye bakıyoruz.
-                // Yarıçapı biraz daha artırdık: 3.0f (Kafes büyük)
-                Collider[] hits = Physics.OverlapSphere(candidate + Vector3.up * 1f, 3.0f);
-                bool hitObstacle = false;
-                
-                foreach (var hit in hits)
-                {
-                    // Zemini yoksay (Floor, Ground, Plane isimli objeler veya "Ground" layer)
-                    string name = hit.gameObject.name.ToLower();
-                    if (name.Contains("floor") || name.Contains("ground") || name.Contains("plane")) continue;
-                    
-                    // Kendimizi (SpawnManager?) veya görünmez duvarları yoksayabiliriz ama
-                    // genelde harita objeleri "Default" layer'dadır ve colliderları vardır.
-                    
-                    // Eğer trigger değilse ve zemin değilse, engeldir.
-                    if (!hit.isTrigger)
-                    {
-                         hitObstacle = true;
-                         break;
-                    }
-                }
-
-                if (!hitObstacle)
-                {
-                     return new Vector3(candidate.x, groundY, candidate.z);
-                }
-            }
-        }
-        
-        Debug.LogWarning("[SpawnManager] Strict placement failed! Reverting to fallback (expect overlaps).");
-        
-        // 2. Fallback: Eğer geniş alan bulamazsak, standart arama yap
-        for (int i=0; i<50; i++)
-
-        {
-            Vector3 candidate = GetRandomPosInBounds(currentSpawnBounds);
-             if (IsValidPosition(candidate))
-             {
-                 return new Vector3(candidate.x, groundY, candidate.z);
-             }
-        }
-
-        // Sadece obstacleLayer ile çakışmayan bir yer arayalım (mesafe kontrolü yapmadan)
-        Debug.LogWarning("[SpawnManager] Could not find perfect spot for Prop. Trying relaxed search...");
-        
-        for (int i=0; i<20; i++)
-        {
-             Vector3 candidate = GetRandomPosInBounds(currentSpawnBounds);
-             if (!IsPositionBlockedByObstacle(candidate))
-             {
-                 return new Vector3(candidate.x, groundY, candidate.z);
-             }
-        }
-
-        // 3. Last Resort: Random point (kabul ediyoruz, üst üste binebilir)
-        Debug.LogWarning("[SpawnManager] Force spawning Prop at random position!");
-        Vector3 randomPos = GetRandomPosInBounds(currentSpawnBounds);
-        return new Vector3(randomPos.x, groundY, randomPos.z);
-    }
-
 
     private void SpawnZombiesClustered()
     {

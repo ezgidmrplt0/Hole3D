@@ -1,3 +1,2 @@
 # Auto detect text files and perform LF normalization
 * text=auto
-Assets/Prefabs/Maps/Meshy_AI_Steel_Security_Cage_0202143901_generate.obj filter=lfs diff=lfs merge=lfs -text

@@ -252,37 +252,20 @@ public class SpawnManager : MonoBehaviour
         int cagedZombieCount = 0;
         CageController activeCageController = null;
 
-        // Detect Existing Cage (User's custom cage in scene)
-        if (activeCageController == null)
-        {
-            activeCageController = FindObjectOfType<CageController>();
-            // Fallback: If object exists but no script
-            if (activeCageController == null)
-            {
-                GameObject existingCage = GameObject.Find("Cage");
-                if (existingCage != null) activeCageController = existingCage.GetComponent<CageController>();
-                if (existingCage != null && activeCageController == null) activeCageController = existingCage.AddComponent<CageController>();
-            }
-        }
-
-        // Logic to determine if we should use Cage Scenario
-        // Priority: 1. Existing Cage found, 2. Level Requirement met
-        if (activeCageController != null)
-        {
-             isCageScenarioActive = true;
-             cagedZombieCount = 5; // User Request: 5 zombies in cage
-             Debug.Log("[SpawnManager] Using existing Cage in scene. Spawning 5 zombies inside.");
-        }
-        else if (LevelManager.Instance != null && LevelManager.Instance.currentLevelIndex >= 1)
+        // Level 2+ Kontrolü (Index 1+)
+        if (LevelManager.Instance != null && LevelManager.Instance.currentLevelIndex >= 1)
         {
             if (cagePrefab != null && keyPrefab != null)
             {
+                // Horde Modunda Cage olsun mu? Kullanıcı belirtmedi ama şimdilik sadece Normal modda olsun
+                // Veya karışıklık olmasın diye sadece !isHordeMode içine koyabiliriz.
+                // Ama kod yapısını temizlemek için burada calculate edip aşağıda kullanacağız.
                 if (!isHordeMode) 
                 {
                     isCageScenarioActive = true;
-                    cagedZombieCount = 5; // User Request: Fixed 5 zombies
+                    cagedZombieCount = Mathf.CeilToInt(zombieCount * 0.20f); // %20
                     
-                    Debug.Log($"[SpawnManager] Cage Scenario Active (Level {LevelManager.Instance.currentLevelIndex})! Zombies: {cagedZombieCount}");
+                    Debug.Log($"[SpawnManager] Cage Scenario Active! Trapped Zombies: {cagedZombieCount}");
                     activeCageController = SpawnCageAndKey();
                 }
             }
@@ -320,15 +303,12 @@ public class SpawnManager : MonoBehaviour
                 {
                     // KAFES İÇİNE SPAWN
                     // KAFES İÇİNE SPAWN
-                    // Artık CageController içindeki "SpawnPoint" veya "Trigger" alanını kullanıyoruz.
-                    // Bu sayede tam olarak yeşil kutunun içinde spawn olacaklar.
-                    Vector3 preciseSpawnPos = activeCageController.GetRandomSpawnPosition();
-                    
-                    // Zombilerin ayakları yere basmalı.
-                    // CageController: ZombieSpawnPoint'in MAX.Y değerini döndürüyor (Zeminin tam üstü).
-                    // Çok az bir offset ile z-fighting ve mikro gömülmeleri önlüyoruz.
-                    // FIX: 0.05f yetersiz kalabiliyor, 0.5f'e çıkarttık (zemin collider'ına gömülmesinler)
-                    Vector3 spawnPos = new Vector3(preciseSpawnPos.x, preciseSpawnPos.y + 0.5f, preciseSpawnPos.z);
+                    Vector3 cagePos = activeCageController.transform.position;
+                    // Kafes boyutuna göre rastgele dağıt
+                    Vector2 rnd = Random.insideUnitCircle * 1.2f; 
+                    // Zombilerin ayakları yere basmalı. CagePos biraz yukarıda olabilir.
+                    // groundY değişkenini kullanarak garantiye alıyoruz.
+                    Vector3 spawnPos = new Vector3(cagePos.x + rnd.x, groundY, cagePos.z + rnd.y);
 
                     
                     GameObject selectedPrefab = zombiePrefabs[Random.Range(0, zombiePrefabs.Count)];
@@ -352,33 +332,23 @@ public class SpawnManager : MonoBehaviour
                 // --- LEVEL ASSIGNMENT ---
                 if (newZombie != null)
                 {
-                    // FIX: Kafesteki zombiler HEP Level 1 kalsın (Küçük olsunlar ki sığsınlar)
-                    if (isTrapped)
-                    {
-                         ZombieAI zAI = newZombie.GetComponent<ZombieAI>();
-                         if (zAI != null) zAI.SetLevel(1);
-                    }
-                    else
-                    {
-                        // NORMAL ZOMBIES: Random Level Logic
-                        int gameLevel = 1;
-                        if (LevelManager.Instance != null) gameLevel = LevelManager.Instance.currentLevelIndex + 1;
+                    int gameLevel = 1;
+                    if (LevelManager.Instance != null) gameLevel = LevelManager.Instance.currentLevelIndex + 1;
 
-                        if (gameLevel > 3)
+                    if (gameLevel > 3)
+                    {
+                        float chance = 0.15f + ((gameLevel - 3) * 0.05f);
+                        chance = Mathf.Clamp(chance, 0f, 0.7f);
+
+                        if (Random.value < chance)
                         {
-                            float chance = 0.15f + ((gameLevel - 3) * 0.05f);
-                            chance = Mathf.Clamp(chance, 0f, 0.7f);
-
-                            if (Random.value < chance)
-                            {
-                                int maxZombieLvl = 3;
-                                if (gameLevel > 10) maxZombieLvl = 4;
-                                
-                                int randomLevel = Random.Range(2, maxZombieLvl + 1); 
-                                
-                                ZombieAI zAI = newZombie.GetComponent<ZombieAI>();
-                                if (zAI != null) zAI.SetLevel(randomLevel);
-                            }
+                            int maxZombieLvl = 3;
+                            if (gameLevel > 10) maxZombieLvl = 4;
+                            
+                            int randomLevel = Random.Range(2, maxZombieLvl + 1); 
+                            
+                            ZombieAI zAI = newZombie.GetComponent<ZombieAI>();
+                            if (zAI != null) zAI.SetLevel(randomLevel);
                         }
                     }
                 }
@@ -450,24 +420,9 @@ public class SpawnManager : MonoBehaviour
         KeyPickup keyPickup = keyObj.GetComponent<KeyPickup>();
         if (keyPickup == null) keyPickup = keyObj.AddComponent<KeyPickup>();
         
-        // --- FIX: Ensure Key has a Collider and it is a Trigger ---
-        Collider keyCol = keyObj.GetComponent<Collider>();
-        if (keyCol == null) keyCol = keyObj.AddComponent<BoxCollider>();
-        keyCol.isTrigger = true;
-        
-        // Ensure Key has a Rigidbody (Kinematic) for better Trigger detection
-        Rigidbody keyRb = keyObj.GetComponent<Rigidbody>();
-        if (keyRb == null) keyRb = keyObj.AddComponent<Rigidbody>();
-        keyRb.isKinematic = true;
-        keyRb.useGravity = false;
-        
-        // Tag ve Layer ayarları
-        if (keyObj.layer == 0) keyObj.layer = LayerMask.NameToLayer("Default");
-        keyObj.tag = "Key"; // Etiket varsa kullan
-        
         keyPickup.Setup(controller);
         
-        Debug.Log($"[SpawnManager] Spawned CAGE at {cagePos} and KEY at {keyActualPos} with Trigger Setup.");
+        Debug.Log($"[SpawnManager] Spawned CAGE at {cagePos} and KEY at {keyActualPos}");
         
         return controller;
     }

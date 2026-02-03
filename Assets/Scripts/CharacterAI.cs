@@ -12,9 +12,6 @@ public class CharacterAI : MonoBehaviour
     public LayerMask obstacleLayer;
     [Tooltip("Layer to check for ground. If raycast down fails, it's an edge.")]
     public LayerMask groundLayer;
-    
-    [Header("AI Settings")]
-    public bool enableObstacleAvoidance = true;
 
     protected Rigidbody rb;
     protected Vector3 moveDirection;
@@ -419,21 +416,18 @@ public class CharacterAI : MonoBehaviour
         // Temel hareket yönü
         moveDirection = targetDirection.normalized;
 
+        // Engel kontrolü
+        Vector3 avoidance = AvoidObstacles(moveDirection);
+        
+        // Eğer engel varsa yönü değiştir
+        if (avoidance != Vector3.zero)
+        {
+            moveDirection += avoidance;
+            moveDirection.Normalize();
+        }
+
         // Hızı belirle
         float currentSpeed = isRunning ? runSpeed : walkSpeed;
-
-        // Engel kontrolü
-        if (enableObstacleAvoidance)
-        {
-            Vector3 avoidance = AvoidObstacles(moveDirection);
-            
-            // Eğer engel varsa yönü değiştir
-            if (avoidance != Vector3.zero)
-            {
-                moveDirection += avoidance;
-                moveDirection.Normalize();
-            }
-        }
 
         // Hareketi uygula
         Vector3 velocity = moveDirection * currentSpeed;

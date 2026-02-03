@@ -78,24 +78,12 @@ public class ZombieAI : CharacterAI
         UpdateLevelText();
     }
 
-    public void SetTrapped(bool state, Vector3? center = null)
+    public void SetTrapped(bool state)
     {
         isTrapped = state;
-        
-        // FIX: Kafesteyken "duvardan kaçınma" mekaniğini kapat.
-        // Bu mekanik dar alanda zombilerin sürekli titremesine ve duvara itilmesine yol açıyor.
-        enableObstacleAvoidance = !state; 
-        
         if (state)
         {
-             if (center.HasValue)
-             {
-                 trappedCenter = center.Value;
-             }
-             else
-             {
-                 trappedCenter = transform.position; // Fallback
-             }
+             trappedCenter = transform.position; // Doğduğu yeri merkez kabul et (Kafes içi)
         }
     }
 
@@ -182,46 +170,20 @@ public class ZombieAI : CharacterAI
             if (roamTimer <= 0)
             {
                 // Kafes merkezine (veya kendi doğduğu yere) yakın bir yer seç
-                // Kafes boyutu dar olduğu için radius çok küçük olmalı: 0.5f -> 1.5f yaptık (alan var)
-                // FIX: Radius'u artırdık ki "yürüyecek yol" bulsunlar, hemen durmasınlar.
+                // Kafes boyutu yaklaşık 3-4 birimse, radius 1.5 iyidir.
                 Vector2 rnd = Random.insideUnitCircle * 1.5f; 
                 roamTarget = trappedCenter + new Vector3(rnd.x, 0, rnd.y);
                 roamTimer = Random.Range(0.5f, 2.0f); 
             }
             
             Vector3 dir = roamTarget - transform.position;
-            dir.y = 0; // Y eksenini yoksay (Sadece yatay hareket)
-
-            // Çok uzaklaşırsa merkeze dön
-            float distToCenter = Vector3.Distance(new Vector3(transform.position.x, 0, transform.position.z), 
-                                                new Vector3(trappedCenter.x, 0, trappedCenter.z));
-            
-            if (distToCenter > 1.5f) // Biraz tolerans tanı (1.0 -> 1.5)
+            // Çok uzaklaşırsa merkeze dön (Duvarların içinden geçmeyi önlemek için ekstra güvenlik)
+            if (Vector3.Distance(transform.position, trappedCenter) > 2.5f)
             {
                 dir = trappedCenter - transform.position;
-                dir.y = 0;
             }
             
-            // FIX: Hard Leash - Eğer fizik ile dışarı itildiyse zorla içeri al
-            // 3.0f çok genişti, 1.5f'e çektik (Kafes dışına çıkmalarına izin verme)
-            if (distToCenter > 1.5f)
-            {
-                // Çok uzaklaşmış! Işınla veya sert it.
-                // Yumuşak geçiş için Lerp, ama kesin çözüm için direk atama.
-                Vector3 rescuePos = Vector3.Lerp(transform.position, trappedCenter, 0.1f);
-                transform.position = rescuePos;
-                if (GetComponent<Rigidbody>() != null) GetComponent<Rigidbody>().velocity = Vector3.zero;
-            }
-            
-            // Titremeyi Önleme: Hedefe çok yakınsa hareket etmeyi kes (Idle dur)
-            if (dir.magnitude < 0.3f) 
-            {
-                Move(Vector3.zero, false);
-            }
-            else
-            {
-                Move(dir, false); 
-            }
+            Move(dir, false); // Yürü
             return;
         }
 
@@ -358,9 +320,6 @@ public class ZombieAI : CharacterAI
         }
 
         // 2. DUVAR/ENGEL MANTIĞI
-        // Eğer kafesteysek duvarlardan sekme mantığını devre dışı bırak (Titremeyi ve garip dönüşleri önler)
-        if (isTrapped) return;
-
         // Duvara veya herhangi bir engele çarparsa
         foreach (ContactPoint contact in collision.contacts)
         {

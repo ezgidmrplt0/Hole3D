@@ -328,33 +328,13 @@ public class SpawnManager : MonoBehaviour
 
         if (keyPrefab != null)
         {
-            Instantiate(keyPrefab, pos, Quaternion.identity);
+            GameObject keyObj = Instantiate(keyPrefab, pos, Quaternion.identity);
+            keyObj.transform.localScale = Vector3.one * 1.5f; // Kullanıcı isteği: 0.5 yerine 1.5 olsun
             Debug.Log($"[SpawnManager] Key Spawned at {pos}");
         }
         else
         {
-            // Placeholder Key logic kept for safety
-            GameObject keyObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            keyObj.name = "Key_Placeholder";
-            keyObj.transform.position = pos;
-            keyObj.transform.localScale = Vector3.one * 0.5f;
-            keyObj.GetComponent<Renderer>().material.color = Color.yellow;
-            // Bileşenler
-            keyObj.AddComponent<KeyPickup>();
-            
-            // Physics için Rigidbody ekle
-            Rigidbody rb = keyObj.AddComponent<Rigidbody>();
-            rb.mass = 1f;
-            rb.drag = 1f;
-            rb.angularDrag = 1f;
-            // Skill mantığı: Başlangıçta Kinematic ve Yerçekimsiz (Havada asılı)
-            rb.isKinematic = true;
-            rb.useGravity = false;
-            
-            // Collider Trigger OLMALI (Havada asılı olduğu için zemine değmemesi lazım ve script onu yönetiyor)
-            keyObj.GetComponent<Collider>().isTrigger = true;
-            
-            Debug.Log("[SpawnManager] Placeholder Key Created at " + pos);
+            Debug.LogWarning("[SpawnManager] Key Prefab is NOT assigned! Please assign a Key Prefab in the inspector.");
         }
     }
 

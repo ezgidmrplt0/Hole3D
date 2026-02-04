@@ -49,7 +49,7 @@ public class KeyPickup : MonoBehaviour
 
         // Spawn Animation
         transform.localScale = Vector3.zero;
-        transform.DOScale(Vector3.one * 0.5f, 0.5f).SetEase(Ease.OutBack);
+        transform.DOScale(Vector3.one * 1.5f, 1.5f).SetEase(Ease.OutBack);
     }
 
     private void Update()

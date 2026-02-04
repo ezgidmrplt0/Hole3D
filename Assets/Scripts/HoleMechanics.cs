@@ -237,6 +237,7 @@ public class HoleMechanics : MonoBehaviour
         var rotationOverLifetime = eatVFX.rotationOverLifetime;
 
         // 2. MAIN AYARLAR (CONFETTI BLAST)
+        eatVFX.Stop(); // Ensure stopped before setting properties
         main.loop = false;
         main.playOnAwake = false;
         main.duration = 1.0f;
@@ -407,6 +408,17 @@ public class HoleMechanics : MonoBehaviour
         // Listede var mı kontrol et veya Fever Mode aktif mi
         if (canEat)
         {
+            // --- TRAPPED ZOMBIE CHECK ---
+            // Kafesteki zombiler yenemez!
+            ZombieAI zAI = other.GetComponent<ZombieAI>();
+            if (zAI == null) zAI = other.GetComponentInParent<ZombieAI>();
+            
+            if (zAI != null && zAI.isTrapped)
+            {
+                // Zombi kafeste, yeme!
+                return;
+            }
+
             // Level kontrolü kaldırıldı - Hole her zaman tüm zombileri yiyebilir
             StartCoroutine(PhysicsFall(other.gameObject));
         }
@@ -839,7 +851,7 @@ public class HoleMechanics : MonoBehaviour
         }
     }
 
-    void SpawnFloatingText(string text, Color color)
+    public void SpawnFloatingText(string text, Color color)
     {
         GameObject go = new GameObject("FloatingXP");
         go.transform.position = transform.position + Vector3.up * 2f; // Deliğin biraz üstünde

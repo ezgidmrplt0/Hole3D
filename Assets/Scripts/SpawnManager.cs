@@ -27,6 +27,12 @@ public class SpawnManager : MonoBehaviour
     public List<GameObject> humanPrefabs;
     [Tooltip("List of Zombie prefabs to spawn.")]
     public List<GameObject> zombiePrefabs;
+    
+    [Header("Cage & Key Mechanic")]
+    public GameObject cagePrefab;
+    public GameObject keyPrefab;
+    public int cageCount = 3;
+    private List<GameObject> activeCages = new List<GameObject>();
 
 
 
@@ -79,6 +85,11 @@ public class SpawnManager : MonoBehaviour
 
         var zombies = GameObject.FindGameObjectsWithTag("Zombie");
         foreach (var z in zombies) Destroy(z);
+        
+        // Cleanup Cages & Keys
+        foreach(var c in activeCages) if(c != null) Destroy(c);
+        activeCages.Clear();
+        foreach(var k in FindObjectsOfType<KeyPickup>()) Destroy(k.gameObject);
         
         spawnedPositions.Clear();
     }
@@ -271,8 +282,202 @@ public class SpawnManager : MonoBehaviour
                 }
             }
         }
+
+        // --- CAGE & KEY SPAWN ---
+        SpawnCagesAndKey();
     }
 
+    private void SpawnCagesAndKey()
+    {
+        // Temizlik
+        // Cleanup Cages & Keys
+        foreach(var c in activeCages) if(c != null) Destroy(c);
+        activeCages.Clear();
+        // Tag "Key" might not exist if forgot to add. Use Type search which is safer if tag is missing.
+        // But logic requires tag for other things maybe? No, KeyPickup is script based.
+        // Let's replace tag search with Type search to be completely safe and avoid Tag errors if project settings reset.
+        foreach(var k in FindObjectsOfType<KeyPickup>()) Destroy(k.gameObject);
+        // Deprecated tag search for extra safety
+        // var keys = GameObject.FindGameObjectsWithTag("Key"); 
+
+
+        // 1. KEY SPAWN (1 Tane)
+        SpawnKey();
+
+        // 2. CAGE SPAWN (3 Tane)
+        for (int i = 0; i < cageCount; i++)
+        {
+            SpawnCage();
+        }
+    }
+
+    private void SpawnKey()
+    {
+        // Kullanıcı isteği: Skill spawn mantığı gibi olsun (Oyuncuya yakın, doğru yükseklikte)
+        Vector3 pos = FindSkillSpawnPosition();
+        
+        // Eğer FindSkillSpawnPosition başarısız olursa (0,0,0 dönerse), fallback yap
+        if (pos == Vector3.zero)
+        {
+             pos = GetRandomPosInBounds(currentSpawnBounds);
+             pos.y = (groundYDetected ? groundY : 0) + 1.0f;
+        }
+
+        if (keyPrefab != null)
+        {
+            Instantiate(keyPrefab, pos, Quaternion.identity);
+            Debug.Log($"[SpawnManager] Key Spawned at {pos}");
+        }
+        else
+        {
+            // Placeholder Key logic kept for safety
+            GameObject keyObj = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            keyObj.name = "Key_Placeholder";
+            keyObj.transform.position = pos;
+            keyObj.transform.localScale = Vector3.one * 0.5f;
+            keyObj.GetComponent<Renderer>().material.color = Color.yellow;
+            // Bileşenler
+            keyObj.AddComponent<KeyPickup>();
+            
+            // Physics için Rigidbody ekle
+            Rigidbody rb = keyObj.AddComponent<Rigidbody>();
+            rb.mass = 1f;
+            rb.drag = 1f;
+            rb.angularDrag = 1f;
+            // Skill mantığı: Başlangıçta Kinematic ve Yerçekimsiz (Havada asılı)
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            
+            // Collider Trigger OLMALI (Havada asılı olduğu için zemine değmemesi lazım ve script onu yönetiyor)
+            keyObj.GetComponent<Collider>().isTrigger = true;
+            
+            Debug.Log("[SpawnManager] Placeholder Key Created at " + pos);
+        }
+    }
+
+    private void SpawnCage()
+    {
+        Vector3 pos = Vector3.zero;
+        bool positionFound = false;
+        int attempts = 0;
+
+        while (!positionFound && attempts < 20)
+        {
+            attempts++;
+            pos = GetRandomPosInBounds(currentSpawnBounds);
+            pos = GetPositionAroundPoint(pos, 2f); 
+            
+            if (!CheckValid(pos)) continue;
+
+            // Check distance against other Cages
+            bool tooClose = false;
+            foreach (var otherCage in activeCages)
+            {
+                if (otherCage != null)
+                {
+                    if (Vector3.Distance(pos, otherCage.transform.position) < 6f) // 3x3 cage -> 6 buffer
+                    {
+                        tooClose = true;
+                        break;
+                    }
+                }
+            }
+            // Check distance against Key if possible (Safety)
+            KeyPickup key = FindObjectOfType<KeyPickup>();
+            if (key != null && Vector3.Distance(pos, key.transform.position) < 4f) tooClose = true;
+
+            if (!tooClose)
+            {
+                positionFound = true;
+            }
+        }
+
+        if (!positionFound)
+        {
+             Debug.LogWarning("[SpawnManager] Could not find free spot for Cage after 20 attempts.");
+             return;
+        }
+
+        GameObject cageObj = null;
+
+        if (cagePrefab != null)
+        {
+            cageObj = Instantiate(cagePrefab, pos, Quaternion.identity);
+        }
+        else
+        {
+            // Placeholder Cage (Procedural Hollow Box)
+            cageObj = new GameObject("Cage_Procedural");
+            // Yüksekliği ayarla: Merkez 1.5f yukarıda (yükseklik 3 olacağı için)
+            cageObj.transform.position = pos + Vector3.up * 1.5f; 
+            
+            // Cage Controller
+            var controller = cageObj.AddComponent<CageController>();
+            controller.cageVisuals = cageObj.transform;
+
+            // --- 6 Duvar Oluştur ---
+            float size = 3f;
+            float thickness = 0.1f;
+            float halfSize = size / 2f;
+            
+            Material wallMat = new Material(Shader.Find("Standard"));
+            wallMat.color = new Color(0.3f, 0.3f, 0.3f, 0.5f); // Koyu gri, yarı saydam
+            wallMat.SetFloat("_Mode", 3); // Transparent
+            // Transparant mod için gerekli ayarlar
+            wallMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            wallMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            wallMat.SetInt("_ZWrite", 0);
+            wallMat.DisableKeyword("_ALPHATEST_ON");
+            wallMat.EnableKeyword("_ALPHABLEND_ON");
+            wallMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            wallMat.renderQueue = 3000;
+
+            // Helper function local
+            void CreateWall(string name, Vector3 localPos, Vector3 scale)
+            {
+                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.name = name;
+                wall.transform.SetParent(cageObj.transform);
+                wall.transform.localPosition = localPos;
+                wall.transform.localScale = scale;
+                wall.GetComponent<Renderer>().material = wallMat;
+            }
+
+            // Walls
+            CreateWall("Floor",   new Vector3(0, -halfSize, 0), new Vector3(size, thickness, size));
+            CreateWall("Ceiling", new Vector3(0, halfSize, 0),  new Vector3(size, thickness, size));
+            CreateWall("Left",    new Vector3(-halfSize, 0, 0), new Vector3(thickness, size, size));
+            CreateWall("Right",   new Vector3(halfSize, 0, 0),  new Vector3(thickness, size, size));
+            CreateWall("Front",   new Vector3(0, 0, halfSize),  new Vector3(size, size, thickness));
+            CreateWall("Back",    new Vector3(0, 0, -halfSize), new Vector3(size, size, thickness));
+
+            // İçine Zombileri Koy
+            controller.trappedZombies = new List<ZombieAI>();
+            
+            for(int k=0; k<3; k++)
+            {
+               if (zombiePrefabs.Count > 0)
+               {
+                   // Zombileri kafesin zeminine (veya map zeminine) basacak şekilde spawn et
+                   // Kafesin içi y = 0 (zemin) seviyesinde olmalı
+                   // Cage center y=1.5, floor y=-1.5 (local) => global y=0
+                   
+                   Vector3 zPos = pos + (Vector3)(Random.insideUnitCircle * 0.8f); // Merkeze yakın
+                   zPos.y = (groundYDetected ? groundY : 0) + 0.1f; 
+                   
+                   GameObject z = Instantiate(zombiePrefabs[0], zPos, Quaternion.identity);
+                   var zAI = z.GetComponent<ZombieAI>();
+                   if(zAI != null) 
+                   {
+                       controller.trappedZombies.Add(zAI);
+                   }
+               }
+            }
+            
+            activeCages.Add(cageObj);
+            Debug.Log("[SpawnManager] Placeholder Cage Created with Zombies.");
+        }
+    }
     private void SpawnZombiesClustered()
     {
         if (zombiePrefabs == null || zombiePrefabs.Count == 0) 

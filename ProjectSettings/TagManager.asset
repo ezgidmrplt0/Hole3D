@@ -9,6 +9,9 @@ TagManager:
   - Human
   - Main Camera
   - SkillPickup
+  - Key
+  - Wall
+  - Border
   layers:
   - Default
   - TransparentFX

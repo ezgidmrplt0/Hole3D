@@ -26,6 +26,16 @@ public class ZombieAI : CharacterAI
     private Vector3 roamTarget;
     private float roamTimer;
 
+    [Header("Cage Logic")]
+    public bool isTrapped = false;
+
+    public void ReleaseFromCage()
+    {
+        isTrapped = false;
+        // Opsiyonel: Kafesten çıkınca hemen kaçmaya veya saldırmaya başla
+        PickNewRoamTarget();
+    }
+
     void Start()
     {
         // --- TAG GÜVENLİĞİ ---
@@ -128,6 +138,7 @@ public class ZombieAI : CharacterAI
 
     void Update()
     {
+        if (isTrapped) return;
         // Text Kameraya Baksın (Billboard)
         if (levelText != null && camTransform != null)
         {

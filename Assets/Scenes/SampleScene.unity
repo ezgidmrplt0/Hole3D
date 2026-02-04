@@ -1297,23 +1297,29 @@ MonoBehaviour:
   - mapPrefab: {fileID: 7615183845656541237, guid: 02081be08af10b177a0a47886fae95ef, type: 3}
     zombieCount: 5
     humanCount: 10
+    levelDuration: 0
     isHordeLevel: 0
   - mapPrefab: {fileID: 1812219942606499623, guid: fa1aa8789b2bd45b9a7c9e78f3a475ca, type: 3}
     zombieCount: 5
     humanCount: 10
+    levelDuration: 0
     isHordeLevel: 0
   - mapPrefab: {fileID: 1405171653587201525, guid: 48bfda540f2bc071b803812a89fd07df, type: 3}
     zombieCount: 5
     humanCount: 10
+    levelDuration: 0
     isHordeLevel: 0
   - mapPrefab: {fileID: 6862343356722946272, guid: 09bffd6b0363a12dc80b3d2fc65d621c, type: 3}
     zombieCount: 5
     humanCount: 10
+    levelDuration: 0
     isHordeLevel: 0
   currentLevelIndex: 0
   spawnManager: {fileID: 1517328783}
   currentZombiesEaten: 0
   totalZombiesInLevel: 0
+  defaultLevelTime: 60
+  currentLevelTimeRemaining: 0
   totalHumansInLevel: 0
   currentHumansRemaining: 0
   currentHumansEaten: 0
@@ -1359,6 +1365,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   coinText: {fileID: 532523236}
   levelText: {fileID: 1291201699}
+  timerText: {fileID: 574440675}
   zombieCounterPanel: {fileID: 1832182739}
   zombieCounterText: {fileID: 1256978198}
   humanCounterText: {fileID: 654121763}
@@ -1534,6 +1541,140 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1517328784}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &574440674
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 574440677}
+  - component: {fileID: 574440676}
+  - component: {fileID: 574440675}
+  m_Layer: 0
+  m_Name: Timer
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &574440675
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574440674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: LEVEL 1
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: 204de1c1ba42511499fce6c31f911f33, type: 2}
+  m_sharedMaterial: {fileID: -3819515810101664482, guid: 204de1c1ba42511499fce6c31f911f33, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 43.7
+  m_fontSizeBase: 36
+  m_fontWeight: 400
+  m_enableAutoSizing: 1
+  m_fontSizeMin: 18
+  m_fontSizeMax: 72
+  m_fontStyle: 1
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 512
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_enableWordWrapping: 0
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 0
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 0
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!222 &574440676
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574440674}
+  m_CullTransparentMesh: 1
+--- !u!224 &574440677
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 574440674}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1.4518, y: 1.7512, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 66525380}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 1}
+  m_AnchorMax: {x: 0.5, y: 1}
+  m_AnchoredPosition: {x: 372, y: -175}
+  m_SizeDelta: {x: 200, y: 50}
+  m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &598421908 stripped
 MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 8135886326569738823, guid: 56fae09712773584fb63896d473a98ee, type: 3}
@@ -3174,6 +3315,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6413215610911626620, guid: 0c67cd333a1020d429e682990ff7a84d, type: 3}
       insertIndex: 2
       addedObject: {fileID: 1008860766}
+    - targetCorrespondingSourceObject: {fileID: 6413215610911626620, guid: 0c67cd333a1020d429e682990ff7a84d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 574440677}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0c67cd333a1020d429e682990ff7a84d, type: 3}
 --- !u!1 &1161633131
@@ -4095,7 +4239,7 @@ MonoBehaviour:
   zombiePrefabs:
   - {fileID: 60475961881823222, guid: 0574cde1936ed0b47a27469ede9bf072, type: 3}
   cagePrefab: {fileID: 0}
-  keyPrefab: {fileID: 0}
+  keyPrefab: {fileID: 2072061013731098146, guid: 9e1e6985859e6debab57a1295368d91a, type: 3}
   cageUnitPrefab: {fileID: 919132149155446097, guid: ff7929109cf894795a8c04151878ec6b, type: 3}
   cageUnitScale: 3
   cageCount: 3

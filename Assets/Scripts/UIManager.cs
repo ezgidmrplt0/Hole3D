@@ -3,9 +3,20 @@ using TMPro; // Standard for text in modern Unity
 
 public class UIManager : MonoBehaviour
 {
+    public static UIManager Instance;
+
+    private void Awake()
+    {
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
+    }
+
     [Header("UI References")]
     public TextMeshProUGUI coinText;
     public TextMeshProUGUI levelText;
+    
+    [Header("Timer")]
+    public TextMeshProUGUI timerText;
     
     [Header("Zombie Counter")]
     public GameObject zombieCounterPanel;
@@ -198,6 +209,25 @@ public class UIManager : MonoBehaviour
         {
             // Artık doğrudan kalan insan sayısını gösteriyoruz
             humanCounterText.text = remainingHumans.ToString();
+        }
+    }
+
+    public void UpdateTimer(float timeRemaining)
+    {
+        if (timerText != null)
+        {
+            // Format as 00:00 (MM:SS)
+            int totalSeconds = Mathf.CeilToInt(timeRemaining);
+            if (totalSeconds < 0) totalSeconds = 0;
+            
+            int minutes = totalSeconds / 60;
+            int seconds = totalSeconds % 60;
+            
+            timerText.text = string.Format("{0:00}:{1:00}", minutes, seconds);
+            
+            // Optional: Change color if low time
+            if (totalSeconds <= 5) timerText.color = Color.red;
+            else timerText.color = Color.white;
         }
     }
     

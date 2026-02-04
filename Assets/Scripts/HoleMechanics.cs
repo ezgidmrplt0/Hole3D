@@ -647,7 +647,13 @@ public class HoleMechanics : MonoBehaviour
             rb.velocity = Random.insideUnitSphere * 5f; 
             // Güçlü bir dönüş ver (Tumble)
             rb.angularVelocity = Random.insideUnitSphere * 10f;
+            
+            // --- DOMINO ETKİSİ ---
+            // Etraftaki diğer parçaları da uyandır (zincirleme reaksiyon)
+            WakeUpChainReaction(victim);
         } 
+
+        // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli) 
 
         // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli)
         Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
@@ -724,6 +730,55 @@ public class HoleMechanics : MonoBehaviour
         
         // Listeden çıkar (artık işlenmedi)
         objectsBeingProcessed.Remove(rootObject);
+    }
+
+    private void WakeUpChainReaction(GameObject victim)
+    {
+        // Victim'in hemen üzerindeki veya dibindeki diğer statik objeleri bul
+        // Bu sayede "Trenin üst parçası" gibi havada duran şeyler de düşmeye başlar.
+        
+        // Biraz yukarıdan da bak (üst üste dizili şeyler için)
+        Vector3 checkPos = victim.transform.position + Vector3.up * 1.5f;
+        Collider[] colliders = Physics.OverlapSphere(checkPos, 3.0f);
+        
+        foreach (var col in colliders)
+        {
+            GameObject go = col.gameObject;
+            if (go == victim) continue;
+            if (go.transform.IsChildOf(transform)) continue; // Delik parçasıysa atla
+            if (go.GetComponent<Rigidbody>() != null) continue; // Zaten fizikli (Muhtemelen zaten düşüyor)
+            
+            // Zemin ve Yasaklı Obje Kontrolü
+            if (go.CompareTag("MainCamera")) continue;
+            string n = go.name.ToLower();
+            bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground");
+            if (isActualFloor) continue;
+            
+            // Boyut Kontrolü (Devasa duvarları vs. yanlışlıkla yıkmayalım)
+            Renderer r = go.GetComponent<Renderer>();
+            if (r != null && r.bounds.size.magnitude > 15f) continue;
+
+            // --- FİZİK EKLE (DOMINO ETKİSİ) ---
+            // MeshCollider Convex Fix
+            MeshCollider mc = go.GetComponent<MeshCollider>();
+            if (mc != null && !mc.convex)
+            {
+                try { mc.convex = true; } 
+                catch { mc.isTrigger = true; } // Convex olamıyorsa trigger yap (Yine de düşmez ama hata vermez.. gerçi RB ekleyince düşmesi için collider lazım)
+                // O yüzden Convex yapamıyorsak BoxCollider ekleyelim fallback olarak
+                if (mc.isTrigger) 
+                {
+                    go.AddComponent<BoxCollider>();
+                }
+            }
+
+            Rigidbody rb = go.AddComponent<Rigidbody>();
+            rb.mass = 1.0f;
+            rb.WakeUp(); // Uyandır!
+            
+            // Hafif bir dürtme ver ki statik dengede kalmasın
+            rb.angularVelocity = Random.insideUnitSphere * 2f;
+        }
     }
 
     void ProcessEatenObject(GameObject victim)

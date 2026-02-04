@@ -7,6 +7,7 @@ public struct LevelData
     public GameObject mapPrefab; // Prefab of the environment for this level
     public int zombieCount;
     public int humanCount;
+    public int levelDuration; // Duration in seconds (0 = use default)
     
     [Header("Special Modes")]
     public bool isHordeLevel; // Eğer true ise, zombiler dip dibe (Horde) olarak spawn olur
@@ -26,6 +27,10 @@ public class LevelManager : MonoBehaviour
     [Header("Runtime Info")]
     public int currentZombiesEaten = 0;
     public int totalZombiesInLevel = 0;
+    
+    [Header("Timer Settings")]
+    public float defaultLevelTime = 60f;
+    public float currentLevelTimeRemaining;
     
     [Header("Human Limit Settings")]
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
@@ -118,6 +123,36 @@ public class LevelManager : MonoBehaviour
         }
     }
 
+
+    private void Update()
+    {
+        // Timer Logic
+        // Fever Modunda da çalışsın (isFeverSequenceActive kontrolünü kaldırdık)
+        if (GameFlowManager.Instance != null && GameFlowManager.Instance.IsGameActive)
+        {
+            currentLevelTimeRemaining -= Time.deltaTime;
+            
+            // Update UI
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
+            }
+
+            // Check Time Up
+            if (currentLevelTimeRemaining <= 0)
+            {
+                currentLevelTimeRemaining = 0; // Clamp
+                
+                // Fever Moddaysa süre bitince Level Fail OLMASIN (Zaten callback ile bitecek)
+                if (!isFeverSequenceActive)
+                {
+                    Debug.Log("Time's Up! Level Failed.");
+                    GameFlowManager.Instance.ShowRetry();
+                }
+            }
+        }
+    }
+
     public void StartLevel()
     {
         if (levels == null || levels.Count == 0)
@@ -178,6 +213,10 @@ public class LevelManager : MonoBehaviour
             desiredHumanCount = 0;   // No humans
             isHordeMode = false;     // Scattered
             
+            // Set Timer for Special Level
+            currentLevelTimeRemaining = defaultLevelTime;
+            if (UIManager.Instance != null) UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
+            
             isCurrentLevelSpecial = true; // Flag set
         }
         else
@@ -194,6 +233,10 @@ public class LevelManager : MonoBehaviour
             desiredZombieCount = actualLevelNumber * 5;
             desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
             isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
+            
+            // Set Timer
+            currentLevelTimeRemaining = data.levelDuration > 0 ? data.levelDuration : defaultLevelTime;
+            if (UIManager.Instance != null) UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
             
             Debug.Log($"Level {actualLevelNumber} (Normal Index {normalLevelIndex}): Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
         }
@@ -446,7 +489,13 @@ public class LevelManager : MonoBehaviour
         if (hole != null)
         {
              // 10 saniye Fever Mode
-             hole.ActivateFeverMode(10.0f, () => 
+             float feverDuration = 10.0f;
+             
+             // --- TIMER UPDATE FOR FEVER ---
+             // Timer'ı Fever süresine ayarla
+             currentLevelTimeRemaining = feverDuration;
+             
+             hole.ActivateFeverMode(feverDuration, () => 
              {
                  // Callback: Fever bitti, leveli bitir
                  FinishLevel();

@@ -138,12 +138,17 @@ public class ZombieAI : CharacterAI
 
     void Update()
     {
-        if (isTrapped) return;
-        // Text Kameraya Baksın (Billboard)
+        // Texti her zaman güncelle
         if (levelText != null && camTransform != null)
         {
-            // Basit Billboard: Kameranın rotasyonunu kopyala
             levelText.transform.parent.rotation = camTransform.rotation;
+        }
+
+        // Eğer Trapped ise, sadece küçük bir alanda dolaşmasına izin ver (Chase yok)
+        if (isTrapped)
+        {
+            PerformRoaming();
+            return; // Chase ve diğer logiclere girme
         }
 
         // Eğer çarpışma sonrası serseri modundaysak
@@ -168,32 +173,43 @@ public class ZombieAI : CharacterAI
         else
         {
             // Hedef yoksa RASTGELE GEZ (Yürü)
-            roamTimer -= Time.deltaTime;
-            if (roamTimer <= 0)
-            {
-                PickNewRoamTarget();
-                roamTimer = roamInterval;
-            }
+            PerformRoaming();
+        }
+    }
 
-            Vector3 dir = roamTarget - transform.position;
-            if (dir.magnitude < 0.5f)
-            {
-                 // Hedefe varınca bekle
-                 // rb.velocity = ... zaten Move çağırmazsak durur mu? Hayır CharacterAI Move çağırmazsak eski velocity kalabilir.
-                 // CharacterAI yapısı her frame çağrı bekliyor mu? Evet velocity set ediyor.
-                 // Eğer çağırmazsak velocity sıfırlanmaz, momentum kalabilir.
-                 // En temizi:
-                 Move(Vector3.zero, false);
-            }
-            else
-            {
-                Move(dir, false); // Boşta gezerken YÜRÜ
-            }
+    private void PerformRoaming()
+    {
+        roamTimer -= Time.deltaTime;
+        if (roamTimer <= 0)
+        {
+            PickNewRoamTarget();
+            roamTimer = roamInterval;
+        }
+
+        Vector3 dir = roamTarget - transform.position;
+        if (dir.magnitude < 0.5f)
+        {
+                // Hedefe varınca bekle
+                Move(Vector3.zero, false);
+        }
+        else
+        {
+            Move(dir, false); // Boşta gezerken YÜRÜ
         }
     }
 
     private void PickNewRoamTarget()
     {
+        // --- TRAPPED LOGIC ---
+        // Kafesteysek uzaklara gitme, olduğun yerde dolan
+        if (isTrapped)
+        {
+            Vector3 randomDir = Random.insideUnitSphere * 2f; // Küçük alan (Kafes içi)
+            roamTarget = transform.position + randomDir;
+            roamTarget.y = expectedGroundY;
+            return;
+        }
+
         // Önce sahnede insan var mı diye bak (Koku alma duyusu gibi global arama)
         GameObject[] humans = GameObject.FindGameObjectsWithTag(preyTag);
 

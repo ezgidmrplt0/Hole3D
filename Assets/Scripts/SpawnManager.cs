@@ -31,6 +31,9 @@ public class SpawnManager : MonoBehaviour
     [Header("Cage & Key Mechanic")]
     public GameObject cagePrefab;
     public GameObject keyPrefab;
+    public GameObject cageUnitPrefab; // GM-Grid veya benzeri duvar parçası
+    [Tooltip("Cage Unit Prefab kullanıldığında scale çarpanı.")]
+    public float cageUnitScale = 3f; 
     public int cageCount = 3;
     private List<GameObject> activeCages = new List<GameObject>();
 
@@ -415,41 +418,121 @@ public class SpawnManager : MonoBehaviour
             var controller = cageObj.AddComponent<CageController>();
             controller.cageVisuals = cageObj.transform;
 
-            // --- 6 Duvar Oluştur ---
-            float size = 3f;
-            float thickness = 0.1f;
-            float halfSize = size / 2f;
+            // --- CAGE VISUAL GENERATION ---
+            // Eğer "Unit Prefab" (GM-Grid) atanmışsa, onu kullanalım.
+            // Atanmamışsa eski "Transparan Kutu" yöntemine dönelim.
             
-            Material wallMat = new Material(Shader.Find("Standard"));
-            wallMat.color = new Color(0.3f, 0.3f, 0.3f, 0.5f); // Koyu gri, yarı saydam
-            wallMat.SetFloat("_Mode", 3); // Transparent
-            // Transparant mod için gerekli ayarlar
-            wallMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            wallMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            wallMat.SetInt("_ZWrite", 0);
-            wallMat.DisableKeyword("_ALPHATEST_ON");
-            wallMat.EnableKeyword("_ALPHABLEND_ON");
-            wallMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-            wallMat.renderQueue = 3000;
-
-            // Helper function local
-            void CreateWall(string name, Vector3 localPos, Vector3 scale)
+            if (cageUnitPrefab != null)
             {
-                GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                wall.name = name;
-                wall.transform.SetParent(cageObj.transform);
-                wall.transform.localPosition = localPos;
-                wall.transform.localScale = scale;
-                wall.GetComponent<Renderer>().material = wallMat;
-            }
+                // -- GM-GRID ILE KAFES --
+                // GM-Grid muhtemelen düz bir zemin (Plane gibi).
+                // Boyutunu 3x3 olacak şekilde ayarlamamız gerekebilir.
+                
+                float size = 3f;
+                float halfSize = size / 2f;
+                // Kalınlık (gridin kalınlığı)
+                
+                // Dark Gray Material
+                Material darkGrayMat = new Material(Shader.Find("Standard"));
+                darkGrayMat.color = new Color(0.2f, 0.2f, 0.2f); // Koyu Gri
+                darkGrayMat.SetFloat("_Metallic", 0.5f);
+                darkGrayMat.SetFloat("_Smoothness", 0.5f);
 
-            // Walls
-            CreateWall("Floor",   new Vector3(0, -halfSize, 0), new Vector3(size, thickness, size));
-            CreateWall("Ceiling", new Vector3(0, halfSize, 0),  new Vector3(size, thickness, size));
-            CreateWall("Left",    new Vector3(-halfSize, 0, 0), new Vector3(thickness, size, size));
-            CreateWall("Right",   new Vector3(halfSize, 0, 0),  new Vector3(thickness, size, size));
-            CreateWall("Front",   new Vector3(0, 0, halfSize),  new Vector3(size, size, thickness));
-            CreateWall("Back",    new Vector3(0, 0, -halfSize), new Vector3(size, size, thickness));
+                // Helper: Instantiate Unit and Rotate with AUTO-CENTER
+                void CreateUnit(string name, Vector3 localPos, Vector3 localRot)
+                {
+                    // 1. Create Wrapper (Anchor) -> Kafes yüzeyinin tam ortası
+                    GameObject wrapper = new GameObject(name + "_Anchor");
+                    wrapper.transform.SetParent(cageObj.transform);
+                    wrapper.transform.localPosition = localPos;
+                    wrapper.transform.localEulerAngles = localRot;
+
+                    // 2. Instantiate Unit
+                    GameObject unit = Instantiate(cageUnitPrefab, wrapper.transform);
+                    unit.name = name + "_Visual";
+                    
+                    // Reset Transform before setup
+                    unit.transform.localPosition = Vector3.zero;
+                    unit.transform.localRotation = Quaternion.identity;
+                    unit.transform.localScale = Vector3.one * cageUnitScale; 
+                    
+                    // 3. AUTO-CENTER LOGIC (Pivot düzeltme)
+                    // Prefabın pivotu köşedeyse, merkezden kaçık durur. Bunu görsel merkeze göre düzeltelim.
+                    Renderer[] rends = unit.GetComponentsInChildren<Renderer>();
+                    if (rends.Length > 0)
+                    {
+                        // Apply Material
+                        foreach(var r in rends) r.material = darkGrayMat;
+
+                        // Tüm rendererların bounds'unu birleştir
+                        Bounds b = rends[0].bounds;
+                        for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
+                        
+                        // Wrapper'ın local uzayında görselin merkezini bul
+                        Vector3 centerInWrapper = wrapper.transform.InverseTransformPoint(b.center);
+                        
+                        // Unit'i ters yönde kaydır ki görsel merkez (0,0,0)'a otursun
+                        // Sadece X ve Y ekseninde (Yüzey üzerinde) merkezleyelim, Z (Derinlik/Kalınlık) eksenini bozmayalım mı?
+                        // Genelde Grid düzdür, Z'si incedir. Tam merkezlemek en güvenlisi.
+                        unit.transform.localPosition = -centerInWrapper;
+                    }
+                }
+
+                // 6 YÜZ (İÇE BAKACAK ŞEKİLDE)
+                // Floor: Aşağıda, yukarı bakıyor (0,0,0)
+                CreateUnit("Floor", new Vector3(0, -halfSize, 0), Vector3.zero);
+                
+                // Ceiling: Yukarıda, aşağı bakıyor (180,0,0)
+                CreateUnit("Ceiling", new Vector3(0, halfSize, 0), new Vector3(180, 0, 0));
+                
+                // Front (Z+): İleri gitmiş, arkaya bakıyor
+                // Rotasyon: X ekseninde 90 derece (öne dik)
+                CreateUnit("Wall_Front", new Vector3(0, 0, halfSize), new Vector3(90, 0, 0));
+                
+                // Back (Z-): Geri gitmiş, öne bakıyor
+                CreateUnit("Wall_Back", new Vector3(0, 0, -halfSize), new Vector3(-90, 0, 0));
+                
+                // Left (X-): Sola gitmiş, sağa bakıyor
+                CreateUnit("Wall_Left", new Vector3(-halfSize, 0, 0), new Vector3(0, 0, -90));
+                
+                // Right (X+): Sağa gitmiş, sola bakıyor
+                CreateUnit("Wall_Right", new Vector3(halfSize, 0, 0), new Vector3(0, 0, 90));
+            }
+            else
+            {
+                // -- ESKİ TRANSPARAN KUTU (FALLBACK) --
+                float size = 3f;
+                float thickness = 0.1f;
+                float halfSize = size / 2f;
+                
+                Material wallMat = new Material(Shader.Find("Standard"));
+                wallMat.color = new Color(0.3f, 0.3f, 0.3f, 0.3f); // Daha az opak
+                wallMat.SetFloat("_Mode", 3); // Transparent
+                wallMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                wallMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                wallMat.SetInt("_ZWrite", 0);
+                wallMat.DisableKeyword("_ALPHATEST_ON");
+                wallMat.EnableKeyword("_ALPHABLEND_ON");
+                wallMat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+                wallMat.renderQueue = 3000;
+
+                void CreateWall(string name, Vector3 localPos, Vector3 scale)
+                {
+                    GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    wall.name = name;
+                    wall.transform.SetParent(cageObj.transform);
+                    wall.transform.localPosition = localPos;
+                    wall.transform.localScale = scale;
+                    wall.GetComponent<Renderer>().material = wallMat;
+                }
+
+                CreateWall("Floor",   new Vector3(0, -halfSize, 0), new Vector3(size, thickness, size));
+                CreateWall("Ceiling", new Vector3(0, halfSize, 0),  new Vector3(size, thickness, size));
+                CreateWall("Left",    new Vector3(-halfSize, 0, 0), new Vector3(thickness, size, size));
+                CreateWall("Right",   new Vector3(halfSize, 0, 0),  new Vector3(thickness, size, size));
+                CreateWall("Front",   new Vector3(0, 0, halfSize),  new Vector3(size, size, thickness));
+                CreateWall("Back",    new Vector3(0, 0, -halfSize), new Vector3(size, size, thickness));
+            }
 
             // İçine Zombileri Koy
             controller.trappedZombies = new List<ZombieAI>();

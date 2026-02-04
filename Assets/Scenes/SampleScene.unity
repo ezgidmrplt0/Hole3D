@@ -4094,6 +4094,11 @@ MonoBehaviour:
   - {fileID: 5516017263977979611, guid: c5091268b59bd5a47ba0f0bbc59dbc3f, type: 3}
   zombiePrefabs:
   - {fileID: 60475961881823222, guid: 0574cde1936ed0b47a27469ede9bf072, type: 3}
+  cagePrefab: {fileID: 0}
+  keyPrefab: {fileID: 0}
+  cageUnitPrefab: {fileID: 919132149155446097, guid: ff7929109cf894795a8c04151878ec6b, type: 3}
+  cageUnitScale: 3
+  cageCount: 3
   humanSpawnPoints:
   - {fileID: 557373768}
   - {fileID: 1562476476}

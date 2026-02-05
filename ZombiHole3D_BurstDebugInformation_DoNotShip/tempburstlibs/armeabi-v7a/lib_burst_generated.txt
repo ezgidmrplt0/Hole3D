@@ -1,0 +1,19 @@
+Library: /home/emre/Documents/GitHub/Hole3D/Temp/BurstOutput/tempburstlibs/armeabi-v7a/lib_burst_generated
+--platform=Android
+--minimum-os-version=
+--backend=burst-llvm-19
+--target=ARMV7A_NEON32
+--global-safety-checks-setting=Off
+--meta-data-generation=False
+--dump=Function
+--float-precision=Standard
+--target-framework=NetFramework
+--generate-link-xml=Temp/burst.link.xml
+--temp-folder=/home/emre/Documents/GitHub/Hole3D/Temp/Burst
+--force-disable-frame-info-registration
+--key-folder=/home/emre/Unity/Hub/Editor/2022.3.62f3/Editor/Data/PlaybackEngines/AndroidPlayer
+--decode-folder=/home/emre/Documents/GitHub/Hole3D/Library/Burst
+--output=/home/emre/Documents/GitHub/Hole3D/Temp/BurstOutput/tempburstlibs/armeabi-v7a/lib_burst_generated
+--pdb-search-paths=Temp/ManagedSymbols/
+
+

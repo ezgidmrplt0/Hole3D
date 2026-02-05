@@ -32,11 +32,13 @@ public class FontReplacerTool : EditorWindow
                 return;
             }
             ReplaceFonts();
+            GUIUtility.ExitGUI();
         }
 
         if (GUILayout.Button("Assign to Scripts (Dynamic Text)"))
         {
              AssignToManagers();
+             GUIUtility.ExitGUI();
         }
     }
 

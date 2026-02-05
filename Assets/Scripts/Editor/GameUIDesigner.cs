@@ -216,7 +216,12 @@ public class GameUIDesigner : EditorWindow
         Rect centerArea = new Rect(0, position.height / 2 - 50, position.width, 100);
         GUI.Label(centerArea, "TAP TO PLAY", tapToPlayStyle);
         
-        // Repaint constantly for animation
+        // Repaint() inside OnGUI is bad practice. Removed.
+    }
+
+    private void Update()
+    {
+        // Request repaint from Update loop to animate smoothy without breaking GUI layout
         Repaint();
     }
 }

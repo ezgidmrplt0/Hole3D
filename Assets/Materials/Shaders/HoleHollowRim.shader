@@ -18,6 +18,8 @@ Shader "Custom/HoleHollowRim"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            // MOBİL FIX: Shader target 2.0 ile eski cihaz desteği
+            #pragma target 2.0
             #include "UnityCG.cginc"
 
             struct appdata
@@ -33,8 +35,8 @@ Shader "Custom/HoleHollowRim"
             };
 
             fixed4 _Color;
-            float _InsideRadius;
-            float _OutsideRadius;
+            half _InsideRadius;
+            half _OutsideRadius;
 
             v2f vert (appdata v)
             {
@@ -47,16 +49,17 @@ Shader "Custom/HoleHollowRim"
             fixed4 frag (v2f i) : SV_Target
             {
                 float2 distVec = i.uv - float2(0.5, 0.5);
-                float dist = length(distVec) * 2.0; // Range 0 to 1
+                half dist = length(distVec) * 2.0; // Range 0 to 1
 
-                if (dist < _InsideRadius || dist > _OutsideRadius)
-                {
-                    discard;
-                }
+                // MOBİL FIX: clip() kullan discard yerine
+                clip(dist - _InsideRadius);
+                clip(_OutsideRadius - dist);
 
                 return _Color;
             }
             ENDCG
         }
     }
+    // MOBİL FIX: Fallback shader
+    FallBack "Mobile/Particles/Alpha Blended"
 }

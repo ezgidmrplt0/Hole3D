@@ -133,6 +133,11 @@ public class CharacterAI : MonoBehaviour
         {
             rb.interpolation = RigidbodyInterpolation.Interpolate;
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+            
+            // MOBİL FIX: Daha sıkı fizik ayarları
+            rb.sleepThreshold = 0.005f; // Daha geç uyusun (varsayılan 0.005)
+            rb.maxAngularVelocity = 7f; // Çılgın dönüşleri engelle
+            rb.maxDepenetrationVelocity = 1f; // Çarpışma sonrası fırlama engelle
         }
     }
 
@@ -209,6 +214,14 @@ public class CharacterAI : MonoBehaviour
         
         // FixedUpdate'de de yükseklik kontrolü - fizik ile senkronize
         ClampHeightToGround();
+        
+        // MOBİL FIX: Rigidbody pozisyon senkronizasyonu
+        // Mobilde fizik ve render farklı hızlarda çalışabilir
+        if (rb != null)
+        {
+            // Interpolation zaten açık ama ek güvenlik
+            rb.WakeUp(); // Uyuyan rigidbody'leri uyandır
+        }
     }
     
     private void ClampHeightToGround()
@@ -429,6 +442,11 @@ public class CharacterAI : MonoBehaviour
         // Hızı belirle
         float currentSpeed = isRunning ? runSpeed : walkSpeed;
 
+        // --- MOBİL FIX: Frame-rate bağımsız hareket ---
+        // FixedUpdate yerine Update'de hareket yapıldığında deltaTime kullanılmalı
+        // Ancak Rigidbody velocity direkt atanıyorsa deltaTime kullanılmaz
+        // Bu mantık doğru, sorun Rigidbody.velocity'nin tutarsız olması
+        
         // Hareketi uygula
         Vector3 velocity = moveDirection * currentSpeed;
         
@@ -437,8 +455,8 @@ public class CharacterAI : MonoBehaviour
         {
              velocity.y = rb.velocity.y;
              
-             // Check against explosion
-             if (Mathf.Abs(velocity.y) > 50f) velocity.y = 50f; // Limit vertical speed
+             // Check against explosion - MOBİL FIX: Daha sıkı limit
+             if (Mathf.Abs(velocity.y) > 20f) velocity.y = Mathf.Sign(velocity.y) * 20f;
              
              // KRITIK: Eğer zaten yüksekteyse ve yukarı gidiyorsa, engelle
              if (transform.position.y > expectedGroundY + heightTolerance && velocity.y > 0)

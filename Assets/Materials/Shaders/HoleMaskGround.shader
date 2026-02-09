@@ -12,7 +12,10 @@ Shader "Custom/HoleMaskGround"
         LOD 200
 
         CGPROGRAM
-        #pragma surface surf Standard fullforwardshadows
+        // MOBİL FIX: fullforwardshadows yerine noshadow kullanarak mobil performansı artır
+        #pragma surface surf Standard noshadow
+        // MOBİL FIX: Shader target 3.0 yerine 2.0 kullan (Eski cihaz desteği)
+        #pragma target 2.0
 
         sampler2D _MainTex;
         fixed4 _Color;
@@ -31,8 +34,10 @@ Shader "Custom/HoleMaskGround"
             float2 worldPosXZ = IN.worldPos.xz;
             float d = distance(worldPosXZ, holePosXZ);
             
-            if (d < _HoleRadius)
-                discard;
+            // Deliğin İÇİNİ kes (d < radius ise negatif olur ve kesilir)
+            // d - radius: eğer d < radius ise negatif → kesilir (delik oluşur)
+            //             eğer d > radius ise pozitif → görünür (zemin)
+            clip(d - _HoleRadius);
 
             fixed4 c = tex2D(_MainTex, IN.uv_MainTex) * _Color;
             o.Albedo = c.rgb;
@@ -40,5 +45,6 @@ Shader "Custom/HoleMaskGround"
         }
         ENDCG
     }
-    FallBack "Diffuse"
+    // MOBİL FIX: Fallback shader eklendi
+    FallBack "Mobile/Diffuse"
 }

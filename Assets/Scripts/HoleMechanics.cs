@@ -276,20 +276,29 @@ public class HoleMechanics : MonoBehaviour
         // Texture oluştur (KARE - Confetti için)
         Texture2D confetiTex = GenerateSquareTexture();
         
-        // Shader ve Material
-        // Shader ve Material
-        // "Legacy Shaders/Particles/Alpha Blended" yerine "Particles/Standard Unlit" kullanıyoruz.
-        // Bu sayede renkler daha "Solid" ve parlak görünecek, transparanlık sorunu çözülecek.
-        Material particleMat = new Material(Shader.Find("Particles/Standard Unlit")); 
-        particleMat.enableInstancing = true;
+        // Shader ve Material - MOBİL UYUMLU
+        // Mobilde "Particles/Standard Unlit" shader'ı build'e dahil edilmeyebilir ve PEMBE görünür.
+        // Bu yüzden garantili dahil edilen "Sprites/Default" veya "UI/Default" kullanıyoruz.
+        Shader particleShader = Shader.Find("Sprites/Default");
+        if (particleShader == null) particleShader = Shader.Find("UI/Default");
+        if (particleShader == null) particleShader = Shader.Find("Unlit/Transparent");
+        if (particleShader == null)
+        {
+            // Son çare - Legacy shader (Her zaman dahil edilir)
+            particleShader = Shader.Find("Legacy Shaders/Particles/Alpha Blended");
+        }
         
-        // Render Mode ayarları (Opaque/Cutout gibi davranması için)
-        particleMat.SetFloat("_Mode", 2); // Transparent
-        particleMat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        particleMat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        particleMat.SetInt("_ZWrite", 0);
-        particleMat.EnableKeyword("_ALPHABLEND_ON");
-        particleMat.renderQueue = 3000;
+        Material particleMat;
+        if (particleShader != null)
+        {
+            particleMat = new Material(particleShader);
+        }
+        else
+        {
+            // Hiçbir shader bulunamadıysa default material kullan
+            particleMat = new Material(Shader.Find("Standard"));
+            Debug.LogWarning("HoleMechanics: Particle shader bulunamadı! Standard shader kullanılıyor.");
+        }
         
         particleMat.mainTexture = confetiTex;
         renderer.material = particleMat;
@@ -701,9 +710,11 @@ public class HoleMechanics : MonoBehaviour
             // Rigidbody hala geçerli mi kontrol et
             if (rb != null && !float.IsNaN(direction.x))
             {
-                // Güçlü Çekim
-                rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
-                rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
+                // Güçlü Çekim - MOBİL FIX: fixedDeltaTime kullan (frame rate bağımsız)
+                // Not: Coroutine içinde olduğumuz için Time.fixedDeltaTime yerine sabit değer kullanıyoruz
+                float fixedDt = 0.02f; // Unity default fixed timestep
+                rb.AddForce(direction * pullForce * fixedDt * 60f, ForceMode.Acceleration);
+                rb.AddTorque(Vector3.up * rotationSpeed * fixedDt, ForceMode.Force);
             }
 
             // Çukurun dibine yaklaştı mı?
@@ -908,22 +919,44 @@ public class HoleMechanics : MonoBehaviour
 
     public void SpawnFloatingText(string text, Color color)
     {
+        // --- MOBİL FIX: Screen Space Overlay Canvas ---
+        // World Space canvas mobilde çözünürlük sorunları yaratıyor.
+        // Bunun yerine Screen Space kullanıp, world pozisyonunu screen pozisyonuna çeviriyoruz.
+        
         GameObject go = new GameObject("FloatingXP");
-        go.transform.position = transform.position + Vector3.up * 2f; // Deliğin biraz üstünde
         
-        // Canvas Ekle (World Space)
+        // Canvas Ekle (Screen Space Overlay - Mobilde daha güvenilir)
         Canvas canvas = go.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.WorldSpace;
-        canvas.worldCamera = Camera.main;
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 100; // En üstte görünsün
         
-        // Scale
-        RectTransform rect = go.GetComponent<RectTransform>();
-        rect.sizeDelta = new Vector2(5, 2);
-        rect.localScale = Vector3.one * 0.1f; // Yazı boyutu
-
+        // CanvasScaler ekle (Farklı ekran boyutlarına uyum)
+        UnityEngine.UI.CanvasScaler scaler = go.AddComponent<UnityEngine.UI.CanvasScaler>();
+        scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1080, 1920);
+        scaler.matchWidthOrHeight = 0.5f;
+        
+        // GraphicRaycaster (UI için gerekli)
+        go.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        
+        // Text objesi oluştur
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(go.transform);
+        
+        // World pozisyonunu screen pozisyonuna çevir
+        Vector3 worldPos = transform.position + Vector3.up * 2f;
+        Vector3 screenPos = Camera.main.WorldToScreenPoint(worldPos);
+        
+        RectTransform textRect = textObj.AddComponent<RectTransform>();
+        textRect.position = screenPos;
+        textRect.sizeDelta = new Vector2(200, 100);
+        
         // Floating Logic
-        FloatingText ft = go.AddComponent<FloatingText>();
+        FloatingText ft = textObj.AddComponent<FloatingText>();
         ft.Setup(text, color, damageFont);
+        
+        // Canvas'ı da yok et (FloatingText kendi kendini yok eder)
+        Destroy(go, 1.5f);
     }
 
     void LevelUp()

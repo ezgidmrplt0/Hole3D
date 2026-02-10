@@ -16,6 +16,16 @@ public class ObstructionFader : MonoBehaviour
 
     [Header("Debug")]
     public bool showDebugLogs = true; // Debug logları aç/kapa
+    
+    [Header("Android Fix - Material Swap")]
+    [Tooltip("Android build için: Önceden hazırlanmış transparent material kullanır")]
+    public bool useMaterialSwap = true; // Android için material swap modu
+    
+    [Tooltip("Resources klasöründeki transparent material adı (örn: 'FadeMaterial')")]
+    public string fadeMaterialName = "FadeMaterial";
+    
+    // Önceden yüklenmiş fade material (Resources'dan)
+    private Material fadeMaterialTemplate;
 
     private Transform cameraTransform;
     private Transform myTransform;
@@ -26,6 +36,9 @@ public class ObstructionFader : MonoBehaviour
     private class MaterialModeData
     {
         public Material material;
+        public Material[] originalMaterials; // Orijinal materyalleri sakla
+        public Material[] fadeMaterials; // Fade için oluşturulan materyaller
+        public Color[] originalColors; // Orijinal renkler
         public float originalAlpha;
         public int originalMode;
         public int originalSrcBlend;
@@ -33,6 +46,9 @@ public class ObstructionFader : MonoBehaviour
         public int originalZWrite;
         public int originalRenderQueue;
         public bool isURP; // URP tespiti
+        public bool wasEnabled; // Renderer açık mıydı
+        public Renderer renderer; // Renderer referansı
+        public Tweener currentTween; // Aktif tween
     }
 
     private void Start()
@@ -50,9 +66,20 @@ public class ObstructionFader : MonoBehaviour
             return;
         }
 
-        // Başlangıçta obstructionMask ayarlıyorduk ama artık daha dinamik olacağız.
-        // Yine de performans için bir temel maske tutabiliriz ama kullanıcı "her şey" dediği için
-        // Everything maskesi üzerinden gidip, kod içinde elemek daha garantidir.
+        // ★ ANDROID FIX: Fade Material'ı Resources'dan yükle
+        if (useMaterialSwap)
+        {
+            fadeMaterialTemplate = Resources.Load<Material>(fadeMaterialName);
+            if (fadeMaterialTemplate == null)
+            {
+                Debug.LogWarning($"[ObstructionFader] ⚠ '{fadeMaterialName}' bulunamadı! Resources klasörüne 'FadeMaterial' adında transparent bir material ekleyin. Legacy moda geçiliyor.");
+                useMaterialSwap = false;
+            }
+            else
+            {
+                if (showDebugLogs) Debug.Log($"[ObstructionFader] ✓ Fade Material yüklendi: {fadeMaterialTemplate.name}");
+            }
+        }
     }
 
     private void LateUpdate()
@@ -156,11 +183,25 @@ public class ObstructionFader : MonoBehaviour
             MaterialModeData data = kvp.Value;
             if (r != null && data != null)
             {
-                // Instant Restore (No Tween for quick cleanup)
-                Restore(r, data); 
-                // Restore calls Tween, but we accept it. 
-                // If we wanted instant, we would duplicate restore logic without tween.
-                // For now, Tween restore is fine, it looks smooth.
+                // ★ ANDROID FIX: Material Swap için instant restore
+                if (useMaterialSwap && data.originalMaterials != null)
+                {
+                    r.materials = data.originalMaterials;
+                    
+                    // Fade materyallerini temizle
+                    if (data.fadeMaterials != null)
+                    {
+                        foreach (var fadeMat in data.fadeMaterials)
+                        {
+                            if (fadeMat != null) Destroy(fadeMat);
+                        }
+                    }
+                }
+                else
+                {
+                    // Legacy Restore
+                    Restore(r, data); 
+                }
             }
         }
         fadedRenderers.Clear();
@@ -254,6 +295,72 @@ public class ObstructionFader : MonoBehaviour
 
     private void CacheAndFade(Renderer r)
     {
+        // ★ ANDROID FIX: Material Swap Mode - Önceden hazır transparent material kullan
+        if (useMaterialSwap && fadeMaterialTemplate != null)
+        {
+            MaterialModeData data = new MaterialModeData();
+            data.renderer = r;
+            data.originalMaterials = r.sharedMaterials; // Orijinalleri sakla
+            
+            // Her material için fade versiyonu oluştur
+            Material[] newMaterials = new Material[r.sharedMaterials.Length];
+            data.originalColors = new Color[r.sharedMaterials.Length];
+            
+            for (int i = 0; i < r.sharedMaterials.Length; i++)
+            {
+                Material originalMat = r.sharedMaterials[i];
+                if (originalMat == null) continue;
+                
+                // Fade material'dan yeni instance oluştur
+                Material fadeMat = new Material(fadeMaterialTemplate);
+                
+                // Orijinal rengi al ve kopyala
+                Color originalColor = Color.white;
+                if (originalMat.HasProperty("_Color"))
+                    originalColor = originalMat.GetColor("_Color");
+                else if (originalMat.HasProperty("_BaseColor"))
+                    originalColor = originalMat.GetColor("_BaseColor");
+                
+                data.originalColors[i] = originalColor;
+                
+                // Orijinal texture'ı kopyala (varsa)
+                if (originalMat.HasProperty("_MainTex") && fadeMat.HasProperty("_MainTex"))
+                {
+                    fadeMat.SetTexture("_MainTex", originalMat.GetTexture("_MainTex"));
+                }
+                
+                // Başlangıç rengi (tam opak)
+                Color startColor = originalColor;
+                startColor.a = 1f;
+                fadeMat.SetColor("_Color", startColor);
+                
+                newMaterials[i] = fadeMat;
+            }
+            
+            data.fadeMaterials = newMaterials;
+            fadedRenderers.Add(r, data);
+            
+            // Material'ları değiştir
+            r.materials = newMaterials;
+            
+            // Smooth alpha fade
+            for (int i = 0; i < newMaterials.Length; i++)
+            {
+                if (newMaterials[i] == null) continue;
+                
+                Color fadeTargetColor = data.originalColors[i];
+                fadeTargetColor.a = fadeAlpha;
+                
+                newMaterials[i].DOColor(fadeTargetColor, "_Color", fadeDuration);
+            }
+            
+            if (showDebugLogs)
+                Debug.Log($"[ObstructionFader] ★ Material Swap fade başladı: {r.name}");
+            
+            return;
+        }
+        
+        // --- LEGACY TRANSPARENT MODE (Editor/PC için - Material swap yoksa) ---
         Material mat = r.material;
         
         if (mat == null)
@@ -262,30 +369,31 @@ public class ObstructionFader : MonoBehaviour
             return;
         }
         
-        MaterialModeData data = new MaterialModeData();
-        data.material = mat;
+        MaterialModeData dataLegacy = new MaterialModeData();
+        dataLegacy.material = mat;
+        dataLegacy.renderer = r;
         
         // Rengi al (URP vs Standard uyumu)
         Color col = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : mat.color;
         
-        data.originalAlpha = col.a;
-        data.originalRenderQueue = mat.renderQueue;
+        dataLegacy.originalAlpha = col.a;
+        dataLegacy.originalRenderQueue = mat.renderQueue;
         
         // URP Kontrolü
-        data.isURP = mat.HasProperty("_BaseColor");
+        dataLegacy.isURP = mat.HasProperty("_BaseColor");
         
         if (showDebugLogs)
-            Debug.Log($"[ObstructionFader] Material Info: {mat.name} | URP: {data.isURP} | Shader: {mat.shader.name} | OriginalAlpha: {data.originalAlpha}");
+            Debug.Log($"[ObstructionFader] Material Info: {mat.name} | URP: {dataLegacy.isURP} | Shader: {mat.shader.name} | OriginalAlpha: {dataLegacy.originalAlpha}");
 
-        if (mat.HasProperty("_Mode")) data.originalMode = (int)mat.GetFloat("_Mode");
-        if (mat.HasProperty("_SrcBlend")) data.originalSrcBlend = mat.GetInt("_SrcBlend");
-        if (mat.HasProperty("_DstBlend")) data.originalDstBlend = mat.GetInt("_DstBlend");
-        if (mat.HasProperty("_ZWrite")) data.originalZWrite = mat.GetInt("_ZWrite");
+        if (mat.HasProperty("_Mode")) dataLegacy.originalMode = (int)mat.GetFloat("_Mode");
+        if (mat.HasProperty("_SrcBlend")) dataLegacy.originalSrcBlend = mat.GetInt("_SrcBlend");
+        if (mat.HasProperty("_DstBlend")) dataLegacy.originalDstBlend = mat.GetInt("_DstBlend");
+        if (mat.HasProperty("_ZWrite")) dataLegacy.originalZWrite = mat.GetInt("_ZWrite");
 
-        fadedRenderers.Add(r, data);
+        fadedRenderers.Add(r, dataLegacy);
 
         // Fade Moduna Geç
-        SetMaterialToFade(mat, data.isURP);
+        SetMaterialToFade(mat, dataLegacy.isURP);
 
         // Tween Alpha
         Color targetColor = col;
@@ -294,7 +402,7 @@ public class ObstructionFader : MonoBehaviour
         if (showDebugLogs)
             Debug.Log($"[ObstructionFader] Alpha değişiyor: {col.a} → {fadeAlpha}");
         
-        if (data.isURP)
+        if (dataLegacy.isURP)
             mat.DOColor(targetColor, "_BaseColor", fadeDuration);
         else
             mat.DOColor(targetColor, fadeDuration);
@@ -302,7 +410,47 @@ public class ObstructionFader : MonoBehaviour
 
     private void Restore(Renderer r, MaterialModeData data)
     {
-        if (r == null || data.material == null) return;
+        if (r == null) return;
+        
+        // ★ ANDROID FIX: Material Swap Mode - Orijinal materyallere geri dön
+        if (useMaterialSwap && data.originalMaterials != null && data.fadeMaterials != null)
+        {
+            // Önce alpha'yı geri getir, sonra material'ı değiştir
+            for (int i = 0; i < data.fadeMaterials.Length; i++)
+            {
+                if (data.fadeMaterials[i] == null) continue;
+                
+                Color restoreTargetColor = data.originalColors[i];
+                restoreTargetColor.a = 1f; // Tam opak
+                
+                int index = i;
+                data.fadeMaterials[i].DOColor(restoreTargetColor, "_Color", fadeDuration).OnComplete(() =>
+                {
+                    // Tüm fade'ler bitince orijinal materyallere dön
+                    if (index == data.fadeMaterials.Length - 1)
+                    {
+                        if (r != null && data.originalMaterials != null)
+                        {
+                            r.materials = data.originalMaterials;
+                            
+                            // Fade materyallerini temizle
+                            foreach (var fadeMat in data.fadeMaterials)
+                            {
+                                if (fadeMat != null) Destroy(fadeMat);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            if (showDebugLogs)
+                Debug.Log($"[ObstructionFader] ★ Material Swap restore başladı: {r.name}");
+            
+            return;
+        }
+        
+        // --- LEGACY TRANSPARENT MODE ---
+        if (data.material == null) return;
 
         Material mat = data.material;
         
@@ -337,11 +485,29 @@ public class ObstructionFader : MonoBehaviour
         // URP Surface Type (0: Opaque, 1: Transparent)
         if (material.HasProperty("_Surface"))
         {
-            material.SetFloat("_Surface", 1);
+            material.SetFloat("_Surface", 1); // Transparent
             material.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
             material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
             material.SetInt("_ZWrite", 0);
             material.renderQueue = 3000;
+            
+            // ★ AAB BUILD FIX: URP için gerekli keyword'leri etkinleştir
+            // Bu keyword'ler olmadan Android build'de şeffaflık çalışmaz!
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.EnableKeyword("_ALPHAPREMULTIPLY_ON"); // URP Transparent için gerekli
+            
+            // Blend Mode ayarla (Alpha)
+            if (material.HasProperty("_Blend"))
+            {
+                material.SetFloat("_Blend", 0); // 0 = Alpha blend
+            }
+            
+            // Alpha Clipping kapalı olmalı (Fade için)
+            if (material.HasProperty("_AlphaClip"))
+            {
+                material.SetFloat("_AlphaClip", 0);
+                material.DisableKeyword("_ALPHATEST_ON");
+            }
         }
         else
         {
@@ -367,6 +533,12 @@ public class ObstructionFader : MonoBehaviour
             material.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
             material.SetInt("_ZWrite", 1);
             material.renderQueue = data.originalRenderQueue;
+            
+            // ★ AAB BUILD FIX: Transparent keyword'leri kapat
+            material.DisableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            material.DisableKeyword("_ALPHATEST_ON");
+            
             return;
         }
 

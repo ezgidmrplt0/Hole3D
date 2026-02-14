@@ -326,6 +326,9 @@ public class SpawnManager : MonoBehaviour
              pos.y = (groundYDetected ? groundY : 0) + 1.0f;
         }
 
+        // User requested slight adjustment (0.1f lower)
+        pos.y -= 0.1f;
+
         if (keyPrefab != null)
         {
             GameObject keyObj = Instantiate(keyPrefab, pos, Quaternion.identity);

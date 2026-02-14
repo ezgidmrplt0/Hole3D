@@ -217,15 +217,24 @@ public class SkillManager : MonoBehaviour
 
     public void BuyMagnet()
     {
+        // Restriction: Only allow one purchase per level
         if (magnetPurchased) return;
+
         if (TryPurchaseSkill(magnetPrice))
         {
-            magnetPurchased = true; 
-            // YENİ: Direkt aktif etme, spawn et!
+            magnetPurchased = true; // Lock purchase for the rest of the level
+            
+            // Spawn skill pickup (Permanent for this level)
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Magnet, true);
             }
+            else
+            {
+                // Fallback: Activate immediately if SpawnManager is missing
+                ActivateSkill(SkillType.Magnet, true);
+            }
+            
             OnUpgradesChanged?.Invoke();
         }
     }
@@ -233,13 +242,20 @@ public class SkillManager : MonoBehaviour
     public void BuySpeed()
     {
         if (speedPurchased) return;
+
         if (TryPurchaseSkill(speedPrice))
         {
-            speedPurchased = true;
+            speedPurchased = true; // Lock purchase
+            
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Speed, true);
             }
+            else
+            {
+                ActivateSkill(SkillType.Speed, true);
+            }
+
             OnUpgradesChanged?.Invoke();
         }
     }
@@ -247,13 +263,20 @@ public class SkillManager : MonoBehaviour
     public void BuyShield()
     {
         if (shieldPurchased) return;
+
         if (TryPurchaseSkill(shieldPrice))
         {
-            shieldPurchased = true;
+            shieldPurchased = true; // Lock purchase
+            
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Shield, true);
             }
+            else
+            {
+                ActivateSkill(SkillType.Shield, true);
+            }
+
             OnUpgradesChanged?.Invoke();
         }
     }
@@ -288,5 +311,15 @@ public class SkillManager : MonoBehaviour
         };
         
         return EconomyManager.Instance != null && EconomyManager.Instance.CurrentCoins >= price;
+    }
+
+    public bool IsSkillPurchased(SkillType type)
+    {
+        return type switch {
+            SkillType.Magnet => magnetPurchased,
+            SkillType.Speed => speedPurchased,
+            SkillType.Shield => shieldPurchased,
+            _ => false
+        };
     }
 }

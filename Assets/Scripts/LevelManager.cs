@@ -280,6 +280,13 @@ public class LevelManager : MonoBehaviour
             // --- NORMAL LEVEL: PREFABDAN KOPYA OLUŞTUR ---
             // Orijinal Prefab rotasyonunu koru!
             currentMapInstance = Instantiate(mapToSpawn, Vector3.zero, mapToSpawn.transform.rotation);
+
+            // FIX: Level 2 missing ground workaround
+            // Level 2'nin kendi prefabında zemin eksik olduğu için, Special Level zeminini (simplePlanePrefab) arkada açık tutuyoruz.
+            if (actualLevelNumber == 2 && simplePlanePrefab != null)
+            {
+                simplePlanePrefab.SetActive(true);
+            }
         }
         else
         {

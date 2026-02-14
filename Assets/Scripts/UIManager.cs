@@ -424,27 +424,51 @@ public class UIManager : MonoBehaviour
     {
         if (SkillManager.Instance == null) return;
         
-        // --- LEVEL MARKET UPDATE ---
-        if (levelMagnetButton != null)
+        // Helper to update a single skill button
+        void UpdateButton(UnityEngine.UI.Button btn, TextMeshProUGUI priceText, SkillType type, int price)
         {
-            int price = SkillManager.Instance.magnetPrice;
-            levelMagnetButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Magnet);
-            if (levelMagnetPriceText != null) levelMagnetPriceText.text = price.ToString();
+            if (btn == null) return;
+
+            bool isPurchased = SkillManager.Instance.IsSkillPurchased(type);
+            bool canAfford = false;
+            if (EconomyManager.Instance != null) canAfford = EconomyManager.Instance.CurrentCoins >= price;
+
+            if (isPurchased)
+            {
+                // DURUM 1: SATIN ALINDI -> KİLİTLİ VE "SOLD" YAZISI
+                btn.interactable = false;
+                if (priceText != null) 
+                {
+                    priceText.text = "SOLD";
+                    priceText.color = Color.green; // Opsiyonel: Satıldı rengi
+                }
+            }
+            else
+            {
+                // DURUM 2: HENÜZ ALINMADI
+                if (priceText != null) 
+                {
+                    priceText.text = price.ToString();
+                }
+
+                if (canAfford)
+                {
+                    // YETERLİ PARA VAR -> AKTİF
+                    btn.interactable = true;
+                    if (priceText != null) priceText.color = Color.white;
+                }
+                else
+                {
+                    // YETERLİ PARA YOK -> PASİF (Ama satın alındığı için değil, para yok diye)
+                    btn.interactable = false;
+                    if (priceText != null) priceText.color = Color.red;
+                }
+            }
         }
-        
-        if (levelSpeedButton != null)
-        {
-            int price = SkillManager.Instance.speedPrice;
-            levelSpeedButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Speed);
-            if (levelSpeedPriceText != null) levelSpeedPriceText.text = price.ToString();
-        }
-        
-        if (levelShieldButton != null)
-        {
-            int price = SkillManager.Instance.shieldPrice;
-            levelShieldButton.interactable = SkillManager.Instance.CanBuySkill(SkillType.Shield);
-            if (levelShieldPriceText != null) levelShieldPriceText.text = price.ToString();
-        }
+
+        UpdateButton(levelMagnetButton, levelMagnetPriceText, SkillType.Magnet, SkillManager.Instance.magnetPrice);
+        UpdateButton(levelSpeedButton, levelSpeedPriceText, SkillType.Speed, SkillManager.Instance.speedPrice);
+        UpdateButton(levelShieldButton, levelShieldPriceText, SkillType.Shield, SkillManager.Instance.shieldPrice);
     }
     
     private void Update()

@@ -75,9 +75,13 @@ public class CharacterAI : MonoBehaviour
         DetectGroundLevel();
 
 
-        // 1. Remove old NavMeshAgent if present
+        // 1. Remove old NavMeshAgent if present (To avoid spam warnings)
         UnityEngine.AI.NavMeshAgent navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-        if (navAgent != null) Destroy(navAgent);
+        if (navAgent != null)
+        {
+            navAgent.enabled = false; // Disable first
+            Destroy(navAgent); 
+        }
 
         // 2. Setup Rigidbody
         rb = GetComponent<Rigidbody>();
@@ -170,10 +174,13 @@ public class CharacterAI : MonoBehaviour
         // 2. FALLING CHECK (Yere Düşme Koruması)
         // Eğer karakter haritanın ÇOK altına düşerse (delik vs), onu merkeze ışınla
         // Ama normal düşüşe izin ver
+        // 2. FALLING CHECK (Yere Düşme Koruması)
+        // Eğer karakter haritanın ÇOK altına düşerse (delik vs), onu YUKARI ışınla (Merkeze değil!)
+        // Çünkü merkezde delik olabilir ve anında ölürler.
         if (transform.position.y < expectedGroundY - 5f)
         {
-            // Çok aşağı düştü! Kurtar.
-            transform.position = new Vector3(0, expectedGroundY + 0.5f, 0);
+            // Olduğu yerde yukarı kaldır
+            transform.position = new Vector3(transform.position.x, expectedGroundY + 1.0f, transform.position.z);
             if (rb != null) 
             {
                 rb.velocity = Vector3.zero;
@@ -260,86 +267,55 @@ public class CharacterAI : MonoBehaviour
     
     private void DetectGroundLevel()
     {
-        // KRITIK: Sadece gerçek zemin objelerini ara (Floor, Plane vs.)
-        // Raycast'e güvenme çünkü taşlara da çarpabilir!
+        // 1. GÖRSEL TABANLI (Renderer) TESPİT
+        // Sahnedeki en büyük yatay yüzeyi bul (SpawnManager ile aynı mantık)
         
-        // 1. Önce sahnede ismi "Floor", "Plane", "Ground" vs olan objeyi ara
-        string[] floorNames = { "Floor", "Plane", "Hole_Compatible_Floor", "SimplePlane", "SpecialPlane" };
-        
-        foreach (string name in floorNames)
+        Renderer[] renderers = FindObjectsOfType<Renderer>();
+        float maxSurfaceArea = 0f;
+        bool foundVisual = false;
+        float bestY = 0f;
+
+        foreach (var r in renderers)
         {
-            GameObject floor = GameObject.Find(name);
-            if (floor != null)
+            if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+            
+            // Gizli veya küçük objeleri atla
+            if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+
+            Vector3 size = r.bounds.size;
+            float area = size.x * size.z;
+            
+            if (area < 25f) continue;
+
+            if (area > maxSurfaceArea)
             {
-                // Objenin renderer veya collider bounds'undan Y değerini al
-                Renderer r = floor.GetComponent<Renderer>();
-                if (r != null)
+                // Yassı zemin kontrolü
+                if (size.y < size.x * 0.5f && size.y < size.z * 0.5f)
                 {
-                    // Renderer'ın üst yüzeyini al
-                    expectedGroundY = r.bounds.max.y;
-                    Debug.Log($"CharacterAI: Ground detected from {name} renderer, Y = {expectedGroundY}");
-                    return;
-                }
-                
-                Collider c = floor.GetComponent<Collider>();
-                if (c != null)
-                {
-                    expectedGroundY = c.bounds.max.y;
-                    Debug.Log($"CharacterAI: Ground detected from {name} collider, Y = {expectedGroundY}");
-                    return;
-                }
-                
-                // Fallback: transform position
-                expectedGroundY = floor.transform.position.y;
-                Debug.Log($"CharacterAI: Ground detected from {name} transform, Y = {expectedGroundY}");
-                return;
-            }
-        }
-        
-        // 2. SpawnManager'dan groundY al (eğer varsa)
-        if (SpawnManager.Instance != null && SpawnManager.Instance.groundY != 0f)
-        {
-            expectedGroundY = SpawnManager.Instance.groundY;
-            Debug.Log($"CharacterAI: Ground detected from SpawnManager, Y = {expectedGroundY}");
-            return;
-        }
-        
-        // 3. Sahnenin en düşük noktasını bul (sadece düz, yatay objeler)
-        // Tag'e güvenme! İsmine bak.
-        GameObject[] allObjects = GameObject.FindObjectsOfType<GameObject>();
-        float lowestFloorY = float.MaxValue;
-        bool foundFloor = false;
-        
-        foreach (var obj in allObjects)
-        {
-            string objName = obj.name.ToLower();
-            // Sadece floor/plane isimleri kabul et
-            if (objName.Contains("floor") || objName.Contains("plane"))
-            {
-                // Taş, kristal vs olmadığından emin ol
-                if (objName.Contains("rock") || objName.Contains("stone") || objName.Contains("crystal")) continue;
-                
-                Renderer r = obj.GetComponent<Renderer>();
-                if (r != null)
-                {
-                    float topY = r.bounds.max.y;
-                    if (topY < lowestFloorY)
-                    {
-                        lowestFloorY = topY;
-                        foundFloor = true;
-                    }
+                    maxSurfaceArea = area;
+                    bestY = r.bounds.max.y;
+                    foundVisual = true;
                 }
             }
         }
-        
-        if (foundFloor)
+
+        if (foundVisual)
         {
-            expectedGroundY = lowestFloorY;
-            Debug.Log($"CharacterAI: Ground detected from scene scan, Y = {expectedGroundY}");
+            expectedGroundY = bestY;
+            Debug.Log($"CharacterAI: Visual Ground detected, Y = {expectedGroundY}");
+            return;
+        }
+
+        // 2. NavMesh yedeği
+        UnityEngine.AI.NavMeshHit navHit;
+        if (UnityEngine.AI.NavMesh.SamplePosition(new Vector3(0, 50f, 0), out navHit, 200f, UnityEngine.AI.NavMesh.AllAreas))
+        {
+            expectedGroundY = navHit.position.y;
+            Debug.Log($"CharacterAI: Ground detected from NavMesh, Y = {expectedGroundY}");
             return;
         }
         
-        // 4. Son çare: Varsayılan 0 kullan
+        // 3. Fallback
         expectedGroundY = 0f;
         Debug.LogWarning("CharacterAI: Could not detect ground level, using default Y = 0");
     }

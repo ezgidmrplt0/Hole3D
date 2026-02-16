@@ -101,10 +101,10 @@ public class SpawnManager : MonoBehaviour
     {
         if (mapRoot == null) return;
         
-        // Zemin seviyesini bul
+        // 1. ZORUNLU: Önce zemini bul (Spawn Yüksekliği için kritik)
         DetectGroundY(mapRoot);
 
-        // 1. Try to find explicit containers
+        // 2. Try to find explicit containers
         Transform humanContainer = mapRoot.Find("SpawnPoints/Humans");
         Transform zombieContainer = mapRoot.Find("SpawnPoints/Zombies");
 
@@ -115,7 +115,7 @@ public class SpawnManager : MonoBehaviour
         if (zombieSpawnPoints == null) zombieSpawnPoints = new List<Transform>();
         else zombieSpawnPoints.Clear();
 
-        // 2. Populate if found
+        // 3. Populate if found
         if (humanContainer != null)
         {
             foreach (Transform t in humanContainer) humanSpawnPoints.Add(t);
@@ -126,62 +126,91 @@ public class SpawnManager : MonoBehaviour
             foreach (Transform t in zombieContainer) zombieSpawnPoints.Add(t);
         }
 
-        // 3. Fallback: Use Map Bounds (Floor) if list is empty
+        // 4. Fallback: Use Map Bounds (Floor) if list is empty
         if (humanSpawnPoints.Count == 0 || zombieSpawnPoints.Count == 0)
         {
             Debug.Log("SpawnManager: Explicit spawn points not found. Generating dynamic points from Map Bounds...");
             GenerateDynamicSpawnPoints(mapRoot);
         }
         
-        Debug.Log($"SpawnManager: Initialized with {humanSpawnPoints.Count} Human points and {zombieSpawnPoints.Count} Zombie points.");
+        Debug.Log($"SpawnManager: Initialized with {humanSpawnPoints.Count} Human points and {zombieSpawnPoints.Count} Zombie points. GroundY: {groundY}");
     }
 
     private void GenerateDynamicSpawnPoints(Transform mapRoot)
     {
-        // Try to find "Floor" or "Ground" or "Plane"
-        Transform floor = mapRoot.Find("Floor");
-        if (floor == null) floor = mapRoot.Find("Ground");
-        if (floor == null) floor = mapRoot.Find("Plane");
-        if (floor == null) floor = mapRoot.Find("Hole_Compatible_Floor");
+        // --- AKILLI ZEMİN BULMA (MESH TARAMA) ---
+        Transform floor = null;
         
-        // Global arama
+        // 1. İsimle Ara
+        string[] potentialNames = { "Floor", "Ground", "Plane", "Hole_Compatible_Floor", "Zemin", "Terrain", "Base", "Platform" };
+        foreach(var name in potentialNames)
+        {
+            floor = mapRoot.Find(name);
+            if(floor != null) break;
+        }
+
         if (floor == null)
         {
-            GameObject floorObj = GameObject.Find("Floor");
-            if (floorObj == null) floorObj = GameObject.Find("Plane");
-            if (floorObj == null) floorObj = GameObject.Find("Hole_Compatible_Floor");
-            if (floorObj != null) floor = floorObj.transform;
+            // Global Ara
+            foreach(var name in potentialNames)
+            {
+                GameObject obj = GameObject.Find(name);
+                if(obj != null) 
+                {
+                    floor = obj.transform;
+                    break;
+                }
+            }
         }
         
+        // 2. İsimle Bulunamadıysa -> En Büyük Yatay Mesh'i Bul
+        if (floor == null)
+        {
+            Renderer[] allRenderers = mapRoot.GetComponentsInChildren<Renderer>();
+            float maxArea = 0f;
+            
+            foreach(var r in allRenderers)
+            {
+                // Sadece yatay genişliği olanları al (Yüksekliği az, genişliği fazla)
+                if (r.bounds.size.y < r.bounds.size.x && r.bounds.size.y < r.bounds.size.z)
+                {
+                    float area = r.bounds.size.x * r.bounds.size.z;
+                    if (area > maxArea && area > 25f) // Min 5x5
+                    {
+                        maxArea = area;
+                        floor = r.transform;
+                    }
+                }
+            }
+            if (floor != null) Debug.Log($"[SpawnManager] Auto-detected Floor by Size: {floor.name}");
+        }
+
         Bounds bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20)); // Default fallback
         
         if (floor != null)
         {
-            // Floor/Plane bulundu - sadece onun bounds'unu kullan
             Renderer r = floor.GetComponent<Renderer>();
-            if (r != null) 
-            {
-                bounds = r.bounds;
-                Debug.Log($"[SpawnManager] Floor bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
-            }
+            if (r != null) bounds = r.bounds;
             else 
             {
                 Collider c = floor.GetComponent<Collider>();
-                if (c != null) 
-                {
-                    bounds = c.bounds;
-                    Debug.Log($"[SpawnManager] Floor collider bounds kullanılıyor: Center={bounds.center}, Size={bounds.size}");
-                }
+                if (c != null) bounds = c.bounds;
+            }
+            
+            // Bounds bulunduysa, zemin yüksekliğini de güncelle (Eğer DetectGroundY bulamadıysa)
+            if (!groundYDetected)
+            {
+                groundY = bounds.max.y; // En üst noktası zemindir
+                groundYDetected = true;
+                Debug.Log($"[SpawnManager] GroundY updated from Floor Bounds: {groundY}");
             }
         }
         else
         {
-            // Floor bulunamadı - uyarı ver ve küçük alan kullan
             Debug.LogWarning("[SpawnManager] Floor/Plane bulunamadı! Varsayılan küçük alan kullanılıyor.");
             bounds = new Bounds(Vector3.zero, new Vector3(20, 1, 20));
         }
         
-        // Bounds'u kaydet (spawn sırasında sınır kontrolü için)
         currentSpawnBounds = bounds;
 
         // Create temporary spawn points
@@ -380,8 +409,10 @@ public class SpawnManager : MonoBehaviour
 
         if (!positionFound)
         {
-             Debug.LogWarning("[SpawnManager] Could not find free spot for Cage after 20 attempts.");
-             return;
+             Debug.LogWarning("[SpawnManager] Cage için güvenli yer bulunamadı. Force Spawn yapılıyor.");
+             // Force spawn at random bounds position
+             pos = GetRandomPosInBounds(currentSpawnBounds);
+             pos.y = groundY; // Ground level
         }
 
         GameObject cageObj = null;
@@ -664,52 +695,79 @@ public class SpawnManager : MonoBehaviour
     {
         if (prefabs == null || prefabs.Count == 0)
         {
-            Debug.LogWarning($"SpawnManager: No prefabs assigned for {debugName}!");
+            // Debug.LogWarning($"SpawnManager: No prefabs assigned for {debugName}!"); // Spam olmasın
             return null;
-        }
-
-        if (spawnPoints == null || spawnPoints.Count == 0)
-        {
-             Debug.LogWarning($"SpawnManager: No spawn points assigned for {debugName}! Please assign them in the Inspector.");
-             return null;
         }
 
         GameObject selectedPrefab = prefabs[Random.Range(0, prefabs.Count)];
         
-        // Try finding a valid position multiple times
+        // --- 1. SPAWN NOKTASI SEÇİMİ ---
+        Vector3 targetBasePos = Vector3.zero;
+        bool hasSpawnPoints = (spawnPoints != null && spawnPoints.Count > 0);
+
+        // --- 2. YER BULMA (Try find valid) ---
         for (int attempt = 0; attempt < maxSpawnAttempts; attempt++)
         {
-            // Listeden rastgele bir nokta seç
-            Transform randomPoint = spawnPoints[Random.Range(0, spawnPoints.Count)];
-            
-            if (randomPoint == null) continue;
-
-            // O noktanın etrafında (spawnRadius kadar) rastgele bir yer bul
-            // Böylece hepsi üst üste binmez
-            Vector3 candidatePos = GetPositionAroundPoint(randomPoint.position, spawnRadius);
-
-            if (CheckValid(candidatePos))
+            if (hasSpawnPoints)
             {
-                if (IsValidPosition(candidatePos))
-                {
-                    Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
-                    
-                    // Spawn pozisyonunu groundY'ye zorla (güvenlik)
-                    Vector3 safePos = new Vector3(candidatePos.x, groundY + 0.1f, candidatePos.z);
-                    
-                    GameObject instance = Instantiate(selectedPrefab, safePos, randomRotation);
-                    
-                    // Spawn sonrası pozisyonu düzelt (CharacterAI Awake'den önce)
-                    instance.transform.position = safePos;
-                    
-                    spawnedPositions.Add(safePos); // Kaydet
-                    return instance; // Spawn successful, return obj
-                }
+                // Listeden rastgele nokta
+                Transform pt = spawnPoints[Random.Range(0, spawnPoints.Count)];
+                if (pt != null) targetBasePos = pt.position;
+                else targetBasePos = GetRandomPosInBounds(currentSpawnBounds);
+            }
+            else
+            {
+                // Liste yoksa Bounds kullan
+                targetBasePos = GetRandomPosInBounds(currentSpawnBounds);
+            }
+
+            // Etrafında rastgele yer
+            Vector3 candidatePos = GetPositionAroundPoint(targetBasePos, spawnRadius);
+
+            if (CheckValid(candidatePos) && IsValidPosition(candidatePos))
+            {
+                // BAŞARILI!
+                return FinalizeSpawn(selectedPrefab, candidatePos);
             }
         }
 
-        Debug.LogWarning($"SpawnManager: Could not find valid position for {debugName} after {maxSpawnAttempts} attempts.");
-        return null;
+        // --- 3. FORCE SPAWN (FALLBACK) ---
+        // Geçerli yer bulunamadı, ama boş kalmasındansa havada spawn olsun
+        Debug.Log($"[SpawnManager] Force Spawning {debugName} (Safe spot not found).");
+        
+        Vector3 forcePos;
+        if (hasSpawnPoints)
+        {
+             Transform pt = spawnPoints[Random.Range(0, spawnPoints.Count)];
+             forcePos = pt != null ? pt.position : currentSpawnBounds.center;
+        }
+        else
+        {
+            forcePos = GetRandomPosInBounds(currentSpawnBounds);
+        }
+        
+        // Havadan bırak (Safe)
+        forcePos.y = (groundYDetected ? groundY : forcePos.y) + 2.0f;
+        
+        // Sınır içinde tut
+        forcePos = ClampToBounds(forcePos);
+        
+        return FinalizeSpawn(selectedPrefab, forcePos);
+    }
+
+    private GameObject FinalizeSpawn(GameObject prefab, Vector3 pos)
+    {
+        // Yüksekliği groundY seviyesine (+0.1f) sabitlemeye çalış, ama çok yüksekteyse (force spawn) elleme
+        if (pos.y < groundY + 1.0f)
+        {
+            pos.y = groundY + 0.1f;
+        }
+
+        Quaternion randomRotation = Quaternion.Euler(0, Random.Range(0, 360f), 0);
+        GameObject instance = Instantiate(prefab, pos, randomRotation);
+        
+        spawnedPositions.Add(pos);
+        return instance;
     }
 
     private bool IsValidPosition(Vector3 position)
@@ -717,9 +775,12 @@ public class SpawnManager : MonoBehaviour
         if (!CheckValid(position)) return false;
         
         // 0. KRITIK: Yükseklik kontrolü - groundY'den çok yüksekte mi?
-        float maxAllowedY = groundY + 0.5f;
+        // Toleransı artırdık (0.5f -> 2.5f) çünkü zemin biraz eğimli olabilir veya obje pivotu farklı olabilir.
+        float maxAllowedY = groundY + 2.5f; 
         if (position.y > maxAllowedY)
         {
+            // Debug için log ekleyelim (Sadece editörde aşırı spam olmasın diye kapalı tutabilirsiniz)
+            // Debug.LogWarning($"Spawn Rejected Height: {position.y} > {maxAllowedY} (GroundY: {groundY})");
             return false; // Çok yüksekte, geçersiz
         }
 
@@ -852,67 +913,86 @@ public class SpawnManager : MonoBehaviour
     
     private void DetectGroundY(Transform mapRoot)
     {
-        // 1. Önce "Floor", "Plane", "Ground" isimli objeyi ara
-        string[] floorNames = { "Floor", "Plane", "Ground", "Hole_Compatible_Floor" };
+        // YENİ STRATEJİ: GÖRSEL TABANLI (Renderer) TESPİT (En Güvenilir)
+        // NavMesh bazen bake edilmemiş olabilir veya görünmez bir plane üzerinde olabilir.
+        // En mantıklısı, oyuncunun gördüğü o "büyük zeminin" yüksekliğini almaktır.
+
+        // 1. Sahnedeki tüm Renderer'ları al (Prefab içindekiler dahil)
+        // mapRoot varsa ondan, yoksa sahneden
+        Renderer[] renderers = mapRoot != null ? mapRoot.GetComponentsInChildren<Renderer>() : FindObjectsOfType<Renderer>();
         
+        float maxSurfaceArea = 0f;
+        float bestGroundY = 0f; // Default
+        bool foundVisualGround = false;
+
+        foreach (var r in renderers)
+        {
+            // Sadece mesh renderer (Particle, Trail vs hariç)
+            if (!(r is MeshRenderer) && !(r is SkinnedMeshRenderer)) continue;
+            
+            // Bounds büyüklüğü
+            Vector3 size = r.bounds.size;
+            
+            // Zemin olma kriteri: Geniş (X, Z) ama nispeten ince (Y) veya sadece çok geniş
+            // Alan hesabı (Yatay)
+            float area = size.x * size.z;
+            
+            // Min alan filtresi (Küçük taşlar, kutular zemin değildir)
+            if (area < 25f) continue; // 5x5'ten küçükse geç
+
+            // "En büyük" yüzeyi zemin kabul et
+            if (area > maxSurfaceArea)
+            {
+                // Y değeri olarak objenin en üst noktasını al (üzerine basalım diye)
+                // Ama çok yüksek objeler (duvar gibi) olmasın. 
+                // Zemin genelde yassıdır: size.y < size.x ve size.y < size.z
+                if (size.y < size.x * 0.5f && size.y < size.z * 0.5f) // Yassı obje kontrolü
+                {
+                    maxSurfaceArea = area;
+                    bestGroundY = r.bounds.max.y; // En tepe noktası
+                    foundVisualGround = true;
+                    // Debug.Log($"[SpawnManager] Aday Zemin: {r.name}, Alan: {area}, Y: {bestGroundY}");
+                }
+            }
+        }
+
+        if (foundVisualGround)
+        {
+            groundY = bestGroundY;
+            groundYDetected = true;
+            Debug.Log($"[SpawnManager] GÖRSEL Zemin bulundu (En Büyük Yüzey): Y = {groundY}");
+            return;
+        }
+
+        // 2. Eğer görsel bulunamadıysa İsimle Ara
+        string[] floorNames = { "Floor", "Plane", "Ground", "Hole_Compatible_Floor", "Zemin", "Terrain", "Base", "Platform", "Snow", "Ice" };
         foreach (string name in floorNames)
         {
-            Transform floor = mapRoot.Find(name);
+            Transform floor = mapRoot != null ? mapRoot.Find(name) : null;
+            if (floor == null) floor = GameObject.Find(name)?.transform;
+            
             if (floor != null)
             {
                 groundY = floor.position.y;
                 groundYDetected = true;
-                Debug.Log($"[SpawnManager] Zemin bulundu: {name} | Y = {groundY}");
+                Debug.Log($"[SpawnManager] Zemin bulundu (İsimle): {name} | Y = {groundY}");
                 return;
             }
         }
-        
-        // 2. Sahnede global ara
-        foreach (string name in floorNames)
+
+        // 3. O da yoksa yine NavMesh dene (Son çare)
+        UnityEngine.AI.NavMeshHit navHit;
+        if (UnityEngine.AI.NavMesh.SamplePosition(new Vector3(0, 50f, 0), out navHit, 200f, UnityEngine.AI.NavMesh.AllAreas))
         {
-            GameObject floor = GameObject.Find(name);
-            if (floor != null)
-            {
-                groundY = floor.transform.position.y;
-                groundYDetected = true;
-                Debug.Log($"[SpawnManager] Zemin bulundu (Global): {name} | Y = {groundY}");
-                return;
-            }
-        }
-        
-        // 3. Ground tag'li obje ara
-        GameObject[] groundObjects = GameObject.FindGameObjectsWithTag("Ground");
-        if (groundObjects.Length > 0)
-        {
-            // En düşük Y değerine sahip olanı seç (Gerçek zemin)
-            float lowestY = float.MaxValue;
-            foreach (var go in groundObjects)
-            {
-                if (go.transform.position.y < lowestY)
-                {
-                    lowestY = go.transform.position.y;
-                }
-            }
-            groundY = lowestY;
+            groundY = navHit.position.y;
             groundYDetected = true;
-            Debug.Log($"[SpawnManager] Zemin bulundu (Tag): Y = {groundY}");
+            Debug.Log($"[SpawnManager] Zemin bulundu (NavMesh): Y = {groundY}");
             return;
         }
         
-        // 4. Bulunamadı - Raycast ile dene
-        RaycastHit hit;
-        if (Physics.Raycast(Vector3.up * 50f, Vector3.down, out hit, 100f))
-        {
-            groundY = hit.point.y;
-            groundYDetected = true;
-            Debug.Log($"[SpawnManager] Zemin bulundu (Raycast): Y = {groundY}");
-            return;
-        }
-        
-        // 5. Hiçbir şey bulunamadı
+        // 4. Fallback
         groundY = 0f;
-        groundYDetected = false;
-        Debug.LogWarning("[SpawnManager] Zemin bulunamadı! Varsayılan Y = 0 kullanılıyor.");
+        Debug.LogWarning("[SpawnManager] Zemin tespit edilemedi! Varsayılan Y=0 kullanılıyor.");
     }
 
     // ========== SKILL PICKUP SPAWN SYSTEM ==========

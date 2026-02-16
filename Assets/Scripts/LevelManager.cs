@@ -21,11 +21,18 @@ public class LevelManager : MonoBehaviour
     public List<LevelData> levels;
     public int currentLevelIndex = 0;
 
+    [Header("Level Settings")]
+    public int baseZombieCount = 10;
+    public int zombiesPerLevel = 5; // Her level kaç zombi artsın
+    public int baseHumanCount = 5;  // Başlangıç insan sayısı
+    public int humansPerLevel = 2;  // Her level kaç insan artsın
+
     [Header("Dependencies")]
     public SpawnManager spawnManager;
 
     [Header("Runtime Info")]
     public int currentZombiesEaten = 0;
+
     public int totalZombiesInLevel = 0;
     
     [Header("Timer Settings")]
@@ -223,22 +230,49 @@ public class LevelManager : MonoBehaviour
         {
             // --- NORMAL LEVEL ---
             isCurrentLevelSpecial = false;
-            targetDisplayCount = -1; // Reset to normal;
+            targetDisplayCount = -1;
 
-            // Normal level için normalLevelIndex kullan (horde levelları saymaz)
+            // Normal level için normalLevelIndex kullan
             LevelData data = levels[normalLevelIndex % levels.Count];
-            mapToSpawn = data.mapPrefab;
+            
+            // Temel Zombi Sayısı Hesabı (Inspector değerlerini kullan)
+            int calculatedZombies = baseZombieCount + (zombiesPerLevel * currentLevelIndex);
 
-            // Zombi Sayısı (Eski mantık: Level * 5)
-            desiredZombieCount = actualLevelNumber * 5;
-            desiredHumanCount = data.humanCount; // Level datasından gelen insan sayısı
-            isHordeMode = data.isHordeLevel; // Level datasında özel horde ayarı varsa
+            // Horde Level Kontrolü (Inspector'dan işaretli mi?)
+            if (data.isHordeLevel)
+            {
+                // HORDE MODE: Zombi sayısı fazla (2.5 katı), İNSAN YOK (0)
+                // Kullanıcı isteği: Horde levelleri hariç %40 kuralı -> Yani Horde'da kural yok (0 insan)
+                desiredZombieCount = Mathf.CeilToInt(calculatedZombies * 2.5f);
+                desiredHumanCount = 0; 
+                isHordeMode = true;
+                
+                Debug.Log($"[LevelManager] HORDE LEVEL (Index {currentLevelIndex})! Zombies: {desiredZombieCount}, Humans: 0");
+            }
+            else
+            {
+                // NORMAL MODE: Zombi sayısı normal
+                desiredZombieCount = calculatedZombies;
+                
+                // İNSAN SAYISI GÜNCELLEMESİ: 15 + (5 * Level)
+                desiredHumanCount = baseHumanCount + (humansPerLevel * currentLevelIndex);
+                
+                // En az 2 kuralı opsiyonel, zaten 15'ten başlıyor ama güvenlik kalsın
+                if (desiredHumanCount < 2) desiredHumanCount = 2;
+                
+                isHordeMode = false;
+                Debug.Log($"[LevelManager] Normal Level (Index {currentLevelIndex}): Zombies: {desiredZombieCount}, Humans: {desiredHumanCount}");
+            }
+
+            mapToSpawn = data.mapPrefab;
             
-            // Set Timer
-            currentLevelTimeRemaining = data.levelDuration > 0 ? data.levelDuration : defaultLevelTime;
+            // Calculate dynamic duration (Base + Increase per level)
+            float calculatedDuration = defaultLevelTime + (currentLevelIndex * 2); 
+            
+            // Set Timer (Priority: LevelData > Calculated > Default)
+            currentLevelTimeRemaining = data.levelDuration > 0 ? data.levelDuration : calculatedDuration;
+            
             if (UIManager.Instance != null) UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
-            
-            Debug.Log($"Level {actualLevelNumber} (Normal Index {normalLevelIndex}): Spawning {desiredZombieCount} Zombies, {desiredHumanCount} Humans.");
         }
 
         // --- MAP SWITCHING LOGIC ---
@@ -290,7 +324,25 @@ public class LevelManager : MonoBehaviour
         }
         else
         {
-             Debug.LogWarning($"Level {actualLevelNumber} has no Map Prefab assigned!");
+             Debug.LogWarning($"Level {actualLevelNumber} has no Map Prefab assigned! Using FALLBACK ground.");
+             
+             // FALLBACK: Eğer level prefabı yoksa, oyunun oynanabilmesi için
+             // Special Level Plane (simplePlanePrefab) aktif edilsin.
+             if (simplePlanePrefab != null)
+             {
+                 currentMapInstance = simplePlanePrefab; // Referans al
+                 currentMapInstance.SetActive(true);     // Görünür yap
+                 Debug.Log($"[LevelManager] Fallback active: SimplePlane (Scene Object) used for Level {actualLevelNumber}");
+             }
+             else
+             {
+                 // Hiçbir şey yoksa, en azından bir Plane oluştur
+                 GameObject tempPlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
+                 tempPlane.transform.localScale = new Vector3(5, 1, 5); // 50x50m
+                 tempPlane.name = "Fallback_Procedural_Plane";
+                 currentMapInstance = tempPlane;
+                 Debug.LogError($"[LevelManager] CRITICAL: No Map Prefab AND No SimplePlane for Level {actualLevelNumber}! Created procedural plane.");
+             }
         }
 
         // --- GÜVENLİK VE AYARLAR ---
@@ -322,14 +374,21 @@ public class LevelManager : MonoBehaviour
         // Spawn Enemies
         if (spawnManager != null)
         {
-            spawnManager.ClearScene();
-            spawnManager.SpawnLevel(desiredHumanCount, desiredZombieCount, isHordeMode);
-            
-            // --- Start Skill Pickup Spawning ---
-            spawnManager.StartSkillSpawning();
+            try
+            {
+                spawnManager.ClearScene();
+                spawnManager.SpawnLevel(desiredHumanCount, desiredZombieCount, isHordeMode);
+                
+                // --- Start Skill Pickup Spawning ---
+                spawnManager.StartSkillSpawning();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[LevelManager] Error during SpawnLevel: {e.Message}\n{e.StackTrace}");
+                // Hata olsa bile sayıma devam etmeye çalış
+            }
             
             // --- ZOMBIE SAYIMI: Frame sonu bekle ---
-            // ZombieAI.Start() tag ataması yapıyor, bu yüzden frame sonunu beklemeliyiz
             StartCoroutine(CountZombiesAfterFrame(desiredZombieCount));
         }
         else
@@ -351,49 +410,64 @@ public class LevelManager : MonoBehaviour
         // Ek güvenlik: Bir frame daha bekle
         yield return null;
         
-        // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
-        // Şimdi hem tag'li hem de ZombieAI component'li objeleri say
-        int realZombieCount = 0;
-        
-        // Önce tag ile say
-        GameObject[] taggedZombies = GameObject.FindGameObjectsWithTag("Zombie");
-        realZombieCount = taggedZombies.Length;
-        
-        // Yedek: Eğer hiç bulamadıysak, ZombieAI component'i ara
-        if (realZombieCount == 0)
+        try
         {
-            ZombieAI[] zombieComponents = GameObject.FindObjectsOfType<ZombieAI>();
-            realZombieCount = zombieComponents.Length;
-            Debug.LogWarning($"LevelManager: No tagged zombies found, using component count: {realZombieCount}");
-        }
-        
-        // --- İNSAN SAYIMI ---
-        GameObject[] taggedHumans = GameObject.FindGameObjectsWithTag("Human");
-        totalHumansInLevel = taggedHumans.Length;
-        currentHumansRemaining = totalHumansInLevel;
-        
-        Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount}. Humans: {totalHumansInLevel}");
-        
-        totalZombiesInLevel = realZombieCount;
+            // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
+            int realZombieCount = 0;
+            
+            // Önce tag ile say
+            GameObject[] taggedZombies = GameObject.FindGameObjectsWithTag("Zombie");
+            realZombieCount = taggedZombies != null ? taggedZombies.Length : 0;
+            
+            // Yedek: Eğer hiç bulamadıysak, ZombieAI component'i ara
+            if (realZombieCount == 0)
+            {
+                ZombieAI[] zombieComponents = GameObject.FindObjectsOfType<ZombieAI>();
+                realZombieCount = zombieComponents != null ? zombieComponents.Length : 0;
+                Debug.LogWarning($"LevelManager: No tagged zombies found, using component count: {realZombieCount}");
+            }
+            
+            // --- İNSAN SAYIMI ---
+            GameObject[] taggedHumans = GameObject.FindGameObjectsWithTag("Human");
+            totalHumansInLevel = taggedHumans != null ? taggedHumans.Length : 0;
+            currentHumansRemaining = totalHumansInLevel;
+            
+            Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount}. Humans: {totalHumansInLevel}");
+            
+            totalZombiesInLevel = realZombieCount;
 
-        // --- Calculate Ratio for UI ---
-        if (targetDisplayCount > 0 && totalZombiesInLevel > 0)
-        {
-            displayRatio = (float)targetDisplayCount / totalZombiesInLevel;
-            Debug.Log($"LevelManager: Display Ratio set to {displayRatio} (Real: {totalZombiesInLevel} -> Display: {targetDisplayCount})");
-        }
-        else
-        {
-            displayRatio = 1f;
-        }
+            // --- Calculate Ratio for UI ---
+            // Eğer hiç spawn olamadıysa (0), ratio patlamasın
+            if (totalZombiesInLevel <= 0)
+            {
+                // Fallback: Hedeflenen sayıyı göster (Bug gizleme)
+                totalZombiesInLevel = desiredCount > 0 ? desiredCount : 10;
+                Debug.LogWarning("LevelManager: 0 Zombie spawned! Using desired count for UI to prevent lock.");
+            }
 
-        // Reset Progress (After spawn to get real count)
-        currentZombiesEaten = 0;
-        currentHumansEaten = 0; // Reset Human Count
-        
-        NotifyProgress();
-        // Update Human UI - Kalan insan sayısını göster
-        OnHumanCountChanged?.Invoke(currentHumansRemaining);
+            if (targetDisplayCount > 0)
+            {
+                displayRatio = (float)targetDisplayCount / totalZombiesInLevel;
+            }
+            else
+            {
+                displayRatio = 1f;
+            }
+
+            // Reset Progress
+            currentZombiesEaten = 0;
+            currentHumansEaten = 0; 
+            
+            NotifyProgress();
+            // Update Human UI - Kalan insan sayısını göster
+            OnHumanCountChanged?.Invoke(currentHumansRemaining);
+        }
+        catch (System.Exception e)
+        {
+             Debug.LogError($"[LevelManager] Critical Error in CountZombies: {e.Message}");
+             // UI'yi en azından sıfırla
+             OnZombieCountChanged?.Invoke(0);
+        }
     }
 
     // Zombi tarafından yenilen insan
@@ -428,6 +502,10 @@ public class LevelManager : MonoBehaviour
     
     private void CheckHumanGameOver()
     {
+        // Oyunun ilk birkaç saniyesi (yükleme/spawn) sırasında kontrol yapma
+        // Çünkü objeler henüz listeye girmemiş veya düşüyor olabilir.
+        if (Time.timeSinceLevelLoad < 3.0f) return;
+
         // Tüm insanlar yendi mi?
         if (currentHumansRemaining <= 0 && totalHumansInLevel > 0)
         {

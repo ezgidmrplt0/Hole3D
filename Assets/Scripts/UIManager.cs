@@ -24,6 +24,12 @@ public class UIManager : MonoBehaviour
     
     [Header("Human Counter")]
     public TextMeshProUGUI humanCounterText;
+
+    [Header("Mission UI")]
+    public GameObject missionPanel;      // The main "Mission" parent object
+    public GameObject missionZombieIcon;   // The "zombieicon" object
+    public GameObject missionHumanIcon;    // The "humanicon" object
+    public TextMeshProUGUI missionText;    // The shared "Text (TMP) (1)" object
     
     [Header("Horde Banner")]
     public GameObject hordeBannerPanel;
@@ -153,6 +159,9 @@ public class UIManager : MonoBehaviour
             // Subscribe to Human Count
             LevelManager.Instance.OnHumanCountChanged += UpdateHumanCounter;
             UpdateHumanCounter(LevelManager.Instance.currentHumansEaten);
+
+            // Subscribe to Mission
+            LevelManager.Instance.OnMissionUpdated += UpdateMissionUI;
         }
         
         UpdateSkillUI();
@@ -171,6 +180,7 @@ public class UIManager : MonoBehaviour
             LevelManager.Instance.OnLevelChanged -= UpdateLevelText;
             LevelManager.Instance.OnZombieCountChanged -= UpdateZombieCounter;
             LevelManager.Instance.OnHumanCountChanged -= UpdateHumanCounter;
+            LevelManager.Instance.OnMissionUpdated -= UpdateMissionUI;
         }
     }
 
@@ -209,6 +219,73 @@ public class UIManager : MonoBehaviour
         {
             // Artık doğrudan kalan insan sayısını gösteriyoruz
             humanCounterText.text = remainingHumans.ToString();
+        }
+    }
+
+    public void RefreshMissionUI()
+    {
+        if (LevelManager.Instance != null)
+        {
+            // Eğer özel bir level (Horde Mode vb.) ise görevleri gizle
+            if (LevelManager.Instance.isCurrentLevelSpecial)
+            {
+                UpdateMissionUI(MissionType.None, 0, 0);
+                return;
+            }
+
+            // Normal bir level ise mevcut görevi yansıt
+            int levelDataIndex = LevelManager.Instance.normalLevelIndex % LevelManager.Instance.levels.Count;
+            if (LevelManager.Instance.levels.Count > 0)
+            {
+                LevelData data = LevelManager.Instance.levels[levelDataIndex];
+                UpdateMissionUI(data.missionType, LevelManager.Instance.currentMissionProgress, data.missionTarget);
+            }
+        }
+    }
+
+    private void UpdateMissionUI(MissionType type, int current, int target)
+    {
+        // 1. Mission Panel Görünürlüğü
+        // Kullanıcı isteği: Sadece oyun aktifken görünüp, TapToPlay veya Level Sonu panelinde gizlenmeli.
+        bool isGameActive = (GameFlowManager.Instance != null && GameFlowManager.Instance.IsGameActive);
+        bool isTransitioning = (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning);
+
+        if (missionPanel != null) 
+        {
+            missionPanel.SetActive(type != MissionType.None && isGameActive && !isTransitioning);
+        }
+
+        if (type == MissionType.None || !isGameActive) return;
+
+        // 2. Tamamlanma Kontrolü ("REWARD" durumu)
+        bool isCompleted = current >= target;
+
+        // İkon Görünürlüğü: Eğer görev bittiyse ikonları kaldır
+        if (missionZombieIcon != null) missionZombieIcon.SetActive(!isCompleted && type == MissionType.EatZombies);
+        if (missionHumanIcon != null)  missionHumanIcon.SetActive(!isCompleted && type == MissionType.SaveHumans);
+
+        // 3. Yazı Güncelleme (Shared Text)
+        if (missionText != null)
+        {
+            if (isCompleted)
+            {
+                missionText.text = "REWARD";
+                missionText.color = Color.green;
+            }
+            else
+            {
+                missionText.text = $"{current} / {target}";
+
+                // Renk Geri Bildirimi
+                if (type == MissionType.EatZombies)
+                {
+                    missionText.color = Color.white;
+                }
+                else if (type == MissionType.SaveHumans)
+                {
+                    missionText.color = (current < target) ? Color.red : Color.white;
+                }
+            }
         }
     }
 

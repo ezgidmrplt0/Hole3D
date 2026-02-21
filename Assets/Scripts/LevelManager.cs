@@ -1,6 +1,13 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+public enum MissionType
+{
+    None,
+    EatZombies,
+    SaveHumans
+}
+
 [System.Serializable]
 public struct LevelData
 {
@@ -11,6 +18,11 @@ public struct LevelData
     
     [Header("Special Modes")]
     public bool isHordeLevel; // Eğer true ise, zombiler dip dibe (Horde) olarak spawn olur
+
+    [Header("Mission Settings")]
+    public MissionType missionType;
+    public int missionTarget;
+    public int missionReward;
 }
 
 public class LevelManager : MonoBehaviour
@@ -45,7 +57,7 @@ public class LevelManager : MonoBehaviour
     public int currentHumansEaten = 0; // Hole tarafından yenilen (fail condition için)
     
     // Normal level index (horde levellar bu sayacı artırmaz)
-    private int normalLevelIndex = 0;
+    public int normalLevelIndex = 0;
 
     // Event for UI updates
     public System.Action<float> OnProgressUpdated;
@@ -53,8 +65,13 @@ public class LevelManager : MonoBehaviour
     public System.Action<int> OnZombieCountChanged; // Event for Zombie Counter UI
     public System.Action<int> OnHumanCountChanged; // New Event for Human Counter UI
 
+    [Header("Mission Tracking")]
+    public int currentMissionProgress = 0;
+    public bool isMissionCompleted = false;
+    public System.Action<MissionType, int, int> OnMissionUpdated; // Type, Current, Target
+
     private GameObject currentMapInstance;
-    private bool isCurrentLevelSpecial = false; // Flag for special level fever logic
+    public bool isCurrentLevelSpecial = false; // Flag for special level fever logic
     private int targetDisplayCount = -1; // -1 means use real count
 
     private const string PREF_LEVEL_INDEX = "CurrentLevelIndex";
@@ -183,6 +200,10 @@ public class LevelManager : MonoBehaviour
         {
             SkillManager.Instance.ResetLevelPurchases(); // Fiyatları güncelle ve skilleri sıfırla
         }
+
+        // --- MISSION RESET ---
+        currentMissionProgress = 0;
+        isMissionCompleted = false;
 
         // --- INFINITE LEVEL LOGIC ---
         int actualLevelNumber = currentLevelIndex + 1;
@@ -461,6 +482,26 @@ public class LevelManager : MonoBehaviour
             NotifyProgress();
             // Update Human UI - Kalan insan sayısını göster
             OnHumanCountChanged?.Invoke(currentHumansRemaining);
+
+            // --- MISSION INITIAL UI ---
+            int levelDataIndex = isCurrentLevelSpecial ? -1 : (normalLevelIndex % levels.Count);
+            if (levelDataIndex != -1)
+            {
+                LevelData data = levels[levelDataIndex];
+                if (data.missionType != MissionType.None)
+                {
+                    OnMissionUpdated?.Invoke(data.missionType, 0, data.missionTarget);
+                }
+                else
+                {
+                    OnMissionUpdated?.Invoke(MissionType.None, 0, 0);
+                }
+            }
+            else
+            {
+                // Special level or -1 index -> Hide mission
+                OnMissionUpdated?.Invoke(MissionType.None, 0, 0);
+            }
         }
         catch (System.Exception e)
         {
@@ -481,6 +522,9 @@ public class LevelManager : MonoBehaviour
         // UI güncelle
         OnHumanCountChanged?.Invoke(currentHumansRemaining);
         
+        // --- MISSION PROGRESS: SAVE HUMANS ---
+        UpdateMissionProgress(MissionType.SaveHumans);
+
         // Counter 0'a düştüyse Game Over
         CheckHumanGameOver();
     }
@@ -495,6 +539,12 @@ public class LevelManager : MonoBehaviour
         if (currentHumansRemaining < 0) currentHumansRemaining = 0;
         
         OnHumanCountChanged?.Invoke(currentHumansRemaining);
+
+        // --- MISSION PROGRESS: SAVE HUMANS ---
+        // If an extra human dies, we can't "save" them, but since the requirement is "at least X", 
+        // we check the progress at the end of the level.
+        // However, we can update the UI here.
+        UpdateMissionProgress(MissionType.SaveHumans);
 
         // Counter 0'a düştüyse Game Over
         CheckHumanGameOver();
@@ -532,6 +582,41 @@ public class LevelManager : MonoBehaviour
         // Ancak > yerine >= kontrolü çoktan yapıldığı için burayı basitleştiriyoruz.
         
         CheckLevelComplete(); // Tek bir yerde kontrol
+
+        // --- MISSION PROGRESS: EAT ZOMBIES ---
+        UpdateMissionProgress(MissionType.EatZombies);
+    }
+
+    private void UpdateMissionProgress(MissionType type)
+    {
+        int levelDataIndex = isCurrentLevelSpecial ? -1 : (normalLevelIndex % levels.Count);
+        if (levelDataIndex == -1) return;
+
+        LevelData data = levels[levelDataIndex];
+        if (data.missionType != type) return;
+
+        if (type == MissionType.EatZombies)
+        {
+            currentMissionProgress = currentZombiesEaten;
+        }
+        else if (type == MissionType.SaveHumans)
+        {
+            // For SaveHumans, progress is how many are currently alive
+            currentMissionProgress = currentHumansRemaining;
+        }
+
+        if (currentMissionProgress >= data.missionTarget && !isMissionCompleted)
+        {
+            if (type == MissionType.EatZombies)
+            {
+                // Instant complete for eating
+                isMissionCompleted = true;
+                Debug.Log("Mission Completed: " + data.missionType);
+            }
+            // SaveHumans is checked at the end of level
+        }
+
+        OnMissionUpdated?.Invoke(data.missionType, currentMissionProgress, data.missionTarget);
     }
 
     private bool isFeverSequenceActive = false;
@@ -626,11 +711,37 @@ public class LevelManager : MonoBehaviour
         if (EconomyManager.Instance != null)
         {
             EconomyManager.Instance.AddCoins(20);
+
+            // --- MISSION REWARD ---
+            int levelDataIndex = isCurrentLevelSpecial ? -1 : ((currentLevelIndex - 1) % levels.Count); 
+            // -1 because currentLevelIndex was already incremented in NextLevel()
+            
+            // Wait, NextLevel() increments it. So we need the index BEFORE increment.
+            // Let's use a better way. 
         }
 
         // Eğer şu anki level special (horde) DEĞİLSE, normalLevelIndex'i artır
         int actualLevelNumber = currentLevelIndex + 1;
         bool wasSpecialLevel = (actualLevelNumber % 3 == 0);
+        
+        // --- MISSION FINAL CHECK & REWARD ---
+        if (!wasSpecialLevel)
+        {
+            LevelData data = levels[normalLevelIndex % levels.Count];
+            if (data.missionType != MissionType.None)
+            {
+                bool success = false;
+                if (data.missionType == MissionType.EatZombies) success = currentZombiesEaten >= data.missionTarget;
+                else if (data.missionType == MissionType.SaveHumans) success = currentHumansRemaining >= data.missionTarget;
+
+                if (success)
+                {
+                    Debug.Log($"[Mission] Level Mission Successful! Reward: {data.missionReward}");
+                    if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(data.missionReward);
+                }
+            }
+        }
+
         if (!wasSpecialLevel)
         {
             normalLevelIndex++;

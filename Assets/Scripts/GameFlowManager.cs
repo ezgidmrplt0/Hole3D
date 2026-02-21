@@ -160,6 +160,9 @@ public class GameFlowManager : MonoBehaviour
          
          // Pause time until user taps
          Time.timeScale = 0f;
+
+         // --- MISSION UI REFRESH ---
+         if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
     }
 
     private void AnimateText(Transform target)
@@ -265,6 +268,10 @@ public class GameFlowManager : MonoBehaviour
         if (tapToRetryText != null) tapToRetryText.DOKill();
 
         Time.timeScale = 1f; // Zamanı başlat
+        
+        // --- MISSION UI REFRESH ---
+        if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
+
         Debug.Log("Game Started!");
     }
     

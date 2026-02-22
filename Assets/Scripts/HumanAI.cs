@@ -6,7 +6,7 @@ public class HumanAI : CharacterAI
     public float wanderRadius = 30f;
     public float changeDirectionInterval = 3f;
     public string enemyTag = "Zombie";
-    public float fearRadius = 5f;
+    public float fearRadius = 12f; // Karakter zombiyi daha uzaktan fark eder (Idea 1)
 
     // Çarpışma tepkisi için değişkenler
     private float bounceTimer;
@@ -28,7 +28,7 @@ public class HumanAI : CharacterAI
         if (bounceTimer > 0)
         {
             bounceTimer -= Time.deltaTime;
-            Move(bounceDirection, false); // Çarpınca YÜRÜYEREK uzaklaş (Panik yapma)
+            Move(bounceDirection, true); // Çarpınca KOŞARAK uzaklaş (Idea 4 improvement)
             return;
         }
 

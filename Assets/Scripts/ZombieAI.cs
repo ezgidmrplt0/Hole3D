@@ -1,6 +1,7 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using System.Collections.Generic;
 
 public class ZombieAI : CharacterAI
 {
@@ -210,15 +211,21 @@ public class ZombieAI : CharacterAI
             return;
         }
 
-        // Önce sahnede insan var mı diye bak (Koku alma duyusu gibi global arama)
-        GameObject[] humans = GameObject.FindGameObjectsWithTag(preyTag);
+        // Önce yakın çevrede (25m) insan var mı diye bak (Koku alma duyusu kısıtlandı - Idea 3)
+        Collider[] nearbyHumans = Physics.OverlapSphere(transform.position, 25f);
+        List<Transform> humansInRange = new List<Transform>();
+        
+        foreach (var hit in nearbyHumans)
+        {
+            if (hit.CompareTag(preyTag)) humansInRange.Add(hit.transform);
+        }
 
         Vector3 candidatePos;
 
-        if (humans.Length > 0)
+        if (humansInRange.Count > 0)
         {
             // Rastgele bir insan seç ve ona doğru git
-            Transform targetHuman = humans[Random.Range(0, humans.Length)].transform;
+            Transform targetHuman = humansInRange[Random.Range(0, humansInRange.Count)];
             
             // Tam üstüne gitmesin, o bölgeye gitsin (Sürü psikolojisi)
             Vector3 randomOffset = Random.insideUnitSphere * wanderRadius;

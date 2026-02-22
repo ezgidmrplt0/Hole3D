@@ -35,6 +35,7 @@ public class SpawnManager : MonoBehaviour
     [Tooltip("Cage Unit Prefab kullanıldığında scale çarpanı.")]
     public float cageUnitScale = 3f; 
     public int cageCount = 3;
+    public int zombiesPerCage = 3; // Kafes başına kaç zombi (Balance için önemli)
     private List<GameObject> activeCages = new List<GameObject>();
 
 
@@ -551,7 +552,7 @@ public class SpawnManager : MonoBehaviour
             // İçine Zombileri Koy
             controller.trappedZombies = new List<ZombieAI>();
             
-            for(int k=0; k<3; k++)
+            for(int k=0; k<zombiesPerCage; k++)
             {
                if (zombiePrefabs.Count > 0)
                {

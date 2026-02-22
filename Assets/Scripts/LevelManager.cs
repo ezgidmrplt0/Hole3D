@@ -37,8 +37,8 @@ public class LevelManager : MonoBehaviour
     public int baseZombieCount = 10;
     public int zombiesPerLevel = 5; // Her level kaç zombi artsın
     public int baseHumanCount = 15;  // Başlangıç insan sayısı (+10 artırıldı)
-    public int humansPerLevel = 4;  // Her level kaç insan artsın (+2 artırıldı)
-    public float minHumanToZombieRatio = 0.25f; // En az %25 insan/zombi oranı korunsun
+    public int humansPerLevel = 4;  // Her level kaç insan arasın (+2 artırıldı)
+    public float minHumanToZombieRatio = 0.75f; // En az %75 insan/zombi oranı korunsun (Artırıldı: %25 -> %75)
 
     [Header("Dependencies")]
     public SpawnManager spawnManager;
@@ -83,7 +83,14 @@ public class LevelManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            // DontDestroyOnLoad(gameObject); // Optional: if we reload scenes
+            
+            // --- INSPECTOR OVERRIDE SAFETY ---
+            // Eğer Unity Inspector'da eski değerler (5, 2 vs) kaldıysa kod içinden düzeltiyoruz
+            if (baseHumanCount < 15) baseHumanCount = 15;
+            if (humansPerLevel < 4) humansPerLevel = 4;
+            if (minHumanToZombieRatio < 0.75f) minHumanToZombieRatio = 0.75f;
+            
+            Debug.Log($"[LevelManager] Inspector Overrides applied: HumanBase:{baseHumanCount}, Scaling:{humansPerLevel}, Ratio:{minHumanToZombieRatio}");
         }
         else
         {
@@ -276,22 +283,30 @@ public class LevelManager : MonoBehaviour
                 // NORMAL MODE: Zombi sayısı normal
                 desiredZombieCount = calculatedZombies;
                 
+                // --- ACCURATE RATIO CALCULATION (Including Cages) ---
+                // Kafeslerden gelen gizli zombileri de hesaba katmalıyız
+                int totalExpectedZombies = desiredZombieCount;
+                if (spawnManager != null)
+                {
+                    totalExpectedZombies += (spawnManager.cageCount * spawnManager.zombiesPerCage);
+                }
+
                 // İNSAN SAYISI GÜNCELLEMESİ: baseHumanCount + (humansPerLevel * currentLevelIndex)
                 desiredHumanCount = baseHumanCount + (humansPerLevel * currentLevelIndex);
                 
                 // --- SAFETY BALANCE RATIO ---
-                // Eğer insan sayısı zombi sayısına göre çok düşük kalırsa koruma devreye girsin
-                int safetyMinHumans = Mathf.CeilToInt(desiredZombieCount * minHumanToZombieRatio);
+                // Gerçek toplam zombi sayısına göre insan sayısını koru
+                int safetyMinHumans = Mathf.CeilToInt(totalExpectedZombies * minHumanToZombieRatio);
                 if (desiredHumanCount < safetyMinHumans)
                 {
                     desiredHumanCount = safetyMinHumans;
                 }
 
-                // En az 2 kuralı opsiyonel, zaten 15'ten başlıyor ama güvenlik kalsın
-                if (desiredHumanCount < 2) desiredHumanCount = 2;
+                // En en az 5 kuralı (Oyunun başında boş kalmasın)
+                if (desiredHumanCount < 5) desiredHumanCount = 5;
                 
                 isHordeMode = false;
-                Debug.Log($"[LevelManager] Normal Level (Index {currentLevelIndex}): Zombies: {desiredZombieCount}, Humans: {desiredHumanCount}");
+                Debug.Log($"[LevelManager] Normal Level (Index {currentLevelIndex}): RequestedZombies: {desiredZombieCount}, TotalZombies(w/Cages): {totalExpectedZombies}, CalculatedHumans: {desiredHumanCount}");
             }
 
             mapToSpawn = data.mapPrefab;

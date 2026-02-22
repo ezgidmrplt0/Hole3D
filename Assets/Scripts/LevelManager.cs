@@ -36,8 +36,9 @@ public class LevelManager : MonoBehaviour
     [Header("Level Settings")]
     public int baseZombieCount = 10;
     public int zombiesPerLevel = 5; // Her level kaç zombi artsın
-    public int baseHumanCount = 5;  // Başlangıç insan sayısı
-    public int humansPerLevel = 2;  // Her level kaç insan artsın
+    public int baseHumanCount = 15;  // Başlangıç insan sayısı (+10 artırıldı)
+    public int humansPerLevel = 4;  // Her level kaç insan artsın (+2 artırıldı)
+    public float minHumanToZombieRatio = 0.25f; // En az %25 insan/zombi oranı korunsun
 
     [Header("Dependencies")]
     public SpawnManager spawnManager;
@@ -275,9 +276,17 @@ public class LevelManager : MonoBehaviour
                 // NORMAL MODE: Zombi sayısı normal
                 desiredZombieCount = calculatedZombies;
                 
-                // İNSAN SAYISI GÜNCELLEMESİ: 15 + (5 * Level)
+                // İNSAN SAYISI GÜNCELLEMESİ: baseHumanCount + (humansPerLevel * currentLevelIndex)
                 desiredHumanCount = baseHumanCount + (humansPerLevel * currentLevelIndex);
                 
+                // --- SAFETY BALANCE RATIO ---
+                // Eğer insan sayısı zombi sayısına göre çok düşük kalırsa koruma devreye girsin
+                int safetyMinHumans = Mathf.CeilToInt(desiredZombieCount * minHumanToZombieRatio);
+                if (desiredHumanCount < safetyMinHumans)
+                {
+                    desiredHumanCount = safetyMinHumans;
+                }
+
                 // En az 2 kuralı opsiyonel, zaten 15'ten başlıyor ama güvenlik kalsın
                 if (desiredHumanCount < 2) desiredHumanCount = 2;
                 

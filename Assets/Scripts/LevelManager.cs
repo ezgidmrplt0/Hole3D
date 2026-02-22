@@ -351,43 +351,26 @@ public class LevelManager : MonoBehaviour
              }
              else
              {
-                 Debug.LogError("HATA: LevelManager -> 'Simple Plane Prefab' boş! Lütfen SAHNEDEKİ objeyi buraya sürükleyin.");
+                 Debug.LogError("HATA: LevelManager -> 'simplePlanePrefab' (Ground) is NULL! Please assign the Scene Object in the inspector.");
              }
-        }
-        else if (mapToSpawn != null)
-        {
-            // --- NORMAL LEVEL: PREFABDAN KOPYA OLUŞTUR ---
-            // Orijinal Prefab rotasyonunu koru!
-            currentMapInstance = Instantiate(mapToSpawn, Vector3.zero, mapToSpawn.transform.rotation);
-
-            // FIX: Level 2 missing ground workaround
-            // Level 2'nin kendi prefabında zemin eksik olduğu için, Special Level zeminini (simplePlanePrefab) arkada açık tutuyoruz.
-            if (actualLevelNumber == 2 && simplePlanePrefab != null)
-            {
-                simplePlanePrefab.SetActive(true);
-            }
         }
         else
         {
-             Debug.LogWarning($"Level {actualLevelNumber} has no Map Prefab assigned! Using FALLBACK ground.");
-             
-             // FALLBACK: Eğer level prefabı yoksa, oyunun oynanabilmesi için
-             // Special Level Plane (simplePlanePrefab) aktif edilsin.
-             if (simplePlanePrefab != null)
-             {
-                 currentMapInstance = simplePlanePrefab; // Referans al
-                 currentMapInstance.SetActive(true);     // Görünür yap
-                 Debug.Log($"[LevelManager] Fallback active: SimplePlane (Scene Object) used for Level {actualLevelNumber}");
-             }
-             else
-             {
-                 // Hiçbir şey yoksa, en azından bir Plane oluştur
-                 GameObject tempPlane = GameObject.CreatePrimitive(PrimitiveType.Plane);
-                 tempPlane.transform.localScale = new Vector3(5, 1, 5); // 50x50m
-                 tempPlane.name = "Fallback_Procedural_Plane";
-                 currentMapInstance = tempPlane;
-                 Debug.LogError($"[LevelManager] CRITICAL: No Map Prefab AND No SimplePlane for Level {actualLevelNumber}! Created procedural plane.");
-             }
+            // --- NOT A SPECIAL LEVEL: ENSURE GROUND IS OFF ---
+            if (simplePlanePrefab != null)
+            {
+                simplePlanePrefab.SetActive(false);
+            }
+
+            if (mapToSpawn != null)
+            {
+                // --- NORMAL LEVEL: Create copy from Prefab ---
+                currentMapInstance = Instantiate(mapToSpawn, Vector3.zero, mapToSpawn.transform.rotation);
+            }
+            else
+            {
+                 Debug.LogWarning($"Level {actualLevelNumber} has no Map Prefab assigned! Running WITHOUT fallback ground.");
+            }
         }
 
         // --- GÜVENLİK VE AYARLAR ---

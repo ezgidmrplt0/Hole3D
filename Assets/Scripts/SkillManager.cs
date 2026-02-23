@@ -64,7 +64,9 @@ public class SkillManager : MonoBehaviour
             // Just set duration to infinite (using a magic number like 9999 or separate flag)
             // But let's use the dictionary with a very high value
             activeSkillTimers[type] = 999999f;
+#if UNITY_EDITOR
             Debug.Log($"[SkillManager] {type} PERMANENTLY activated for this level!");
+#endif
         }
         else
         {
@@ -201,7 +203,9 @@ public class SkillManager : MonoBehaviour
         speedPrice = 1000 + increment;
         shieldPrice = 1000 + increment;
         
+#if UNITY_EDITOR
         Debug.Log($"[SkillManager] Level {currentLevel + 1} Prices Updated: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
+#endif
     }
 
     public void ResetSkills()
@@ -212,7 +216,9 @@ public class SkillManager : MonoBehaviour
             OnSkillDeactivated?.Invoke(type);
         }
         activeSkillTimers.Clear();
+#if UNITY_EDITOR
         Debug.Log("[SkillManager] Active skills reset for new level.");
+#endif
     }
 
     public void BuyMagnet()

@@ -272,7 +272,9 @@ public class GameFlowManager : MonoBehaviour
         // --- MISSION UI REFRESH ---
         if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
 
+#if UNITY_EDITOR
         Debug.Log("Game Started!");
+#endif
     }
     
 }

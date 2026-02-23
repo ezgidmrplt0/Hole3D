@@ -90,7 +90,9 @@ public class LevelManager : MonoBehaviour
             if (humansPerLevel < 4) humansPerLevel = 4;
             if (minHumanToZombieRatio < 0.75f) minHumanToZombieRatio = 0.75f;
             
+#if UNITY_EDITOR
             Debug.Log($"[LevelManager] Inspector Overrides applied: HumanBase:{baseHumanCount}, Scaling:{humansPerLevel}, Ratio:{minHumanToZombieRatio}");
+#endif
         }
         else
         {
@@ -105,7 +107,9 @@ public class LevelManager : MonoBehaviour
         currentLevelIndex = PlayerPrefs.GetInt(PREF_LEVEL_INDEX, 0);
         normalLevelIndex = PlayerPrefs.GetInt(PREF_NORMAL_LEVEL_INDEX, 0);
         
+#if UNITY_EDITOR
         Debug.Log($"[LevelManager] Loaded Progress - Level Index: {currentLevelIndex}, Normal Index: {normalLevelIndex}");
+#endif
         
         StartLevel();
         StartCoroutine(SafetyCheckLoop());
@@ -139,7 +143,6 @@ public class LevelManager : MonoBehaviour
                     // Belki de "currentZombiesEaten" senkronize olamadı.
                     // Zorla tamamlama yapıyoruz ama FEVER MODE ile uyumlu olmalı.
                     
-                    Debug.Log("LevelManager: Safety Check -> No zombies left! Syncing and Checking Completion.");
                     
                     // Count'u eşitle
                     currentZombiesEaten = totalZombiesInLevel;
@@ -178,7 +181,9 @@ public class LevelManager : MonoBehaviour
                 // Fever Moddaysa süre bitince Level Fail OLMASIN (Zaten callback ile bitecek)
                 if (!isFeverSequenceActive)
                 {
+#if UNITY_EDITOR
                     Debug.Log("Time's Up! Level Failed.");
+#endif
                     GameFlowManager.Instance.ShowRetry();
                 }
             }
@@ -232,7 +237,9 @@ public class LevelManager : MonoBehaviour
             // --- SPECIAL LEVEL (Her 3 Levelde Bir) ---
             // "Eat Everything Mode Hazırlık": Başlangıçta sadece 30 zombi.
             // Hepsini yiyince Fever Mode açılacak ve O ZAMAN 60 tane daha gelecek.
+#if UNITY_EDITOR
             Debug.Log($"*** SPECIAL LEVEL {actualLevelNumber} *** -> Standard Start (30 Zombies), Mega Fever waiting...");
+#endif
             
             // HORDE BANNER GÖSTER
             UIManager uiManager = FindObjectOfType<UIManager>();
@@ -276,7 +283,9 @@ public class LevelManager : MonoBehaviour
                 desiredHumanCount = 0; 
                 isHordeMode = true;
                 
+#if UNITY_EDITOR
                 Debug.Log($"[LevelManager] HORDE LEVEL (Index {currentLevelIndex})! Zombies: {desiredZombieCount}, Humans: 0");
+#endif
             }
             else
             {
@@ -306,7 +315,9 @@ public class LevelManager : MonoBehaviour
                 if (desiredHumanCount < 5) desiredHumanCount = 5;
                 
                 isHordeMode = false;
+#if UNITY_EDITOR
                 Debug.Log($"[LevelManager] Normal Level (Index {currentLevelIndex}): RequestedZombies: {desiredZombieCount}, TotalZombies(w/Cages): {totalExpectedZombies}, CalculatedHumans: {desiredHumanCount}");
+#endif
             }
 
             mapToSpawn = data.mapPrefab;
@@ -347,7 +358,6 @@ public class LevelManager : MonoBehaviour
                  currentMapInstance.SetActive(true); // Sadece görünür yap
                  
                  // Pozisyonunu ve rotasyonunu elleme, sahnede nasılsa öyle kalsın.
-                 Debug.Log("Special Level: Sahnedeki Plan objesi aktif edildi.");
              }
              else
              {
@@ -460,7 +470,9 @@ public class LevelManager : MonoBehaviour
             totalHumansInLevel = taggedHumans != null ? taggedHumans.Length : 0;
             currentHumansRemaining = totalHumansInLevel;
             
+#if UNITY_EDITOR
             Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount}. Humans: {totalHumansInLevel}");
+#endif
             
             totalZombiesInLevel = realZombieCount;
 
@@ -524,7 +536,6 @@ public class LevelManager : MonoBehaviour
         currentHumansRemaining--;
         if (currentHumansRemaining < 0) currentHumansRemaining = 0;
         
-        Debug.Log($"Human eaten by zombie! Remaining: {currentHumansRemaining}/{totalHumansInLevel}");
         
         // UI güncelle
         OnHumanCountChanged?.Invoke(currentHumansRemaining);
@@ -566,7 +577,9 @@ public class LevelManager : MonoBehaviour
         // Tüm insanlar yendi mi?
         if (currentHumansRemaining <= 0 && totalHumansInLevel > 0)
         {
+#if UNITY_EDITOR
             Debug.Log("Game Over! All humans are gone.");
+#endif
             if (GameFlowManager.Instance != null)
             {
                 GameFlowManager.Instance.ShowRetry();
@@ -618,7 +631,9 @@ public class LevelManager : MonoBehaviour
             {
                 // Instant complete for eating
                 isMissionCompleted = true;
+#if UNITY_EDITOR
                 Debug.Log("Mission Completed: " + data.missionType);
+#endif
             }
             // SaveHumans is checked at the end of level
         }
@@ -644,12 +659,16 @@ public class LevelManager : MonoBehaviour
     private System.Collections.IEnumerator FeverSequenceRoutine()
     {
         isFeverSequenceActive = true;
-        Debug.Log("Level Quota Met! Starting FEVER MODE.");
+#if UNITY_EDITOR
+             Debug.Log("Level Quota Met! Starting FEVER MODE.");
+#endif
 
         // --- SPECIAL LEVEL LOGIC: EAT EVERYTHING SPAWN ---
         if (isCurrentLevelSpecial)
         {
+#if UNITY_EDITOR
              Debug.Log(">>> SPECIAL LEVEL FEVER: Spawning 75 EXTRA Zombies for Eat Everything Mode! <<<");
+#endif
              if (spawnManager != null)
              {
                  // 0 İnsan, 75 Zombi, HordeMode=False (Scattered)
@@ -691,7 +710,9 @@ public class LevelManager : MonoBehaviour
 
     private void FinishLevel()
     {
+#if UNITY_EDITOR
         Debug.Log("Level Complete! (Post-Fever)");
+#endif
         
         // Stop skill pickup spawning
         if (spawnManager != null)
@@ -743,7 +764,9 @@ public class LevelManager : MonoBehaviour
 
                 if (success)
                 {
+#if UNITY_EDITOR
                     Debug.Log($"[Mission] Level Mission Successful! Reward: {data.missionReward}");
+#endif
                     if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(data.missionReward);
                 }
             }
@@ -760,7 +783,6 @@ public class LevelManager : MonoBehaviour
         PlayerPrefs.SetInt(PREF_LEVEL_INDEX, currentLevelIndex);
         PlayerPrefs.SetInt(PREF_NORMAL_LEVEL_INDEX, normalLevelIndex);
         PlayerPrefs.Save();
-        Debug.Log("[LevelManager] Progress Saved.");
 
         StartLevel();
     }

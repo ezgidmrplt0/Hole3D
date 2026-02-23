@@ -18,7 +18,9 @@ public class SpawnManager : MonoBehaviour
         {
             GameObject navObj = new GameObject("SkillNavigationSystem");
             navObj.AddComponent<SkillNavigation>();
+#if UNITY_EDITOR
             Debug.Log("[SpawnManager] Auto-created SkillNavigation system.");
+#endif
         }
     }
 
@@ -130,11 +132,15 @@ public class SpawnManager : MonoBehaviour
         // 4. Fallback: Use Map Bounds (Floor) if list is empty
         if (humanSpawnPoints.Count == 0 || zombieSpawnPoints.Count == 0)
         {
+#if UNITY_EDITOR
             Debug.Log("SpawnManager: Explicit spawn points not found. Generating dynamic points from Map Bounds...");
+#endif
             GenerateDynamicSpawnPoints(mapRoot);
         }
         
+#if UNITY_EDITOR
         Debug.Log($"SpawnManager: Initialized with {humanSpawnPoints.Count} Human points and {zombieSpawnPoints.Count} Zombie points. GroundY: {groundY}");
+#endif
     }
 
     private void GenerateDynamicSpawnPoints(Transform mapRoot)
@@ -203,7 +209,9 @@ public class SpawnManager : MonoBehaviour
             {
                 groundY = bounds.max.y; // En üst noktası zemindir
                 groundYDetected = true;
+#if UNITY_EDITOR
                 Debug.Log($"[SpawnManager] GroundY updated from Floor Bounds: {groundY}");
+#endif
             }
         }
         else
@@ -363,7 +371,9 @@ public class SpawnManager : MonoBehaviour
         {
             GameObject keyObj = Instantiate(keyPrefab, pos, Quaternion.identity);
             keyObj.transform.localScale = Vector3.one * 1.5f; // Kullanıcı isteği: 0.5 yerine 1.5 olsun
+#if UNITY_EDITOR
             Debug.Log($"[SpawnManager] Key Spawned at {pos}");
+#endif
         }
         else
         {
@@ -573,7 +583,9 @@ public class SpawnManager : MonoBehaviour
             }
             
             activeCages.Add(cageObj);
+#if UNITY_EDITOR
             Debug.Log("[SpawnManager] Placeholder Cage Created with Zombies.");
+#endif
         }
     }
     private void SpawnZombiesClustered()
@@ -604,7 +616,9 @@ public class SpawnManager : MonoBehaviour
             hordeCenter = new Vector3(0, groundY, 0);
         }
 
+#if UNITY_EDITOR
         Debug.Log($"SpawnManager: Horde Center selected at {hordeCenter}");
+#endif
 
         // Ayarlar: Horde radius'u bounds'a göre ayarla
         float maxRadius = Mathf.Min(currentSpawnBounds.extents.x, currentSpawnBounds.extents.z) * 0.6f;
@@ -660,11 +674,15 @@ public class SpawnManager : MonoBehaviour
 
                 Instantiate(selectedPrefab, safeForced, Quaternion.identity);
                 spawnedPositions.Add(safeForced);
+#if UNITY_EDITOR
                 Debug.Log("SpawnManager: Force spawned zombie (crowded area).");
+#endif
             }
         }
         
+#if UNITY_EDITOR
         Debug.Log($"SpawnManager: Spawning {zombieCount} zombies in HORDE MODE complete.");
+#endif
     }
 
     // Horde modu için daha hafif, sadece diğer zombileri kontrol eden güvenli alan
@@ -734,7 +752,9 @@ public class SpawnManager : MonoBehaviour
 
         // --- 3. FORCE SPAWN (FALLBACK) ---
         // Geçerli yer bulunamadı, ama boş kalmasındansa havada spawn olsun
+#if UNITY_EDITOR
         Debug.Log($"[SpawnManager] Force Spawning {debugName} (Safe spot not found).");
+#endif
         
         Vector3 forcePos;
         if (hasSpawnPoints)

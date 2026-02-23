@@ -201,9 +201,10 @@ public class HoleMechanics : MonoBehaviour
             maskController.SetRadius(targetRadius);
         }
         
-        // Hole level ve XP'yi resetle (opsiyonel - her level başında sıfırdan başlamak istiyorsan)
-        // holeLevel = 1;
-        // currentXP = 0;
+        // Hole level ve XP'yi resetle
+        holeLevel = 1;
+        currentXP = 0;
+        xpToNextLevel = 15;
         
         // ObstructionFader'ı aktif et
         if (obstructionFader != null)
@@ -211,7 +212,6 @@ public class HoleMechanics : MonoBehaviour
             obstructionFader.enabled = true;
         }
         
-        Debug.Log($"HoleMechanics: Reset completed. Scale: {transform.localScale}, Camera reset: {cameraIsChildOfHole}");
     }
 
     private void UpdateLevelText()
@@ -388,7 +388,6 @@ public class HoleMechanics : MonoBehaviour
         
         if (skillPickup != null)
         {
-            Debug.Log($"[HoleMechanics] Skill Pickup algılandı: {skillPickup.skillType}");
             StartCoroutine(PhysicsFall(other.gameObject));
             return;
         }

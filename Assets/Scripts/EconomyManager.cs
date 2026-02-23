@@ -34,13 +34,6 @@ public class EconomyManager : MonoBehaviour
     private void LoadCoins()
     {
         CurrentCoins = PlayerPrefs.GetInt(COIN_PREF_KEY, 0);
-        // TEST: User requested 5000 coins for testing
-        if (CurrentCoins < 5000) 
-        {
-            CurrentCoins = 5000;
-            SaveCoins();
-            Debug.Log("EconomyManager: Set balance to 5000 test coins.");
-        }
     }
 
     private void SaveCoins()
@@ -54,7 +47,6 @@ public class EconomyManager : MonoBehaviour
         CurrentCoins += amount;
         SaveCoins();
         OnCoinsChanged?.Invoke(CurrentCoins);
-        Debug.Log($"Coins Added: {amount}. Total: {CurrentCoins}");
     }
 
     public bool SpendCoins(int amount)
@@ -64,10 +56,12 @@ public class EconomyManager : MonoBehaviour
             CurrentCoins -= amount;
             SaveCoins();
             OnCoinsChanged?.Invoke(CurrentCoins);
-            Debug.Log($"Coins Spent: {amount}. Total: {CurrentCoins}");
             return true;
         }
+
+#if UNITY_EDITOR
         Debug.Log("Not enough coins!");
+#endif
         return false;
     }
 }

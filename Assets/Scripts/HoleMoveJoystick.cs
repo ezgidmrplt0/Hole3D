@@ -30,8 +30,8 @@ public class HoleMoveJoystick : MonoBehaviour
             rb = gameObject.AddComponent<Rigidbody>();
         }
 
-        rb.drag = 5f; 
-        rb.angularDrag = 5f;
+        rb.isKinematic = true; 
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
         rb.useGravity = false; 
         

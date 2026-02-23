@@ -1,5 +1,6 @@
 using UnityEngine;
 using TMPro; // Standard for text in modern Unity
+using DG.Tweening; // For animations
 
 public class UIManager : MonoBehaviour
 {
@@ -30,6 +31,13 @@ public class UIManager : MonoBehaviour
     public GameObject missionZombieIcon;   // The "zombieicon" object
     public GameObject missionHumanIcon;    // The "humanicon" object
     public TextMeshProUGUI missionText;    // The shared "Text (TMP) (1)" object
+    
+    private int lastMissionProgress = -1;
+    private bool lastMissionCompleted = false;
+    
+    [Header("Rewards")]
+    public Sprite coinSprite;
+    public GameObject coinFlyPrefab; // Optional: If user wants a specific prefab, otherwise we'll create one.
     
     [Header("Horde Banner")]
     public GameObject hordeBannerPanel;
@@ -238,6 +246,13 @@ public class UIManager : MonoBehaviour
             if (LevelManager.Instance.levels.Count > 0)
             {
                 LevelData data = LevelManager.Instance.levels[levelDataIndex];
+                
+                // --- RESET STATE IF LEVEL CHANGED ---
+                if (lastMissionProgress == -1 || !lastMissionCompleted)
+                {
+                    // Optionally reset if needed, but the UpdateMissionUI handles transitions
+                }
+
                 UpdateMissionUI(data.missionType, LevelManager.Instance.currentMissionProgress, data.missionTarget);
             }
         }
@@ -260,6 +275,13 @@ public class UIManager : MonoBehaviour
         // 2. Tamamlanma Kontrolü ("REWARD" durumu)
         bool isCompleted = current >= target;
 
+        // --- ANIMATION LOGIC ---
+        bool progressChanged = current != lastMissionProgress;
+        bool newlyCompleted = isCompleted && !lastMissionCompleted;
+
+        lastMissionProgress = current;
+        lastMissionCompleted = isCompleted;
+
         // İkon Görünürlüğü: Eğer görev bittiyse ikonları kaldır
         if (missionZombieIcon != null) missionZombieIcon.SetActive(!isCompleted && type == MissionType.EatZombies);
         if (missionHumanIcon != null)  missionHumanIcon.SetActive(!isCompleted && type == MissionType.SaveHumans);
@@ -271,10 +293,28 @@ public class UIManager : MonoBehaviour
             {
                 missionText.text = "REWARD";
                 missionText.color = Color.green;
+
+                if (newlyCompleted)
+                {
+                    // Kutlama Animasyonu (Büyüme Efekti)
+                    missionText.transform.DOKill(true);
+                    missionText.transform.DOPunchScale(Vector3.one * 0.4f, 0.6f, 10, 1).SetUpdate(true);
+                }
             }
             else
             {
-                missionText.text = $"{current} / {target}";
+                string textValue = $"{current} / {target}";
+                if (missionText.text != textValue)
+                {
+                    missionText.text = textValue;
+                    
+                    if (progressChanged && !isTransitioning)
+                    {
+                        // İlerleme "Punch" efekti (Hafif titreme)
+                        missionText.transform.DOKill(true);
+                        missionText.transform.DOPunchScale(Vector3.one * 0.2f, 0.3f, 10, 1).SetUpdate(true);
+                    }
+                }
 
                 // Renk Geri Bildirimi
                 if (type == MissionType.EatZombies)

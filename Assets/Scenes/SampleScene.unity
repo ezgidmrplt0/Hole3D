@@ -514,7 +514,7 @@ RectTransform:
   m_GameObject: {fileID: 178643292}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1.237, y: 1, z: 1}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1582585522}
@@ -526,7 +526,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -594.75, y: -268}
+  m_AnchoredPosition: {x: -540, y: -268}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!224 &215515547 stripped
@@ -1481,6 +1481,8 @@ MonoBehaviour:
   missionZombieIcon: {fileID: 916677553}
   missionHumanIcon: {fileID: 1519054915}
   missionText: {fileID: 489565567}
+  coinSprite: {fileID: 0}
+  coinFlyPrefab: {fileID: 0}
   hordeBannerPanel: {fileID: 0}
   hordeBannerText: {fileID: 0}
   hordeBannerDuration: 2
@@ -1587,7 +1589,7 @@ MonoBehaviour:
   m_fontSizeMin: 18
   m_fontSizeMax: 72
   m_fontStyle: 1
-  m_HorizontalAlignment: 1
+  m_HorizontalAlignment: 2
   m_VerticalAlignment: 256
   m_textAlignment: 65535
   m_characterSpacing: 0
@@ -1646,7 +1648,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 412, y: 0}
+  m_AnchoredPosition: {x: 356, y: 0}
   m_SizeDelta: {x: 200, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &525146692
@@ -2864,7 +2866,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 417.74445, y: 8.999924}
+  m_AnchoredPosition: {x: 474, y: 8.999924}
   m_SizeDelta: {x: 149.8037, y: 106.7517}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &916677555
@@ -4654,7 +4656,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 418.55286, y: 10}
+  m_AnchoredPosition: {x: 474.80838, y: 10}
   m_SizeDelta: {x: 149.8037, y: 106.7517}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1519054917
@@ -4753,7 +4755,7 @@ RectTransform:
   m_GameObject: {fileID: 1582585521}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 1.5, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 178643293}
@@ -5303,7 +5305,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 251, y: 0}
+  m_AnchoredPosition: {x: 235, y: 0}
   m_SizeDelta: {x: 149.8037, y: 106.7517}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1820984841

@@ -1051,9 +1051,9 @@ public class HoleMechanics : MonoBehaviour
     
     void ApplyShieldRepelEffect()
     {
-        // Shield radius - SkillManager'dan al veya sabit değer kullan
-        float repelRadius = 8f; // İtme alanı
-        float repelForce = 15f; // İtme kuvveti
+        // Shield radius - SkillManager'dan al
+        float repelRadius = SkillManager.Instance.GetShieldRepelRadius(); 
+        float repelForce = SkillManager.Instance.GetShieldRepelForce(); 
         
         // Yakındaki insanları bul
         Collider[] nearby = Physics.OverlapSphere(transform.position, repelRadius);

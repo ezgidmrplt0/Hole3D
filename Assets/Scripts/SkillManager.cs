@@ -24,15 +24,17 @@ public class SkillManager : MonoBehaviour
     // ========== BASE SETTINGS ==========
     [Header("Magnet Settings")]
     public float magnetBaseDuration = 8f;
-    public float magnetBaseRadius = 6f;     // Artırıldı (3 -> 6)
-    public float magnetBaseForce = 25f;     // Artırıldı (8 -> 25)
+    public float magnetBaseRadius = 12f;     // Artırıldı (6 -> 12)
+    public float magnetBaseForce = 50f;      // Artırıldı (25 -> 50)
 
     [Header("Speed Settings")]
     public float speedBaseDuration = 6f;
-    public float speedBaseMultiplier = 1.5f;   // %50 hız artışı
+    public float speedBaseMultiplier = 2.5f;   // Artırıldı (1.5 -> 2.5)
 
     [Header("Shield Settings")]
     public float shieldBaseDuration = 10f;
+    public float shieldBaseRepelRadius = 12f;  // Merkezi hale getirildi
+    public float shieldBaseRepelForce = 40f;   // Merkezi hale getirildi
 
     // ========== UNITY LIFECYCLE ==========
     void Awake()
@@ -140,10 +142,11 @@ public class SkillManager : MonoBehaviour
         };
     }
 
-    public float GetMagnetRadius() => magnetBaseRadius; // Fixed values, no upgrades
+    public float GetMagnetRadius() => magnetBaseRadius; 
     public float GetMagnetForce() => magnetBaseForce;
     public float GetSpeedMultiplier() => speedBaseMultiplier;
-    public float GetShieldDuration() => shieldBaseDuration;
+    public float GetShieldRepelRadius() => shieldBaseRepelRadius;
+    public float GetShieldRepelForce() => shieldBaseRepelForce;
     
     // Eski uyumluluk
     public float GetRepellentRadius() => 0f;

@@ -1199,8 +1199,8 @@ public class SpawnManager : MonoBehaviour
             // Bounds içinde mi?
             candidatePos = ClampToBounds(candidatePos);
             
-            // Yüksekliği ayarla (zeminden 3m yukarı - daha yüksekten düşsün ki görünsün)
-            candidatePos.y = groundY + 3f;
+            // Yüksekliği ayarla (zeminden 3.5m yukarı - daha yüksekten düşsün ki görünsün)
+            candidatePos.y = groundY + 3.5f;
             
             // Engel kontrolü
             Vector3 groundCheckPos = new Vector3(candidatePos.x, groundY + 0.5f, candidatePos.z);
@@ -1231,7 +1231,7 @@ public class SpawnManager : MonoBehaviour
         
         // Bounds dışına çıkmasın yine de
         fallbackPos = ClampToBounds(fallbackPos);
-        fallbackPos.y = groundY + 4f; // Yükseklik korunsun
+        fallbackPos.y = groundY + 4.5f; // Yükseklik korunsun
         
         return fallbackPos;
     }
@@ -1320,8 +1320,8 @@ public class SpawnManager : MonoBehaviour
             Vector2 randomOffset = Random.insideUnitCircle.normalized * Random.Range(3f, 6f);
             Vector3 candidatePos = basePos + new Vector3(randomOffset.x, 0, randomOffset.y);
             
-            // Y değerini zemine ayarla
-            candidatePos.y = groundY + 0.5f;
+            // Y değerini zemine ayarla (Görünür olması için 1.5f yukarı)
+            candidatePos.y = groundY + 1.5f;
             
             // Engel kontrolü
             if (!IsPositionBlockedByObstacle(candidatePos))
@@ -1331,6 +1331,6 @@ public class SpawnManager : MonoBehaviour
         }
         
         // Fallback: Hole'un biraz önünde
-        return basePos + new Vector3(4f, groundY + 0.5f, 0f);
+        return basePos + new Vector3(4f, groundY + 1.5f, 0f);
     }
 }

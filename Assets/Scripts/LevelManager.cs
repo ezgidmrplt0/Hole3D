@@ -35,10 +35,10 @@ public class LevelManager : MonoBehaviour
 
     [Header("Level Settings")]
     public int baseZombieCount = 10;
-    public int zombiesPerLevel = 5; // Her level kaç zombi artsın
-    public int baseHumanCount = 15;  // Başlangıç insan sayısı (+10 artırıldı)
-    public int humansPerLevel = 4;  // Her level kaç insan arasın (+2 artırıldı)
-    public float minHumanToZombieRatio = 0.75f; // En az %75 insan/zombi oranı korunsun (Artırıldı: %25 -> %75)
+    public int zombiesPerLevel = 2; // Her level kaç zombi artsın (Düşürüldü: 5 -> 2)
+    public int baseHumanCount = 15;  // Başlangıç insan sayısı
+    public int humansPerLevel = 2;  // Her level kaç insan artsın (Düşürüldü: 4 -> 2)
+    public float minHumanToZombieRatio = 0.75f; // Oran aynen korundu (%75)
 
     [Header("Dependencies")]
     public SpawnManager spawnManager;
@@ -87,7 +87,7 @@ public class LevelManager : MonoBehaviour
             // --- INSPECTOR OVERRIDE SAFETY ---
             // Eğer Unity Inspector'da eski değerler (5, 2 vs) kaldıysa kod içinden düzeltiyoruz
             if (baseHumanCount < 15) baseHumanCount = 15;
-            if (humansPerLevel < 4) humansPerLevel = 4;
+            if (humansPerLevel < 2) humansPerLevel = 2;
             if (minHumanToZombieRatio < 0.75f) minHumanToZombieRatio = 0.75f;
             
 #if UNITY_EDITOR

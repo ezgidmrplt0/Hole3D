@@ -204,6 +204,7 @@ public class HoleMechanics : MonoBehaviour
         // Hole level ve XP'yi resetle
         holeLevel = 1;
         currentXP = 0;
+        feverComboCount = 0;
         xpToNextLevel = 15;
         
         // ObstructionFader'ı aktif et
@@ -435,6 +436,7 @@ public class HoleMechanics : MonoBehaviour
     [Header("Fever Mode")]
     public bool isFeverMode = false;
     private Vector3 preFeverScale;
+    private int feverComboCount = 0;
 
     public void ActivateFeverMode(float duration, System.Action onComplete)
     {
@@ -486,6 +488,8 @@ public class HoleMechanics : MonoBehaviour
              mainCam.transform.DOLocalMove(originalCamPos.Value * 0.4f, growDuration).SetEase(Ease.OutElastic);
         }
 
+        // --- FEVER VFX ---
+        
         SpawnFloatingText("FEVER MODE!", Color.red);
         SpawnFloatingText("EAT EVERYTHING!", Color.yellow);
 
@@ -522,6 +526,8 @@ public class HoleMechanics : MonoBehaviour
         {
             obstructionFader.enabled = true;
         }
+
+        // --- FEVER VFX OFF ---
         
         // Callback çağır (Artık paneli açabiliriz)
         onComplete?.Invoke();
@@ -817,8 +823,12 @@ public class HoleMechanics : MonoBehaviour
         if (isFeverMode)
         {
             // Fever modunda yenilen HER ŞEY için ekstra altın
-            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(5);
-            SpawnFloatingText("+5 Gold", Color.yellow);
+            // Kombo mantığı: Her 5 kurbanda altın kazancı +5 artar
+            feverComboCount++;
+            int currentGoldBonus = 5 + ((feverComboCount - 1) / 5) * 5;
+
+            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(currentGoldBonus);
+            SpawnFloatingText("+" + currentGoldBonus + " Gold", Color.yellow);
         }
 
         // --- ZOMBİ TESPİTİ ---
@@ -1198,8 +1208,9 @@ public class HoleMechanics : MonoBehaviour
                     direction.y = 0; // Keep pull horizontal, gravity handles falling
 
                     // Pull towards hole center - GÜÇLÜ ÇEKİŞ
-                    // ForceMode.Acceleration kütle farkını yoksayar
-                    targetRb.AddForce(direction * force, ForceMode.Acceleration);
+                    // VelocityChange kütleyi yoksayar ve anlık etki eder. 
+                    // 500f Force, VelocityChange için çok yüksek olduğundan 0.1 ile çarpıyoruz (50 birim hız).
+                    targetRb.AddForce(direction * (force * 0.1f), ForceMode.VelocityChange);
                     
                     // Draw debug line to confirm lock-on
                     Debug.DrawLine(transform.position, col.transform.position, Color.cyan);

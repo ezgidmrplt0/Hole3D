@@ -484,6 +484,7 @@ public class UIManager : MonoBehaviour
         
         hordeBannerPanel.SetActive(false);
     }
+
     [Header("Panels")]
     public GameObject marketPanel;
 

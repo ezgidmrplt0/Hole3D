@@ -39,12 +39,14 @@ public class SkillPickup : MonoBehaviour
     {
         spawnTime = Time.time;
         
-        // Zemine düşür - Raycast ile zemin bul
+        // Zemine düşür Mantığı Kaldırıldı (SpawnManager yüksekliği belirleson)
+        /*
         RaycastHit hit;
         if (Physics.Raycast(transform.position + Vector3.up * 2f, Vector3.down, out hit, 10f))
         {
             transform.position = new Vector3(transform.position.x, hit.point.y + 0.5f, transform.position.z);
         }
+        */
         
         startPos = transform.position;
         

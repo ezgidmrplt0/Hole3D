@@ -24,17 +24,17 @@ public class SkillManager : MonoBehaviour
     // ========== BASE SETTINGS ==========
     [Header("Magnet Settings")]
     public float magnetBaseDuration = 8f;
-    public float magnetBaseRadius = 12f;     // Artırıldı (6 -> 12)
-    public float magnetBaseForce = 50f;      // Artırıldı (25 -> 50)
+    public float magnetBaseRadius = 20f;     // EXTREME (12 -> 20)
+    public float magnetBaseForce = 500f;     // EXTREME (250 -> 500)
 
     [Header("Speed Settings")]
     public float speedBaseDuration = 6f;
-    public float speedBaseMultiplier = 2.5f;   // Artırıldı (1.5 -> 2.5)
+    public float speedBaseMultiplier = 2.5f;
 
     [Header("Shield Settings")]
     public float shieldBaseDuration = 10f;
-    public float shieldBaseRepelRadius = 12f;  // Merkezi hale getirildi
-    public float shieldBaseRepelForce = 40f;   // Merkezi hale getirildi
+    public float shieldBaseRepelRadius = 18f;  // EXTREME (12 -> 18)
+    public float shieldBaseRepelForce = 150f;  // EXTREME (40 -> 150)
 
     // ========== UNITY LIFECYCLE ==========
     void Awake()
@@ -158,10 +158,13 @@ public class SkillManager : MonoBehaviour
 
     // ========== LEVEL MARKET (Tek kullanımlık -> Kalıcı) ==========
     [Header("Level Market Prices")]
-    [Header("Level Market Prices")]
     public int magnetPrice = 1000;
     public int speedPrice = 1000;
     public int shieldPrice = 1000;
+    
+    private const string PREF_MAGNET_PURCHASES = "TotalMagnetPurchases";
+    private const string PREF_SPEED_PURCHASES = "TotalSpeedPurchases";
+    private const string PREF_SHIELD_PURCHASES = "TotalShieldPurchases";
     
     // Satın alma sayaçları (her level sıfırlanır)
     private bool magnetPurchased = false;
@@ -184,30 +187,18 @@ public class SkillManager : MonoBehaviour
     
     private void IncreaseSkillPrices()
     {
-        int currentLevel = 0;
-        if (LevelManager.Instance != null) currentLevel = LevelManager.Instance.currentLevelIndex;
-        // Level index 0 dan baslar, o yuzden carpani levelIndex ile yaparsak: 0, 1, 2...
-        
-        // Formül: Base + (LevelIndex * 50)
-        // Level 1: Base
-        // Level 2: Base + 50
-        // Level 3: Base + 100
-        // vb.
-        
-        int increment = currentLevel * 50; 
-        
-        // Base fiyatları hardcode tutmak yerine, artışı ekliyoruz.
-        // NOT: Burası biraz riskli çünkü her reset çağrıldığında artar.
-        // Doğrusu: Base fiyatları sabit tutup, get sırasında hesaplamaktır.
-        // Ama UI direkt bu değişkenleri okuyor.
-        // O yüzden en sağlıklısı: ResetLevelPurchases çağrıldığında fiyatları "Base + Artış" olarak set etmek.
-        
-        magnetPrice = 1000 + increment;
-        speedPrice = 1000 + increment;
-        shieldPrice = 1000 + increment;
+        // ARTIK LEVEL'DAN BAĞIMSIZ, SATIN ALMA SAYISINA GÖRE ARTIŞ
+        int magnetPurchases = PlayerPrefs.GetInt(PREF_MAGNET_PURCHASES, 0);
+        int speedPurchases = PlayerPrefs.GetInt(PREF_SPEED_PURCHASES, 0);
+        int shieldPurchases = PlayerPrefs.GetInt(PREF_SHIELD_PURCHASES, 0);
+
+        // Formül: Base (1000) + (Alım Sayısı * 500)
+        magnetPrice = 1000 + (magnetPurchases * 500);
+        speedPrice = 1000 + (speedPurchases * 500);
+        shieldPrice = 1000 + (shieldPurchases * 500);
         
 #if UNITY_EDITOR
-        Debug.Log($"[SkillManager] Level {currentLevel + 1} Prices Updated: M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
+        Debug.Log($"[SkillManager] Prices Updated (Purchases - M:{magnetPurchases} S:{speedPurchases} Sh:{shieldPurchases}) -> M:{magnetPrice} S:{speedPrice} Sh:{shieldPrice}");
 #endif
     }
 
@@ -233,6 +224,11 @@ public class SkillManager : MonoBehaviour
         {
             magnetPurchased = true; // Lock purchase for the rest of the level
             
+            // Satın alma sayısını artır ve kaydet
+            int current = PlayerPrefs.GetInt(PREF_MAGNET_PURCHASES, 0);
+            PlayerPrefs.SetInt(PREF_MAGNET_PURCHASES, current + 1);
+            PlayerPrefs.Save();
+
             // Spawn skill pickup (Permanent for this level)
             if (SpawnManager.Instance != null)
             {
@@ -256,6 +252,11 @@ public class SkillManager : MonoBehaviour
         {
             speedPurchased = true; // Lock purchase
             
+            // Satın alma sayısını artır ve kaydet
+            int current = PlayerPrefs.GetInt(PREF_SPEED_PURCHASES, 0);
+            PlayerPrefs.SetInt(PREF_SPEED_PURCHASES, current + 1);
+            PlayerPrefs.Save();
+
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Speed, true);
@@ -277,6 +278,11 @@ public class SkillManager : MonoBehaviour
         {
             shieldPurchased = true; // Lock purchase
             
+            // Satın alma sayısını artır ve kaydet
+            int current = PlayerPrefs.GetInt(PREF_SHIELD_PURCHASES, 0);
+            PlayerPrefs.SetInt(PREF_SHIELD_PURCHASES, current + 1);
+            PlayerPrefs.Save();
+
             if (SpawnManager.Instance != null)
             {
                 SpawnManager.Instance.SpawnSkillImmediately(SkillType.Shield, true);

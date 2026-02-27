@@ -5,9 +5,9 @@ public class EconomyManager : MonoBehaviour
 {
     public static EconomyManager Instance;
 
-    public int CurrentCoins { get; private set; }
+    public float CurrentCoins { get; private set; }
 
-    public event Action<int> OnCoinsChanged;
+    public event Action<float> OnCoinsChanged;
 
     private const string COIN_PREF_KEY = "PlayerCoins";
 
@@ -33,23 +33,23 @@ public class EconomyManager : MonoBehaviour
 
     private void LoadCoins()
     {
-        CurrentCoins = PlayerPrefs.GetInt(COIN_PREF_KEY, 0);
+        CurrentCoins = PlayerPrefs.GetFloat(COIN_PREF_KEY, 0f);
     }
 
     private void SaveCoins()
     {
-        PlayerPrefs.SetInt(COIN_PREF_KEY, CurrentCoins);
+        PlayerPrefs.SetFloat(COIN_PREF_KEY, CurrentCoins);
         PlayerPrefs.Save();
     }
 
-    public void AddCoins(int amount)
+    public void AddCoins(float amount)
     {
         CurrentCoins += amount;
         SaveCoins();
         OnCoinsChanged?.Invoke(CurrentCoins);
     }
 
-    public bool SpendCoins(int amount)
+    public bool SpendCoins(float amount)
     {
         if (CurrentCoins >= amount)
         {

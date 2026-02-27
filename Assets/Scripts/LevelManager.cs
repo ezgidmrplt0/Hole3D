@@ -51,6 +51,7 @@ public class LevelManager : MonoBehaviour
     [Header("Timer Settings")]
     public float defaultLevelTime = 60f;
     public float currentLevelTimeRemaining;
+    private float initialLevelTime; // Yıldız hesaplaması için lazım
     
     [Header("Human Limit Settings")]
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
@@ -327,6 +328,7 @@ public class LevelManager : MonoBehaviour
             
             // Set Timer (Priority: LevelData > Calculated > Default)
             currentLevelTimeRemaining = data.levelDuration > 0 ? data.levelDuration : calculatedDuration;
+            initialLevelTime = currentLevelTimeRemaining; // Kaydet
             
             if (UIManager.Instance != null) UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
         }
@@ -639,6 +641,21 @@ public class LevelManager : MonoBehaviour
         }
 
         OnMissionUpdated?.Invoke(data.missionType, currentMissionProgress, data.missionTarget);
+    }
+
+    public int GetStarCount()
+    {
+        if (initialLevelTime <= 0) return 3; // Güvenlik
+
+        float ratio = currentLevelTimeRemaining / initialLevelTime;
+        
+        // Örnek Mantık:
+        // %60+ süre kaldıysa -> 3 Yıldız
+        // %30+ süre kaldıysa -> 2 Yıldız
+        // %0+ süre kaldıysa -> 1 Yıldız
+        if (ratio >= 0.6f) return 3;
+        if (ratio >= 0.3f) return 2;
+        return 1;
     }
 
     private bool isFeverSequenceActive = false;

@@ -822,13 +822,11 @@ public class HoleMechanics : MonoBehaviour
         // --- FEVER MODE BONUS ---
         if (isFeverMode)
         {
-            // Fever modunda yenilen HER ŞEY için ekstra altın
-            // Kombo mantığı: Her 5 kurbanda altın kazancı +5 artar
-            feverComboCount++;
-            int currentGoldBonus = 5 + ((feverComboCount - 1) / 5) * 5;
+            // Fever modunda yenilen HER ŞEY için 0.50 altın kazanılsın
+            float feverGoldBonus = 0.50f;
 
-            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(currentGoldBonus);
-            SpawnFloatingText("+" + currentGoldBonus + " Gold", Color.yellow);
+            if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(feverGoldBonus);
+            SpawnFloatingText("+0.50 Gold", Color.yellow);
         }
 
         // --- ZOMBİ TESPİTİ ---

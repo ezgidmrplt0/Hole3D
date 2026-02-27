@@ -124,6 +124,13 @@ public class GameFlowManager : MonoBehaviour
                 tapToNextLevelText.gameObject.SetActive(true);
                 AnimateText(tapToNextLevelText);
             }
+
+            // --- YENİ: WIN PANELI GÖSTER ---
+            if (UIManager.Instance != null && LevelManager.Instance != null)
+            {
+                int stars = LevelManager.Instance.GetStarCount();
+                UIManager.Instance.ShowWinPanel(stars);
+            }
         }
 
         // --- AUTOMATIC TRANSITION REMOVED Check ---
@@ -162,7 +169,20 @@ public class GameFlowManager : MonoBehaviour
          Time.timeScale = 0f;
 
          // --- MISSION UI REFRESH ---
-         if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
+         if (UIManager.Instance != null) 
+         {
+             UIManager.Instance.RefreshMissionUI();
+             UIManager.Instance.CloseWinPanel(); // Paneli kapat
+         }
+    }
+
+    public void OnWinPanelOkClicked()
+    {
+        // Eğer zaten geçiş aşamasındaysak ve Win panelindeysek
+        if (isLevelCompleteState)
+        {
+            TriggerNextLevel();
+        }
     }
 
     private void AnimateText(Transform target)

@@ -26,6 +26,11 @@ public class UIManager : MonoBehaviour
     [Header("Human Counter")]
     public TextMeshProUGUI humanCounterText;
 
+    [Header("Win Panel")]
+    public GameObject winPanel;
+    public GameObject[] stars; // 3 adet yıldız objesi (indis 0, 1, 2)
+    public UnityEngine.UI.Button winOkButton;
+
     [Header("Mission UI")]
     public GameObject missionPanel;      // The main "Mission" parent object
     public GameObject missionZombieIcon;   // The "zombieicon" object
@@ -139,6 +144,17 @@ public class UIManager : MonoBehaviour
         if (levelShieldButton != null && levelShieldButton.onClick.GetPersistentEventCount() == 0) 
             levelShieldButton.onClick.AddListener(BuyLevelShield);
 
+        // Win Panel OK Button
+        if (winOkButton != null)
+        {
+            winOkButton.onClick.AddListener(() => {
+                if (GameFlowManager.Instance != null) GameFlowManager.Instance.OnWinPanelOkClicked();
+            });
+        }
+
+        // Başlangıçta Win panelini gizle
+        if (winPanel != null) winPanel.SetActive(false);
+
         // Subscribe to events
         if (EconomyManager.Instance != null)
         {
@@ -192,11 +208,12 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    private void UpdateCoinText(int amount)
+    private void UpdateCoinText(float amount)
     {
         if (coinText != null)
         {
-            coinText.text = amount.ToString();
+            // İki ondalık basamak gösteriyoruz (Örn: 0.50)
+            coinText.text = amount.ToString("F2");
         }
     }
 
@@ -346,6 +363,51 @@ public class UIManager : MonoBehaviour
             if (totalSeconds <= 5) timerText.color = Color.red;
             else timerText.color = Color.white;
         }
+    }
+
+    public void ShowWinPanel(int starCount)
+    {
+        if (winPanel == null) return;
+
+        winPanel.SetActive(true);
+
+        // Başlangıçta tüm yıldızları kapat ve scale'lerini sıfırla
+        for (int i = 0; i < stars.Length; i++)
+        {
+            if (stars[i] != null)
+            {
+                stars[i].SetActive(false);
+                stars[i].transform.localScale = Vector3.zero;
+            }
+        }
+
+        // Panel girişi animasyonu
+        winPanel.transform.localScale = Vector3.zero;
+        winPanel.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => {
+            // Panel açıldıktan sonra yıldızları sırayla göster
+            StartCoroutine(AnimateStarsRoutine(starCount));
+        });
+    }
+
+    private System.Collections.IEnumerator AnimateStarsRoutine(int starCount)
+    {
+        for (int i = 0; i < starCount; i++)
+        {
+            if (i < stars.Length && stars[i] != null)
+            {
+                stars[i].SetActive(true);
+                // Her yıldız bir öncekinden biraz sonra ve "Pop" efektiyle gelsin
+                stars[i].transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetUpdate(true);
+                
+                // Yıldızlar arasında küçük bir bekleme (Hypercasual klasiği)
+                yield return new WaitForSecondsRealtime(0.25f);
+            }
+        }
+    }
+    
+    public void CloseWinPanel()
+    {
+        if (winPanel != null) winPanel.SetActive(false);
     }
     
     // --- HORDE BANNER ---

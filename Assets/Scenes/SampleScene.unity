@@ -3039,30 +3039,30 @@ MonoBehaviour:
     insideRadius: 0
     outsideRadius: 0
     uvOffset: {x: 0, y: 0}
-  - skinID: dot
-    displayName: 
-    texture: {fileID: 2800000, guid: 4d307dc99295f90188803192e21556be, type: 3}
-    color: {r: 1, g: 1, b: 1, a: 1}
-    rotationSpeed: 0
-    repeatCount: 0
-    emissionStrength: 0
-    swapUVs: 0
-    usePlanarMapping: 0
-    insideRadius: 0
-    outsideRadius: 0
-    uvOffset: {x: 0, y: 0}
   - skinID: default
     displayName: 
     texture: {fileID: 2800000, guid: 5793edd7c3844912ebf7a1be2050cd69, type: 3}
     color: {r: 1, g: 1, b: 1, a: 1}
     rotationSpeed: 0
-    repeatCount: 0.5
+    repeatCount: 0.55
     emissionStrength: 0
     swapUVs: 0
     usePlanarMapping: 1
     insideRadius: 0
     outsideRadius: 0
-    uvOffset: {x: 0, y: 0.1}
+    uvOffset: {x: 0, y: -0.01}
+  - skinID: wave
+    displayName: 
+    texture: {fileID: 2800000, guid: 6e1cdbe677ee5da6a95f2b68c2536892, type: 3}
+    color: {r: 1, g: 1, b: 1, a: 1}
+    rotationSpeed: 5
+    repeatCount: 1
+    emissionStrength: 0
+    swapUVs: 1
+    usePlanarMapping: 0
+    insideRadius: 0
+    outsideRadius: 0
+    uvOffset: {x: 0, y: 0}
   currentSkinID: default
 --- !u!4 &962236061
 Transform:

@@ -5,7 +5,7 @@ Shader "Custom/HoleHollowRim"
         _Color ("Rim Color", Color) = (1, 1, 1, 1)
         _MainTex ("Skin Texture", 2D) = "white" {}
         _InsideRadius ("Inside Radius", Range(0, 1)) = 0.8
-        _OutsideRadius ("Outside Radius", Range(0, 1)) = 1.0
+        _OutsideRadius ("Outside Radius", Range(0, 2)) = 1.0
         _Softness ("Edge Softness", Range(0, 0.1)) = 0.02
         _RotationSpeed ("Rotation Speed", Float) = 0.0
         _RepeatCount ("Repeat Count", Float) = 1.0
@@ -85,8 +85,8 @@ Shader "Custom/HoleHollowRim"
                     
                     // Rotate and Offset UVs around center (0.5, 0.5)
                     finalUV = mul(rotMat, i.uv - 0.5 - _UVOffset) + 0.5;
-                    // Apply tiling
-                    finalUV = (finalUV - 0.5) * _RepeatCount + 0.5;
+                    // Apply tiling and wrap UVs
+                    finalUV = frac((finalUV - 0.5) * _RepeatCount + 0.5);
                 }
                 else
                 {
@@ -100,6 +100,9 @@ Shader "Custom/HoleHollowRim"
                         finalUV = float2(radialDist, angle * _RepeatCount) + _UVOffset;
                     else
                         finalUV = float2(angle * _RepeatCount, radialDist) + _UVOffset;
+
+                    // Wrap UVs for infinite tiling/rotation
+                    finalUV = frac(finalUV);
                 }
                 
                 fixed4 texCol = tex2D(_MainTex, finalUV);

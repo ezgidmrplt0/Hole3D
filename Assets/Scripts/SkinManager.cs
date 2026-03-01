@@ -28,8 +28,11 @@ public class SkinManager : MonoBehaviour
     [Header("Skin Content")]
     public List<HoleSkin> skins = new List<HoleSkin>();
     public string currentSkinID = "default";
-
+    
+    // ========== PROGRESS & UNLOCKS ==========
     private const string PREF_SKIN_KEY = "SelectedHoleSkin";
+    private const string PREF_SKIN_PROGRESS = "SkinUnlockProgress"; // 0-100
+    private const string PREF_UNLOCKED_SKINS = "UnlockedHoleSkins"; // Comma separated IDs
 
     // Shader Property IDs
     private static readonly int MainTexID = Shader.PropertyToID("_MainTex");
@@ -125,9 +128,66 @@ public class SkinManager : MonoBehaviour
 
     public void SelectSkin(string skinID)
     {
+        if (!IsSkinUnlocked(skinID)) return;
+        
         currentSkinID = skinID;
         PlayerPrefs.SetString(PREF_SKIN_KEY, skinID);
         PlayerPrefs.Save();
         ApplySelectedSkin();
+    }
+
+    // ========== PROGRESS LOGIC ==========
+    public float GetCurrentProgress()
+    {
+        return PlayerPrefs.GetFloat(PREF_SKIN_PROGRESS, 0f);
+    }
+
+    public void AddProgress(float percentage)
+    {
+        float current = GetCurrentProgress();
+        current += percentage;
+        
+        if (current >= 100f)
+        {
+            UnlockNextSkin();
+            current -= 100f; // Reset for next skin
+        }
+        
+        PlayerPrefs.SetFloat(PREF_SKIN_PROGRESS, current);
+        PlayerPrefs.Save();
+    }
+
+    public bool IsSkinUnlocked(string skinID)
+    {
+        // Default skin is always unlocked
+        if (skinID == "default") return true;
+        
+        string unlocked = PlayerPrefs.GetString(PREF_UNLOCKED_SKINS, "default");
+        return unlocked.Contains(skinID);
+    }
+
+    public void UnlockNextSkin()
+    {
+        // Find the first locked skin in the list
+        foreach (var skin in skins)
+        {
+            if (!IsSkinUnlocked(skin.skinID))
+            {
+                UnlockSkin(skin.skinID);
+                return;
+            }
+        }
+    }
+
+    private void UnlockSkin(string skinID)
+    {
+        string unlocked = PlayerPrefs.GetString(PREF_UNLOCKED_SKINS, "default");
+        if (!unlocked.Contains(skinID))
+        {
+            unlocked += "," + skinID;
+            PlayerPrefs.SetString(PREF_UNLOCKED_SKINS, unlocked);
+            PlayerPrefs.Save();
+            Debug.Log($"[SkinManager] NEW SKIN UNLOCKED: {skinID}");
+        }
     }
 }

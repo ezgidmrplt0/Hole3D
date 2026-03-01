@@ -40,6 +40,19 @@ public class UIManager : MonoBehaviour
     private int lastMissionProgress = -1;
     private bool lastMissionCompleted = false;
     
+    [Header("Skin Progress UI")]
+    public UnityEngine.UI.Image skinProgressImage; // The filling image (Filled Type or Shader)
+    public TextMeshProUGUI skinProgressText;      // Percentage text
+    public GameObject skinUnlockedPopup;          // Optional pop-up for 100%
+    
+    [Header("Skin Browser UI (Win Panel)")]
+    public UnityEngine.UI.Button skinBrowserPrevBtn;
+    public UnityEngine.UI.Button skinBrowserNextBtn;
+    public UnityEngine.UI.Button skinBrowserEquipBtn;
+    public TextMeshProUGUI skinBrowserEquipText;  // Text on the button (Equip/Equipped/Locked)
+    
+    private int browserSkinIndex = 0;
+    
     [Header("Rewards")]
     public Sprite coinSprite;
     public GameObject coinFlyPrefab; // Optional: If user wants a specific prefab, otherwise we'll create one.
@@ -151,6 +164,11 @@ public class UIManager : MonoBehaviour
                 if (GameFlowManager.Instance != null) GameFlowManager.Instance.OnWinPanelOkClicked();
             });
         }
+
+        // --- SKIN BROWSER LISTENERS ---
+        if (skinBrowserPrevBtn != null) skinBrowserPrevBtn.onClick.AddListener(ShowPrevSkin);
+        if (skinBrowserNextBtn != null) skinBrowserNextBtn.onClick.AddListener(ShowNextSkin);
+        if (skinBrowserEquipBtn != null) skinBrowserEquipBtn.onClick.AddListener(EquipBrowserSkin);
 
         // Başlangıçta Win panelini gizle
         if (winPanel != null) winPanel.SetActive(false);
@@ -383,6 +401,34 @@ public class UIManager : MonoBehaviour
 
         // Panel girişi animasyonu
         winPanel.transform.localScale = Vector3.zero;
+        
+        // --- INITIALIZE SKIN PROGRESS ---
+        if (SkinManager.Instance != null && skinProgressImage != null)
+        {
+            float currentVal = SkinManager.Instance.GetCurrentProgress();
+            
+            // Shader desteği kontrolü
+            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            {
+                skinProgressImage.material.SetFloat("_FillAmount", currentVal / 100f);
+            }
+            else
+            {
+                skinProgressImage.fillAmount = currentVal / 100f;
+            }
+            
+            if (skinProgressText != null) skinProgressText.text = $"%{(int)currentVal}";
+        }
+        if (skinUnlockedPopup != null) skinUnlockedPopup.SetActive(false);
+        
+        // Sync browser index with current skin
+        if (SkinManager.Instance != null)
+        {
+            browserSkinIndex = SkinManager.Instance.skins.FindIndex(s => s.skinID == SkinManager.Instance.currentSkinID);
+            if (browserSkinIndex < 0) browserSkinIndex = 0;
+            UpdateSkinBrowserUI();
+        }
+
         winPanel.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => {
             // Panel açıldıktan sonra yıldızları sırayla göster
             StartCoroutine(AnimateStarsRoutine(starCount));
@@ -402,6 +448,147 @@ public class UIManager : MonoBehaviour
                 // Yıldızlar arasında küçük bir bekleme (Hypercasual klasiği)
                 yield return new WaitForSecondsRealtime(0.25f);
             }
+        }
+
+        // Yıldızlar bittikten sonra Skin Progress animasyonunu başlat
+        yield return new WaitForSecondsRealtime(0.5f);
+        yield return StartCoroutine(AnimateSkinProgressRoutine(starCount));
+    }
+    
+    private System.Collections.IEnumerator AnimateSkinProgressRoutine(int starCount)
+    {
+        if (SkinManager.Instance == null || skinProgressImage == null) yield break;
+
+        float startProgress = SkinManager.Instance.GetCurrentProgress();
+        float addedProgress = starCount * 10f; // Her yıldız %10
+        float targetProgress = startProgress + addedProgress;
+
+        float displayProgress = startProgress;
+        
+        // DOTween ile barı ve texti oynat
+        // Not: Eğer 100'ü geçerse, iki aşamalı animasyon gerekebilir (Dol -> Reset -> Tekrar dol)
+        // Ama şimdilik basit tutalım: 0-100 arası dolsun.
+        
+        float duration = 1.0f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = elapsed / duration;
+            
+            float currentVal = Mathf.Lerp(startProgress, targetProgress, t);
+            
+            // UI Güncelle
+            float fillAmount = (currentVal % 100f) / 100f;
+            if (currentVal >= 100f && startProgress < 100f && fillAmount < 0.01f) fillAmount = 1f;
+
+            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            {
+                skinProgressImage.material.SetFloat("_FillAmount", fillAmount);
+            }
+            else
+            {
+                skinProgressImage.fillAmount = fillAmount;
+            }
+
+            if (skinProgressText != null) skinProgressText.text = $"%{(int)currentVal}";
+
+            yield return null;
+        }
+
+        // Final değerleri set et ve Manager'a bildir
+        SkinManager.Instance.AddProgress(addedProgress);
+        
+        float finalProgress = SkinManager.Instance.GetCurrentProgress();
+        skinProgressImage.fillAmount = finalProgress / 100f;
+        if (skinProgressText != null) skinProgressText.text = $"%{(int)finalProgress}";
+
+        // %100 olduysa Pop-up göster (Basit bir görsel efekt)
+        if (targetProgress >= 100f)
+        {
+            if (skinUnlockedPopup != null)
+            {
+                skinUnlockedPopup.SetActive(true);
+                skinUnlockedPopup.transform.localScale = Vector3.zero;
+                skinUnlockedPopup.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true);
+            }
+            
+            // Skill Manager'da zaten UnlockNextSkin çağrıldı AddProgress içinde.
+            Debug.Log("[UIManager] SKIN UNLOCKED EFFECT!");
+            
+            // UI'ı tazele (Yeni skin açılmış olabilir)
+            UpdateSkinBrowserUI();
+        }
+    }
+
+    // ========== SKIN BROWSER LOGIC ==========
+    public void ShowNextSkin()
+    {
+        if (SkinManager.Instance == null || SkinManager.Instance.skins.Count == 0) return;
+        browserSkinIndex = (browserSkinIndex + 1) % SkinManager.Instance.skins.Count;
+        UpdateSkinBrowserUI();
+    }
+
+    public void ShowPrevSkin()
+    {
+        if (SkinManager.Instance == null || SkinManager.Instance.skins.Count == 0) return;
+        browserSkinIndex--;
+        if (browserSkinIndex < 0) browserSkinIndex = SkinManager.Instance.skins.Count - 1;
+        UpdateSkinBrowserUI();
+    }
+
+    public void UpdateSkinBrowserUI()
+    {
+        if (SkinManager.Instance == null || SkinManager.Instance.skins.Count == 0) return;
+
+        var skin = SkinManager.Instance.skins[browserSkinIndex];
+        bool isUnlocked = SkinManager.Instance.IsSkinUnlocked(skin.skinID);
+        bool isEquipped = skin.skinID == SkinManager.Instance.currentSkinID;
+
+        // Preview Texture
+        if (skinProgressImage != null && skin.texture != null)
+        {
+            // Note: Skin textures are usually mapped to sprites for UI
+            skinProgressImage.sprite = Sprite.Create(skin.texture, new Rect(0, 0, skin.texture.width, skin.texture.height), new Vector2(0.5f, 0.5f));
+            
+            // Shader effect logic: 
+            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            {
+                // In browser mode, if unlocked, show full color.
+                skinProgressImage.material.SetFloat("_FillAmount", isUnlocked ? 1f : 0f);
+            }
+        }
+
+        // Button State
+        if (skinBrowserEquipBtn != null)
+        {
+            if (isEquipped)
+            {
+                skinBrowserEquipBtn.interactable = false;
+                if (skinBrowserEquipText != null) skinBrowserEquipText.text = "EQUIPPED";
+            }
+            else if (isUnlocked)
+            {
+                skinBrowserEquipBtn.interactable = true;
+                if (skinBrowserEquipText != null) skinBrowserEquipText.text = "EQUIP";
+            }
+            else
+            {
+                skinBrowserEquipBtn.interactable = false;
+                if (skinBrowserEquipText != null) skinBrowserEquipText.text = "LOCKED";
+            }
+        }
+    }
+
+    public void EquipBrowserSkin()
+    {
+        if (SkinManager.Instance == null) return;
+        var skin = SkinManager.Instance.skins[browserSkinIndex];
+        if (SkinManager.Instance.IsSkinUnlocked(skin.skinID))
+        {
+            SkinManager.Instance.SelectSkin(skin.skinID);
+            UpdateSkinBrowserUI();
         }
     }
     

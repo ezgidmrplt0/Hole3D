@@ -351,6 +351,16 @@ public class HoleMechanics : MonoBehaviour
 
     public void PlayEatEffect(Vector3 pos, Color color)
     {
+        // --- NaN/INFINITY PROTECTION ---
+        if (float.IsNaN(pos.x) || float.IsNaN(pos.y) || float.IsNaN(pos.z) || 
+            float.IsInfinity(pos.x) || float.IsInfinity(pos.y) || float.IsInfinity(pos.z))
+        {
+            #if UNITY_EDITOR
+            Debug.LogWarning("HoleMechanics: PlayEatEffect called with invalid position. Skipping.");
+            #endif
+            return;
+        }
+
         if (eatVFX != null)
         {
             eatVFX.transform.position = pos;
@@ -704,22 +714,25 @@ public class HoleMechanics : MonoBehaviour
             Vector3 diff = centerBottom - vTransform.position;
             
             // --- INFINITE FORCE KORUMASI ---
-            // Eğer mesafe çok küçükse veya NaN ise, direction sıfırla
             float dist = diff.magnitude;
-            Vector3 direction = Vector3.down; // Varsayılan
-            if (dist > 0.01f && !float.IsNaN(dist) && !float.IsInfinity(dist))
-            {
-                direction = diff / dist; // normalized
-            }
             
-            // Rigidbody hala geçerli mi kontrol et
-            if (rb != null && !float.IsNaN(direction.x))
+            // Eğer mesafe çok küçükse veya NaN ise, direction sıfırla
+            if (dist < 0.001f || !float.IsFinite(dist))
             {
-                // Güçlü Çekim - MOBİL FIX: fixedDeltaTime kullan (frame rate bağımsız)
-                // Not: Coroutine içinde olduğumuz için Time.fixedDeltaTime yerine sabit değer kullanıyoruz
-                float fixedDt = 0.02f; // Unity default fixed timestep
-                rb.AddForce(direction * pullForce * fixedDt * 60f, ForceMode.Acceleration);
-                rb.AddTorque(Vector3.up * rotationSpeed * fixedDt, ForceMode.Force);
+                // Zaten merkezdeyiz veya geçersiz konum, sadece aşağı it
+                if (rb != null) rb.AddForce(Vector3.down * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
+            }
+            else
+            {
+                Vector3 direction = diff / dist; // safe normalized
+                
+                // Rigidbody hala geçerli mi kontrol et
+                if (rb != null && float.IsFinite(direction.x) && float.IsFinite(direction.y) && float.IsFinite(direction.z))
+                {
+                    // Güçlü Çekim - MOBİL FIX: Time.deltaTime kullan
+                    rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
+                    rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
+                }
             }
 
             // Çukurun dibine yaklaştı mı?
@@ -1087,7 +1100,11 @@ public class HoleMechanics : MonoBehaviour
                     float distanceFactor = 1f - (dist / repelRadius);
                     float actualForce = repelForce * distanceFactor;
                     
-                    targetRb.AddForce(direction * actualForce, ForceMode.Acceleration);
+                    // --- SAFETY CHECK ---
+                    if (float.IsFinite(direction.x) && float.IsFinite(actualForce))
+                    {
+                        targetRb.AddForce(direction * actualForce * Time.deltaTime * 60f, ForceMode.Acceleration);
+                    }
                 }
             }
         }
@@ -1205,13 +1222,17 @@ public class HoleMechanics : MonoBehaviour
                     Vector3 direction = diff / dist;
                     direction.y = 0; // Keep pull horizontal, gravity handles falling
 
-                    // Pull towards hole center - GÜÇLÜ ÇEKİŞ
-                    // VelocityChange kütleyi yoksayar ve anlık etki eder. 
-                    // 500f Force, VelocityChange için çok yüksek olduğundan 0.1 ile çarpıyoruz (50 birim hız).
-                    targetRb.AddForce(direction * (force * 0.1f), ForceMode.VelocityChange);
-                    
-                    // Draw debug line to confirm lock-on
-                    Debug.DrawLine(transform.position, col.transform.position, Color.cyan);
+                    // --- SAFETY CHECK ---
+                    if (float.IsFinite(direction.x) && float.IsFinite(force))
+                    {
+                        // Pull towards hole center - GÜÇLÜ ÇEKİŞ
+                        // CRITICAL: Bu Update içinde çağrıldığı için VelocityChange ÇOK tehlikelidir.
+                        // Acceleration moduna geçiyoruz ve delta time ile çarpıyoruz.
+                        targetRb.AddForce(direction * force * Time.deltaTime * 60f, ForceMode.Acceleration);
+                        
+                        // Draw debug line to confirm lock-on
+                        Debug.DrawLine(transform.position, col.transform.position, Color.cyan);
+                    }
                 }
             }
         }

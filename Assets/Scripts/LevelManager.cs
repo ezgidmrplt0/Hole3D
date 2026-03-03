@@ -52,6 +52,7 @@ public class LevelManager : MonoBehaviour
     public float defaultLevelTime = 60f;
     public float currentLevelTimeRemaining;
     private float initialLevelTime; // Yıldız hesaplaması için lazım
+    private float performanceRemainingTime; // Fever başlamadan önceki asıl süre (Yıldız hesabı için)
     
     [Header("Human Limit Settings")]
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
@@ -259,6 +260,7 @@ public class LevelManager : MonoBehaviour
             
             // Set Timer for Special Level
             currentLevelTimeRemaining = defaultLevelTime;
+            initialLevelTime = currentLevelTimeRemaining; // EKLENDİ: Yıldız hesabı için başlangıç süresini kaydet
             if (UIManager.Instance != null) UIManager.Instance.UpdateTimer(currentLevelTimeRemaining);
             
             isCurrentLevelSpecial = true; // Flag set
@@ -647,7 +649,8 @@ public class LevelManager : MonoBehaviour
     {
         if (initialLevelTime <= 0) return 3; // Güvenlik
 
-        float ratio = currentLevelTimeRemaining / initialLevelTime;
+        // Fever mode timer'ı ezdiği için, fever başlamadan hemen önce kaydettiğimiz performanceRemainingTime'ı kullanıyoruz.
+        float ratio = performanceRemainingTime / initialLevelTime;
         
         // Örnek Mantık:
         // %60+ süre kaldıysa -> 3 Yıldız
@@ -676,8 +679,13 @@ public class LevelManager : MonoBehaviour
     private System.Collections.IEnumerator FeverSequenceRoutine()
     {
         isFeverSequenceActive = true;
+        
+        // --- PERFORMANCE CAPTURE FOR STARS ---
+        // Timer Fever modda overwrite edilmeden önce mevcut süreyi yıldız hesabı için kaydet.
+        performanceRemainingTime = currentLevelTimeRemaining;
+
 #if UNITY_EDITOR
-             Debug.Log("Level Quota Met! Starting FEVER MODE.");
+             Debug.Log($"Level Quota Met! Performance Time: {performanceRemainingTime}. Starting FEVER MODE.");
 #endif
 
         // --- SPECIAL LEVEL LOGIC: EAT EVERYTHING SPAWN ---

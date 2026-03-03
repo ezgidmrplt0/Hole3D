@@ -9,7 +9,6 @@ public class GameFlowManager : MonoBehaviour
     [Header("UI References")]
     public GameObject tapToPlayPanel;
     public Transform tapToPlayText; // Text'in transformu (Scale efekti için)
-    public Transform tapToNextLevelText; // Level geçiş yazısı
     public Transform tapToRetryText; // Retry yazısı
     
     [Header("Market UI")]
@@ -47,7 +46,6 @@ public class GameFlowManager : MonoBehaviour
 
             // Initial State: Sadece TapToPlay açık olsun
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
-            if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
             
             // Show Market
             if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
@@ -71,29 +69,20 @@ public class GameFlowManager : MonoBehaviour
         // Oyun başlamadıysa ve tıklandıysa
         if (!IsGameActive)
         {
+            // Win veya Lose panelleri açıksa (Transitioning durumundaysak), ekrana tıklanmasını yoksay.
+            // Sadece butonlar (OnWinPanelOkClicked, OnLosePanelOkClicked) çalışmalı.
+            if (IsLevelTransitioning) return;
+
             // Eğer bir UI elemanına (Buton, Panel vs.) tıklanıyorsa oyunu başlatma!
-            // ANCAK Level Geçişi sırasındaysak, UI (Text) üzerine tıklamayı kabul etmeliyiz
-            if (!IsLevelTransitioning && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
+            if (UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject()) return;
 
             // Mobil için
-            if (!IsLevelTransitioning && Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
+            if (Input.touchCount > 0 && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject(Input.GetTouch(0).fingerId)) return;
 
             if (Input.GetMouseButtonDown(0))
             {
-                if (isLevelCompleteState)
-                {
-                    // Manual Transition (Skip Timer)
-                    CancelInvoke(nameof(TriggerNextLevel));
-                    TriggerNextLevel();
-                }
-                else if (isRetryState)
-                {
-                    RestartLevel();
-                }
-                else
-                {
-                    StartGame();
-                }
+                // Normal "Tap to Play" başlangıcı
+                StartGame();
             }
         }
     }
@@ -119,11 +108,6 @@ public class GameFlowManager : MonoBehaviour
 
             // Yazıları Değiştir
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
-            if (tapToNextLevelText != null) 
-            {
-                tapToNextLevelText.gameObject.SetActive(true);
-                AnimateText(tapToNextLevelText);
-            }
 
             // --- YENİ: WIN PANELI GÖSTER ---
             if (UIManager.Instance != null && LevelManager.Instance != null)
@@ -151,7 +135,6 @@ public class GameFlowManager : MonoBehaviour
          // Reset UI
          if (tapToPlayPanel != null) tapToPlayPanel.SetActive(true);
          if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(true);
-         if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false); 
          
          // Show Market
          if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
@@ -182,6 +165,19 @@ public class GameFlowManager : MonoBehaviour
         if (isLevelCompleteState)
         {
             TriggerNextLevel();
+        }
+    }
+
+    public void OnLosePanelOkClicked()
+    {
+        if (isRetryState)
+        {
+            RestartLevel();
+            
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.CloseLosePanel();
+            }
         }
     }
 
@@ -224,18 +220,20 @@ public class GameFlowManager : MonoBehaviour
 
         if (tapToPlayPanel != null)
         {
-            tapToPlayPanel.SetActive(true);
+            // tapToPlayPanel.SetActive(true); // Artık tam panel (LosePanel) açıyoruz
             if (tapToPlayText != null) tapToPlayText.gameObject.SetActive(false);
-            if (tapToNextLevelText != null) tapToNextLevelText.gameObject.SetActive(false);
             
             // Show Market
             // Hide Market (User request: Don't show in Retry Panel)
             if (levelMarketPanel != null) levelMarketPanel.SetActive(false);
             
-            if (tapToRetryText != null) 
+            // Eski retry yazısını kapat (Artık panel var)
+            if (tapToRetryText != null) tapToRetryText.gameObject.SetActive(false);
+
+            // --- YENİ: LOSE PANELI GÖSTER ---
+            if (UIManager.Instance != null)
             {
-                tapToRetryText.gameObject.SetActive(true);
-                AnimateText(tapToRetryText);
+                UIManager.Instance.ShowLosePanel();
             }
         }
     }
@@ -284,7 +282,6 @@ public class GameFlowManager : MonoBehaviour
         
         // Tween'leri temizle (Performans için)
         if (tapToPlayText != null) tapToPlayText.DOKill();
-        if (tapToNextLevelText != null) tapToNextLevelText.DOKill();
         if (tapToRetryText != null) tapToRetryText.DOKill();
 
         Time.timeScale = 1f; // Zamanı başlat

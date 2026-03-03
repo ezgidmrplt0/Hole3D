@@ -31,6 +31,11 @@ public class UIManager : MonoBehaviour
     public GameObject[] stars; // 3 adet yıldız objesi (indis 0, 1, 2)
     public UnityEngine.UI.Button winOkButton;
 
+    [Header("Lose Panel (Retry)")]
+    public GameObject losePanel;
+    public GameObject[] loseStars; // 3 adet (isteğe bağlı gri yıldızlar)
+    public UnityEngine.UI.Button loseOkButton;
+
     [Header("Mission UI")]
     public GameObject missionPanel;      // The main "Mission" parent object
     public GameObject missionZombieIcon;   // The "zombieicon" object
@@ -40,9 +45,10 @@ public class UIManager : MonoBehaviour
     private int lastMissionProgress = -1;
     private bool lastMissionCompleted = false;
     
-    [Header("Skin Progress UI")]
-    public UnityEngine.UI.Image skinProgressImage; // The filling image (Filled Type or Shader)
-    public TextMeshProUGUI skinProgressText;      // Percentage text
+    [Header("Skin Progress UI (Rewards)")]
+    public UnityEngine.UI.Image giftBoxImage;     // The top gift box that fills up
+    public UnityEngine.UI.Image skinPreviewImage; // The bottom skin preview in browser
+    public TextMeshProUGUI skinProgressText;      // Percentage text (optional, could be on gift box)
     public GameObject skinUnlockedPopup;          // Optional pop-up for 100%
     
     [Header("Skin Browser UI (Win Panel)")]
@@ -52,6 +58,8 @@ public class UIManager : MonoBehaviour
     public TextMeshProUGUI skinBrowserEquipText;  // Text on the button (Equip/Equipped/Locked)
     
     private int browserSkinIndex = 0;
+    private float lastAnimateStartProgress = 0f;
+    private float lastAnimateAddedProgress = 0f;
     
     [Header("Rewards")]
     public Sprite coinSprite;
@@ -165,13 +173,22 @@ public class UIManager : MonoBehaviour
             });
         }
 
+        // Lose Panel OK Button
+        if (loseOkButton != null)
+        {
+            loseOkButton.onClick.AddListener(() => {
+                if (GameFlowManager.Instance != null) GameFlowManager.Instance.OnLosePanelOkClicked();
+            });
+        }
+
         // --- SKIN BROWSER LISTENERS ---
         if (skinBrowserPrevBtn != null) skinBrowserPrevBtn.onClick.AddListener(ShowPrevSkin);
         if (skinBrowserNextBtn != null) skinBrowserNextBtn.onClick.AddListener(ShowNextSkin);
         if (skinBrowserEquipBtn != null) skinBrowserEquipBtn.onClick.AddListener(EquipBrowserSkin);
 
-        // Başlangıçta Win panelini gizle
+        // Başlangıçta Win/Lose panellerini gizle
         if (winPanel != null) winPanel.SetActive(false);
+        if (losePanel != null) losePanel.SetActive(false);
 
         // Subscribe to events
         if (EconomyManager.Instance != null)
@@ -402,19 +419,23 @@ public class UIManager : MonoBehaviour
         // Panel girişi animasyonu
         winPanel.transform.localScale = Vector3.zero;
         
-        // --- INITIALIZE SKIN PROGRESS ---
-        if (SkinManager.Instance != null && skinProgressImage != null)
+        // --- INITIALIZE GIFT BOX PROGRESS ---
+        if (SkinManager.Instance != null && giftBoxImage != null)
         {
             float currentVal = SkinManager.Instance.GetCurrentProgress();
             
-            // Shader desteği kontrolü
-            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            // Shader supports "_FillAmount"
+            if (giftBoxImage.material != null)
             {
-                skinProgressImage.material.SetFloat("_FillAmount", currentVal / 100f);
+                if (giftBoxImage.material.HasProperty("_FillAmount"))
+                    giftBoxImage.material.SetFloat("_FillAmount", currentVal / 100f);
+                
+                if (giftBoxImage.material.HasProperty("_GrayscaleAmount"))
+                    giftBoxImage.material.SetFloat("_GrayscaleAmount", 0f);
             }
             else
             {
-                skinProgressImage.fillAmount = currentVal / 100f;
+                giftBoxImage.fillAmount = currentVal / 100f;
             }
             
             if (skinProgressText != null) skinProgressText.text = $"%{(int)currentVal}";
@@ -430,45 +451,81 @@ public class UIManager : MonoBehaviour
         }
 
         winPanel.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => {
+            // --- SAVE PROGRESS IMMEDIATELY ---
+            if (SkinManager.Instance != null)
+            {
+                lastAnimateStartProgress = SkinManager.Instance.GetCurrentProgress();
+                lastAnimateAddedProgress = starCount * 10f;
+                SkinManager.Instance.AddProgress(lastAnimateAddedProgress);
+            }
+
             // Panel açıldıktan sonra yıldızları sırayla göster
-            StartCoroutine(AnimateStarsRoutine(starCount));
+            StartCoroutine(AnimateStarsRoutine(stars, starCount));
         });
     }
 
-    private System.Collections.IEnumerator AnimateStarsRoutine(int starCount)
+    public void ShowLosePanel()
     {
-        for (int i = 0; i < starCount; i++)
+        if (losePanel == null) return;
+
+        losePanel.SetActive(true);
+
+        // Başlangıçta tüm yıldızları kapat ve scale'lerini sıfırla
+        if (loseStars != null)
         {
-            if (i < stars.Length && stars[i] != null)
+            for (int i = 0; i < loseStars.Length; i++)
             {
-                stars[i].SetActive(true);
-                // Her yıldız bir öncekinden biraz sonra ve "Pop" efektiyle gelsin
-                stars[i].transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetUpdate(true);
-                
-                // Yıldızlar arasında küçük bir bekleme (Hypercasual klasiği)
-                yield return new WaitForSecondsRealtime(0.25f);
+                if (loseStars[i] != null)
+                {
+                    loseStars[i].SetActive(false);
+                    loseStars[i].transform.localScale = Vector3.zero;
+                }
             }
         }
 
-        // Yıldızlar bittikten sonra Skin Progress animasyonunu başlat
+        // Panel girişi animasyonu
+        losePanel.transform.localScale = Vector3.zero;
+        losePanel.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true).OnComplete(() => {
+            // Lose panelinde 0 yıldız gösteriyoruz (ama efektle gelsinler derseniz 0-3 arası verilebilir)
+            StartCoroutine(AnimateStarsRoutine(loseStars, 0));
+        });
+    }
+
+    private System.Collections.IEnumerator AnimateStarsRoutine(GameObject[] starArray, int starCount)
+    {
+        if (starArray == null) yield break;
+
+        for (int i = 0; i < starArray.Length; i++)
+        {
+            // starCount'a kadar aktif et. 
+            // Eğer starCount 0 ise (Lose panel gibi), hiçbir yıldızı pop yapma.
+            if (starCount > 0 && i < starCount)
+            {
+                if (starArray[i] != null)
+                {
+                    starArray[i].SetActive(true);
+                    starArray[i].transform.DOScale(Vector3.one, 0.4f).SetEase(Ease.OutBack).SetUpdate(true);
+                    yield return new WaitForSecondsRealtime(0.25f);
+                }
+            }
+        }
+
+        // Yıldızlar bittikten sonra Skin Progress animasyonunu başlat (SADECE WIN PANELINDE)
         yield return new WaitForSecondsRealtime(0.5f);
-        yield return StartCoroutine(AnimateSkinProgressRoutine(starCount));
+        if (winPanel != null && winPanel.activeInHierarchy)
+        {
+            yield return StartCoroutine(AnimateSkinProgressRoutine(starCount));
+        }
     }
     
     private System.Collections.IEnumerator AnimateSkinProgressRoutine(int starCount)
     {
-        if (SkinManager.Instance == null || skinProgressImage == null) yield break;
+        if (SkinManager.Instance == null || giftBoxImage == null) yield break;
 
-        float startProgress = SkinManager.Instance.GetCurrentProgress();
-        float addedProgress = starCount * 10f; // Her yıldız %10
+        float startProgress = lastAnimateStartProgress;
+        float addedProgress = lastAnimateAddedProgress;
         float targetProgress = startProgress + addedProgress;
 
-        float displayProgress = startProgress;
-        
-        // DOTween ile barı ve texti oynat
-        // Not: Eğer 100'ü geçerse, iki aşamalı animasyon gerekebilir (Dol -> Reset -> Tekrar dol)
-        // Ama şimdilik basit tutalım: 0-100 arası dolsun.
-        
         float duration = 1.0f;
         float elapsed = 0f;
 
@@ -479,17 +536,18 @@ public class UIManager : MonoBehaviour
             
             float currentVal = Mathf.Lerp(startProgress, targetProgress, t);
             
-            // UI Güncelle
+            // Update UI
             float fillAmount = (currentVal % 100f) / 100f;
+            // Handle edge case where it hits 100 and might reset to 0 in display
             if (currentVal >= 100f && startProgress < 100f && fillAmount < 0.01f) fillAmount = 1f;
 
-            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            if (giftBoxImage.material != null && giftBoxImage.material.HasProperty("_FillAmount"))
             {
-                skinProgressImage.material.SetFloat("_FillAmount", fillAmount);
+                giftBoxImage.material.SetFloat("_FillAmount", fillAmount);
             }
             else
             {
-                skinProgressImage.fillAmount = fillAmount;
+                giftBoxImage.fillAmount = fillAmount;
             }
 
             if (skinProgressText != null) skinProgressText.text = $"%{(int)currentVal}";
@@ -497,11 +555,14 @@ public class UIManager : MonoBehaviour
             yield return null;
         }
 
-        // Final değerleri set et ve Manager'a bildir
-        SkinManager.Instance.AddProgress(addedProgress);
-        
+        // Apply final values (Note: PlayerPrefs already updated in ShowWinPanel)
         float finalProgress = SkinManager.Instance.GetCurrentProgress();
-        skinProgressImage.fillAmount = finalProgress / 100f;
+        
+        if (giftBoxImage.material != null && giftBoxImage.material.HasProperty("_FillAmount"))
+            giftBoxImage.material.SetFloat("_FillAmount", finalProgress / 100f);
+        else
+            giftBoxImage.fillAmount = finalProgress / 100f;
+
         if (skinProgressText != null) skinProgressText.text = $"%{(int)finalProgress}";
 
         // %100 olduysa Pop-up göster (Basit bir görsel efekt)
@@ -514,7 +575,6 @@ public class UIManager : MonoBehaviour
                 skinUnlockedPopup.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack).SetUpdate(true);
             }
             
-            // Skill Manager'da zaten UnlockNextSkin çağrıldı AddProgress içinde.
             Debug.Log("[UIManager] SKIN UNLOCKED EFFECT!");
             
             // UI'ı tazele (Yeni skin açılmış olabilir)
@@ -547,16 +607,23 @@ public class UIManager : MonoBehaviour
         bool isEquipped = skin.skinID == SkinManager.Instance.currentSkinID;
 
         // Preview Texture
-        if (skinProgressImage != null && skin.texture != null)
+        if (skinPreviewImage != null && skin.texture != null)
         {
-            // Note: Skin textures are usually mapped to sprites for UI
-            skinProgressImage.sprite = Sprite.Create(skin.texture, new Rect(0, 0, skin.texture.width, skin.texture.height), new Vector2(0.5f, 0.5f));
+            skinPreviewImage.sprite = Sprite.Create(skin.texture, new Rect(0, 0, skin.texture.width, skin.texture.height), new Vector2(0.5f, 0.5f));
             
-            // Shader effect logic: 
-            if (skinProgressImage.material != null && skinProgressImage.material.HasProperty("_FillAmount"))
+            // Grayscale logic: If locked, set grayscale to 1.
+            if (skinPreviewImage.material != null)
             {
-                // In browser mode, if unlocked, show full color.
-                skinProgressImage.material.SetFloat("_FillAmount", isUnlocked ? 1f : 0f);
+                if (skinPreviewImage.material.HasProperty("_GrayscaleAmount"))
+                {
+                    skinPreviewImage.material.SetFloat("_GrayscaleAmount", isUnlocked ? 0f : 1f);
+                }
+                
+                // Also ensure fill amount is 1 for the preview (so we see the full texture)
+                if (skinPreviewImage.material.HasProperty("_FillAmount"))
+                {
+                    skinPreviewImage.material.SetFloat("_FillAmount", 1f); 
+                }
             }
         }
 
@@ -595,6 +662,11 @@ public class UIManager : MonoBehaviour
     public void CloseWinPanel()
     {
         if (winPanel != null) winPanel.SetActive(false);
+    }
+    
+    public void CloseLosePanel()
+    {
+        if (losePanel != null) losePanel.SetActive(false);
     }
     
     // --- HORDE BANNER ---

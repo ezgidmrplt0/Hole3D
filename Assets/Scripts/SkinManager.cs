@@ -147,7 +147,7 @@ public class SkinManager : MonoBehaviour
         float current = GetCurrentProgress();
         current += percentage;
         
-        if (current >= 100f)
+        while (current >= 100f)
         {
             UnlockNextSkin();
             current -= 100f; // Reset for next skin
@@ -163,7 +163,14 @@ public class SkinManager : MonoBehaviour
         if (skinID == "default") return true;
         
         string unlocked = PlayerPrefs.GetString(PREF_UNLOCKED_SKINS, "default");
-        return unlocked.Contains(skinID);
+        string[] unlockedList = unlocked.Split(',');
+        
+        foreach (string id in unlockedList)
+        {
+            if (id == skinID) return true;
+        }
+        
+        return false;
     }
 
     public void UnlockNextSkin()
@@ -181,13 +188,12 @@ public class SkinManager : MonoBehaviour
 
     private void UnlockSkin(string skinID)
     {
+        if (IsSkinUnlocked(skinID)) return;
+
         string unlocked = PlayerPrefs.GetString(PREF_UNLOCKED_SKINS, "default");
-        if (!unlocked.Contains(skinID))
-        {
-            unlocked += "," + skinID;
-            PlayerPrefs.SetString(PREF_UNLOCKED_SKINS, unlocked);
-            PlayerPrefs.Save();
-            Debug.Log($"[SkinManager] NEW SKIN UNLOCKED: {skinID}");
-        }
+        unlocked += "," + skinID;
+        PlayerPrefs.SetString(PREF_UNLOCKED_SKINS, unlocked);
+        PlayerPrefs.Save();
+        Debug.Log($"[SkinManager] NEW SKIN UNLOCKED: {skinID}");
     }
 }

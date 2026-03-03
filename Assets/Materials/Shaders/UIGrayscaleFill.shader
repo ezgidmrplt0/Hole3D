@@ -91,14 +91,19 @@ Shader "UI/GrayscaleFill"
                 
                 // Grayscale calculation
                 float gray = dot(col.rgb, float3(0.299, 0.587, 0.114));
-                fixed3 grayCol = lerp(col.rgb, fixed3(gray, gray, gray), _GrayscaleAmount);
+                fixed3 grayCol = fixed3(gray, gray, gray);
                 
                 // Check if current pixel is within fill amount (Horizontal Left to Right)
                 if (IN.texcoord.x > _FillAmount)
                 {
-                    // Exterior (Empty) area
+                    // Exterior (Empty) area: Always grayscale and semi-transparent
                     col.rgb = grayCol;
                     col.a *= _AlphaEmpty; 
+                }
+                else
+                {
+                    // Interior (Filled) area: Lerp between color and grayscale based on _GrayscaleAmount
+                    col.rgb = lerp(col.rgb, grayCol, _GrayscaleAmount);
                 }
                 
                 // Unity UI standard clipping/masking

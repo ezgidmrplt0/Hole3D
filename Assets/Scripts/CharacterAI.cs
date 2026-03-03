@@ -166,9 +166,16 @@ public class CharacterAI : MonoBehaviour
         // 1. Invalid Position Check
         if (IsPositionInvalid(transform.position))
         {
-             Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting.");
-             transform.position = new Vector3(0, expectedGroundY + 0.1f, 0);
-             if (rb != null) rb.velocity = Vector3.zero;
+             #if UNITY_EDITOR
+             Debug.LogWarning($"{gameObject.name} panicked (Invalid Position)! Resetting to origin.");
+             #endif
+             transform.position = new Vector3(0, expectedGroundY + 1.0f, 0);
+             if (rb != null) 
+             {
+                 rb.velocity = Vector3.zero;
+                 rb.angularVelocity = Vector3.zero;
+             }
+             return; // Skip rest of update
         }
 
         // 2. FALLING CHECK (Yere Düşme Koruması)
@@ -262,7 +269,7 @@ public class CharacterAI : MonoBehaviour
 
     private bool IsPositionInvalid(Vector3 pos)
     {
-        return pos.sqrMagnitude > 1000000f || float.IsNaN(pos.x) || float.IsNaN(pos.y) || float.IsNaN(pos.z);
+        return !float.IsFinite(pos.x) || !float.IsFinite(pos.y) || !float.IsFinite(pos.z) || pos.sqrMagnitude > 100000000f;
     }
     
     private void DetectGroundLevel()

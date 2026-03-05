@@ -446,6 +446,7 @@ public class HoleMechanics : MonoBehaviour
     [Header("Fever Mode")]
     public bool isFeverMode = false;
     private Vector3 preFeverScale;
+    // Fever combo counter (tracked during fever mode)
     private int feverComboCount = 0;
 
     public void ActivateFeverMode(float duration, System.Action onComplete)

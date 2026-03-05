@@ -58,6 +58,7 @@ public class LevelManager : MonoBehaviour
     public int totalHumansInLevel = 0; // Level'da toplam kaç insan var
     public int currentHumansRemaining = 0; // Kalan insan sayısı
     public int currentHumansEaten = 0; // Hole tarafından yenilen (fail condition için)
+    private float levelStartRealtime = 0f; // Restart sonrası eski callback'lerin fail tetiklemesini engeller
     
     // Normal level index (horde levellar bu sayacı artırmaz)
     public int normalLevelIndex = 0;
@@ -199,6 +200,14 @@ public class LevelManager : MonoBehaviour
             Debug.LogWarning("LevelManager: No levels defined!");
             return;
         }
+
+        // Level/retry başlangıcında kritik sayaçları hemen sıfırla.
+        // Mobilde Destroy gecikmesiyle gelen eski callback'ler bu sayede tekrar Lose açamaz.
+        levelStartRealtime = Time.realtimeSinceStartup;
+        totalHumansInLevel = 0;
+        currentHumansRemaining = 0;
+        currentHumansEaten = 0;
+        currentZombiesEaten = 0;
         
         // Reset Logic
         isFeverSequenceActive = false;
@@ -574,9 +583,11 @@ public class LevelManager : MonoBehaviour
     
     private void CheckHumanGameOver()
     {
-        // Oyunun ilk birkaç saniyesi (yükleme/spawn) sırasında kontrol yapma
-        // Çünkü objeler henüz listeye girmemiş veya düşüyor olabilir.
-        if (Time.timeSinceLevelLoad < 3.0f) return;
+        if (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning) return;
+
+        // Her level/retry başlangıcından sonra kısa bir grace süresi bırak.
+        // Eski objelerin geç callback'leri bu sırada fail tetiklemesin.
+        if (Time.realtimeSinceStartup - levelStartRealtime < 2.0f) return;
 
         // Tüm insanlar yendi mi?
         if (currentHumansRemaining <= 0 && totalHumansInLevel > 0)

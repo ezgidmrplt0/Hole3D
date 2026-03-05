@@ -1277,9 +1277,9 @@ MonoBehaviour:
   winOkButton: {fileID: 3398118077369989009}
   losePanel: {fileID: 1384925470}
   loseStars:
-  - {fileID: 1607658373}
-  - {fileID: 1607658372}
-  - {fileID: 1607658371}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   loseOkButton: {fileID: 1607658370}
   missionPanel: {fileID: 178643292}
   missionZombieIcon: {fileID: 916677553}
@@ -1737,7 +1737,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &572388713
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4638,7 +4638,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1384925471
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5240,21 +5240,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!1 &1607658371 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 4634098635994501960, guid: 327f63f425052ef458234d4dfd653648, type: 3}
-  m_PrefabInstance: {fileID: 1607658368}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1607658372 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 8807253278475908157, guid: 327f63f425052ef458234d4dfd653648, type: 3}
-  m_PrefabInstance: {fileID: 1607658368}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &1607658373 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3243003953162641283, guid: 327f63f425052ef458234d4dfd653648, type: 3}
-  m_PrefabInstance: {fileID: 1607658368}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1622587718
 GameObject:
   m_ObjectHideFlags: 0

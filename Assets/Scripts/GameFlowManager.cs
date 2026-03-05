@@ -262,10 +262,31 @@ public class GameFlowManager : MonoBehaviour
         {
             SkillManager.Instance.ResetLevelPurchases();
         }
-        
-        // Start Game Immediately (or show TapToPlay again? User said "Retry textim çalışacak tıkladığımda o level tekrar oynanacak")
-        // Genelde direkt başlar.
-        StartGame();
+
+        // Lose sonrası oyuncuya marketten skill alma şansı ver:
+        // Level'i yeniden kur, ama oyunu otomatik başlatma.
+        IsGameActive = false;
+
+        if (tapToPlayPanel != null)
+        {
+            tapToPlayPanel.SetActive(true);
+
+            CanvasGroup cg = tapToPlayPanel.GetComponent<CanvasGroup>();
+            if (cg == null) cg = tapToPlayPanel.AddComponent<CanvasGroup>();
+            cg.blocksRaycasts = false;
+        }
+
+        if (tapToPlayText != null)
+        {
+            tapToPlayText.gameObject.SetActive(true);
+            AnimateText(tapToPlayText);
+        }
+
+        if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
+
+        Time.timeScale = 0f;
+
+        if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
     }
 
     public void StartGame()

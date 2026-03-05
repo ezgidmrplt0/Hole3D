@@ -40,6 +40,10 @@ public class LevelManager : MonoBehaviour
     public int humansPerLevel = 2;  // Her level kaç insan artsın (Düşürüldü: 4 -> 2)
     public float minHumanToZombieRatio = 0.75f; // Oran aynen korundu (%75)
 
+    [Header("Economy Rewards")]
+    public int normalLevelClearReward = 100;
+    public int specialChallengeClearReward = 200;
+
     [Header("Dependencies")]
     public SpawnManager spawnManager;
 
@@ -841,22 +845,16 @@ public class LevelManager : MonoBehaviour
 
     public void NextLevel()
     {
-        // Reward Player
-        if (EconomyManager.Instance != null)
-        {
-            EconomyManager.Instance.AddCoins(20);
-
-            // --- MISSION REWARD ---
-            int levelDataIndex = isCurrentLevelSpecial ? -1 : ((currentLevelIndex - 1) % levels.Count); 
-            // -1 because currentLevelIndex was already incremented in NextLevel()
-            
-            // Wait, NextLevel() increments it. So we need the index BEFORE increment.
-            // Let's use a better way. 
-        }
-
         // Eğer şu anki level special (horde) DEĞİLSE, normalLevelIndex'i artır
         int actualLevelNumber = currentLevelIndex + 1;
         bool wasSpecialLevel = (actualLevelNumber % 3 == 0);
+
+        // Reward Player (Challenge/Special level daha fazla coin versin)
+        if (EconomyManager.Instance != null)
+        {
+            int clearReward = wasSpecialLevel ? specialChallengeClearReward : normalLevelClearReward;
+            EconomyManager.Instance.AddCoins(clearReward);
+        }
         
         // --- MISSION FINAL CHECK & REWARD ---
         if (!wasSpecialLevel)

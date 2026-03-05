@@ -20,11 +20,75 @@ public class HoleMechanics : MonoBehaviour
     [Tooltip("Art arda yeme sayılabilmesi için gereken maksimum süre (saniye)")]
     public float comboTimeWindow = 0.8f;
     [Tooltip("En az kaçıncı comboda ekran sallanmaya başlasın?")]
-    public int minComboShake = 2; // 2. ve sonraki seri yiyişlerde salla
+    public int minComboShake = 1; // Mobilde daha hissedilir olması için ilk seriden itibaren
+
+    [Header("Haptics")]
+    public bool enableMobileVibration = true;
+    public float vibrationCooldown = 0.08f; // Spam vibrate'i engelle
+    public int androidVibrationMs = 35;
+    public int androidVibrationAmplitude = 255;
     
     private float lastEatTime = -10f;
     private int currentCombo = 0;
+    private float lastVibrationTime = -10f;
     private Camera mainCam;
+
+    private void TryVibrate()
+    {
+        if (!enableMobileVibration) return;
+        if (!Application.isMobilePlatform) return;
+        if (Time.unscaledTime - lastVibrationTime < vibrationCooldown) return;
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        try
+        {
+            using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+            using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+            using (AndroidJavaClass contextClass = new AndroidJavaClass("android.content.Context"))
+            using (AndroidJavaObject vibrator = activity.Call<AndroidJavaObject>("getSystemService", contextClass.GetStatic<string>("VIBRATOR_SERVICE")))
+            {
+                if (vibrator != null)
+                {
+                    bool hasVibrator = vibrator.Call<bool>("hasVibrator");
+                    if (!hasVibrator)
+                    {
+                        return;
+                    }
+
+                    using (AndroidJavaClass version = new AndroidJavaClass("android.os.Build$VERSION"))
+                    {
+                        int sdkInt = version.GetStatic<int>("SDK_INT");
+                        if (sdkInt >= 26)
+                        {
+                            using (AndroidJavaClass effectClass = new AndroidJavaClass("android.os.VibrationEffect"))
+                            {
+                                int amplitude = Mathf.Clamp(androidVibrationAmplitude, 1, 255);
+                                AndroidJavaObject effect = effectClass.CallStatic<AndroidJavaObject>("createOneShot", androidVibrationMs, amplitude);
+                                vibrator.Call("vibrate", effect);
+                            }
+                        }
+                        else
+                        {
+                            vibrator.Call("vibrate", (long)androidVibrationMs);
+                        }
+                    }
+                }
+                else
+                {
+                    Handheld.Vibrate();
+                }
+            }
+        }
+        catch
+        {
+            Handheld.Vibrate();
+        }
+#else
+        Handheld.Vibrate();
+#endif
+
+        lastVibrationTime = Time.unscaledTime;
+    }
 
     [Header("UI")]
     public TMP_Text levelText;
@@ -836,11 +900,11 @@ public class HoleMechanics : MonoBehaviour
         // --- FEVER MODE BONUS ---
         if (isFeverMode)
         {
-            // Fever modunda yenilen HER ŞEY için 0.50 altın kazanılsın
-            float feverGoldBonus = 0.50f;
+            // Fever modunda yenilen HER ŞEY için bonus coin
+            float feverGoldBonus = feverGoldPerEat;
 
             if (EconomyManager.Instance != null) EconomyManager.Instance.AddCoins(feverGoldBonus);
-            SpawnFloatingText("+0.50 Gold", Color.yellow);
+            SpawnFloatingText($"+{feverGoldBonus:F2} Gold", Color.yellow);
         }
 
         // --- ZOMBİ TESPİTİ ---
@@ -888,6 +952,8 @@ public class HoleMechanics : MonoBehaviour
                     mainCam.transform.DOComplete(); 
                     mainCam.transform.DOShakePosition(shakeDuration, shakeStrength, shakeVibrato);
                 }
+
+                TryVibrate();
             }
 
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
@@ -1025,6 +1091,9 @@ public class HoleMechanics : MonoBehaviour
     [Header("Shield Visual")]
     public GameObject shieldVisualEffect; // Inspector'dan ata (yeşil halo/ring prefab)
     private bool wasShieldActive = false;
+
+    [Header("Economy")]
+    public float feverGoldPerEat = 1f; // Fever modunda yenen her obje icin coin
 
     private bool wasMagnetActive = false;
 

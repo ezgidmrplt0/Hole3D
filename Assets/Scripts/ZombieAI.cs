@@ -18,6 +18,9 @@ public class ZombieAI : CharacterAI
     public float runTriggerDistance = 8f; // Bu mesafeden yakındaysa KOŞ, uzaksa YÜRÜ
     public float wanderDurationAfterCollision = 1.0f;
 
+    [Header("Think Tick")]
+    public float thinkInterval = 0.2f; // Pahali hedef taramasini aralikli yap
+
     private float wanderTimer = 0f;
     private Vector3 wanderDirection;
 
@@ -26,6 +29,8 @@ public class ZombieAI : CharacterAI
     public float roamInterval = 4f;
     private Vector3 roamTarget;
     private float roamTimer;
+    private float thinkTimer;
+    private Transform currentPrey;
 
     [Header("Cage Logic")]
     public bool isTrapped = false;
@@ -65,6 +70,7 @@ public class ZombieAI : CharacterAI
         UpdateLevelText();
         
         PickNewRoamTarget();
+        thinkTimer = Random.Range(0f, thinkInterval);
     }
 
     public void SetLevel(int newLevel)
@@ -160,7 +166,30 @@ public class ZombieAI : CharacterAI
             return;
         }
 
-        Transform prey = GetClosestPrey();
+        thinkTimer -= Time.deltaTime;
+        if (thinkTimer <= 0f)
+        {
+            thinkTimer = thinkInterval;
+            // Pahali sorgu: yalnizca think tick geldiginde calissin
+            currentPrey = GetClosestPrey();
+        }
+
+        // Her frame ucuz dogrulama
+        if (currentPrey != null)
+        {
+            if (!currentPrey.gameObject.activeInHierarchy)
+            {
+                currentPrey = null;
+            }
+            else
+            {
+                float distSqr = (currentPrey.position - transform.position).sqrMagnitude;
+                float releaseRange = detectionRange * 1.5f;
+                if (distSqr > releaseRange * releaseRange) currentPrey = null;
+            }
+        }
+
+        Transform prey = currentPrey;
         if (prey != null)
         {
             float distanceToPrey = Vector3.Distance(transform.position, prey.position);

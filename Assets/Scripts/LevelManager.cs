@@ -80,6 +80,8 @@ public class LevelManager : MonoBehaviour
 
     private const string PREF_LEVEL_INDEX = "CurrentLevelIndex";
     private const string PREF_NORMAL_LEVEL_INDEX = "NormalLevelIndex";
+    private const string PREF_PROGRESS_MIGRATION_VERSION = "ProgressionMigrationVersion";
+    private const int CURRENT_PROGRESS_MIGRATION_VERSION = 1;
 
     private void Awake()
     {
@@ -109,6 +111,8 @@ public class LevelManager : MonoBehaviour
         // Load saved level or default to 0
         currentLevelIndex = PlayerPrefs.GetInt(PREF_LEVEL_INDEX, 0);
         normalLevelIndex = PlayerPrefs.GetInt(PREF_NORMAL_LEVEL_INDEX, 0);
+
+        ApplyProgressionMigrationIfNeeded();
         
 #if UNITY_EDITOR
         Debug.Log($"[LevelManager] Loaded Progress - Level Index: {currentLevelIndex}, Normal Index: {normalLevelIndex}");
@@ -116,6 +120,72 @@ public class LevelManager : MonoBehaviour
         
         StartLevel();
         StartCoroutine(SafetyCheckLoop());
+    }
+
+    private void ApplyProgressionMigrationIfNeeded()
+    {
+        int migrationVersion = PlayerPrefs.GetInt(PREF_PROGRESS_MIGRATION_VERSION, 0);
+        if (migrationVersion >= CURRENT_PROGRESS_MIGRATION_VERSION) return;
+
+        if (currentLevelIndex < 0) currentLevelIndex = 0;
+        if (normalLevelIndex < 0) normalLevelIndex = 0;
+
+        bool hasNormalKey = PlayerPrefs.HasKey(PREF_NORMAL_LEVEL_INDEX);
+
+        // Eski sürümlerde index bazen şişebiliyor; normal progression ile uyuşmazsa düzelt.
+        if (hasNormalKey)
+        {
+            int expectedCurrentFromNormal = GetCurrentIndexFromCompletedNormalLevels(normalLevelIndex);
+            int tolerance = 5;
+            if (currentLevelIndex > expectedCurrentFromNormal + tolerance)
+            {
+                currentLevelIndex = expectedCurrentFromNormal;
+            }
+            else if (normalLevelIndex > currentLevelIndex)
+            {
+                normalLevelIndex = GetCompletedNormalLevelsFromCurrentIndex(currentLevelIndex);
+            }
+        }
+        else
+        {
+            // Eski kayıtta NormalLevelIndex yoksa mevcut levelden türet.
+            normalLevelIndex = GetCompletedNormalLevelsFromCurrentIndex(currentLevelIndex);
+        }
+
+        PlayerPrefs.SetInt(PREF_LEVEL_INDEX, currentLevelIndex);
+        PlayerPrefs.SetInt(PREF_NORMAL_LEVEL_INDEX, normalLevelIndex);
+        PlayerPrefs.SetInt(PREF_PROGRESS_MIGRATION_VERSION, CURRENT_PROGRESS_MIGRATION_VERSION);
+        PlayerPrefs.Save();
+    }
+
+    private int GetCompletedNormalLevelsFromCurrentIndex(int currentIndex)
+    {
+        if (currentIndex <= 0) return 0;
+
+        int completedAllLevels = currentIndex;
+        int completedSpecialLevels = completedAllLevels / 3;
+        int completedNormalLevels = completedAllLevels - completedSpecialLevels;
+
+        return Mathf.Max(0, completedNormalLevels);
+    }
+
+    private int GetCurrentIndexFromCompletedNormalLevels(int completedNormalLevels)
+    {
+        if (completedNormalLevels <= 0) return 0;
+
+        int completedAllLevels = 0;
+        int countedNormalLevels = 0;
+
+        while (countedNormalLevels < completedNormalLevels)
+        {
+            completedAllLevels++;
+            if (completedAllLevels % 3 != 0)
+            {
+                countedNormalLevels++;
+            }
+        }
+
+        return Mathf.Max(0, completedAllLevels);
     }
 
 

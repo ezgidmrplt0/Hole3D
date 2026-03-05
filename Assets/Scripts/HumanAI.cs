@@ -8,18 +8,23 @@ public class HumanAI : CharacterAI
     public string enemyTag = "Zombie";
     public float fearRadius = 12f; // Karakter zombiyi daha uzaktan fark eder (Idea 1)
 
+    [Header("Think Tick")]
+    public float thinkInterval = 0.2f; // Pahali hedef taramasini her frame yerine aralikli yap
+
     // Çarpışma tepkisi için değişkenler
     private float bounceTimer;
     private Vector3 bounceDirection;
 
     private Vector3 wanderTarget;
     private float timer;
+    private float thinkTimer;
     private Transform currentChaser;
 
     protected override void Awake()
     {
         base.Awake();
         PickNewWanderTarget();
+        thinkTimer = Random.Range(0f, thinkInterval);
     }
 
     void Update()
@@ -33,23 +38,30 @@ public class HumanAI : CharacterAI
         }
 
         // 1. Zombi kontrolü (Kaçış - Hysteresis ile)
-        // Önce kritik mesafedeki (fearRadius) en yakın düşmanı bul
-        Transform immediateEnemy = GetClosestEnemy();
-        
-        if (immediateEnemy != null)
+        thinkTimer -= Time.deltaTime;
+        if (thinkTimer <= 0f)
         {
-            // Yeni bir tehdit var, onu hedefle
-            currentChaser = immediateEnemy;
+            thinkTimer = thinkInterval;
+
+            // Pahali sorgu: yalnizca think tick geldiginde calissin
+            Transform immediateEnemy = GetClosestEnemy();
+            if (immediateEnemy != null)
+            {
+                currentChaser = immediateEnemy;
+            }
         }
-        else if (currentChaser != null)
+
+        // Her frame ucuz bir dogrulama: mevcut kovalayan hala gecerli mi?
+        if (currentChaser != null)
         {
-            // Kritik mesafede kimse yok, ama eski kovalayanı kontrol et (Buffer Zone)
-            float dist = Vector3.Distance(transform.position, currentChaser.position);
-            
-            // Eğer zombi çok uzaklaştıysa veya öldüyse takibi bırak
-            if (dist > fearRadius * 1.5f || !currentChaser.gameObject.activeInHierarchy)
+            if (!currentChaser.gameObject.activeInHierarchy)
             {
                 currentChaser = null;
+            }
+            else
+            {
+                float dist = Vector3.Distance(transform.position, currentChaser.position);
+                if (dist > fearRadius * 1.5f) currentChaser = null;
             }
         }
 
@@ -61,12 +73,6 @@ public class HumanAI : CharacterAI
             return; // Kaçarken başka bir şey yapma
         }
         
-        // Eğer kimse yoksa currentChaser'ı temizle (Garanti olsun)
-        if (immediateEnemy == null && currentChaser == null)
-        {
-             // Wander kısmına geçecek
-        }
-
         // 2. Rastgele Gezinme (Wander)
         timer -= Time.deltaTime;
         if (timer <= 0)

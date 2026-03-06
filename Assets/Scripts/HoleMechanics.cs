@@ -538,6 +538,9 @@ public class HoleMechanics : MonoBehaviour
 
         // --- FEVER VFX OFF ---
         
+        // Bitiş titreşimi
+        AndroidVibration.Vibrate(300);
+
         // Callback çağır (Artık paneli açabiliriz)
         onComplete?.Invoke();
     }
@@ -887,11 +890,13 @@ public class HoleMechanics : MonoBehaviour
                     mainCam.transform.DOShakePosition(shakeDuration, shakeStrength, shakeVibrato);
                 }
 
-                // 📳 TELEFON TİTREŞİMİ
-                if (VibrationManager.Instance != null)
-                {
-                    VibrationManager.Instance.ComboVibrate(currentCombo);
-                }
+                // Combo Titreşimi
+                AndroidVibration.Vibrate(120);
+            }
+            else
+            {
+                // Normal Zombi Yeme Titreşimi
+                AndroidVibration.Vibrate(80);
             }
 
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();
@@ -1022,6 +1027,9 @@ public class HoleMechanics : MonoBehaviour
         }
         
         UpdateLevelText();
+
+        // Level Up Titreşimi
+        AndroidVibration.Vibrate(200);
 
         Debug.Log($"HOLE LEVEL UP! New Level: {holeLevel} | Target Scale: {targetScale.x}");
     }

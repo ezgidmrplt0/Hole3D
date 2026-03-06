@@ -27,13 +27,9 @@ public class VibrationManager : MonoBehaviour
         if (Time.time - lastVibrationTime < vibrationCooldown)
             return;
 
-        // Sadece combo varsa titreştir
-        if (combo < 2)
-            return;
+        // Her yediğinde (veya 1. comboda) titreşmesi için sınır kaldırıldı
 
-#if UNITY_ANDROID || UNITY_IOS
         Handheld.Vibrate();
-#endif
 
         lastVibrationTime = Time.time;
     }

@@ -325,7 +325,12 @@ public class SpawnManager : MonoBehaviour
         }
 
         // --- CAGE & KEY SPAWN ---
-        SpawnCagesAndKey();
+        // Horde ve Özel (Fever) bölümlerinde kafes/anahtar çıkmasın.
+        bool isSpecialLevel = (LevelManager.Instance != null && LevelManager.Instance.isCurrentLevelSpecial);
+        if (!isHordeMode && !isSpecialLevel)
+        {
+            SpawnCagesAndKey();
+        }
     }
 
     private void SpawnCagesAndKey()

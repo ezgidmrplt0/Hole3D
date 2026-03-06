@@ -886,6 +886,12 @@ public class HoleMechanics : MonoBehaviour
                     mainCam.transform.DOComplete(); 
                     mainCam.transform.DOShakePosition(shakeDuration, shakeStrength, shakeVibrato);
                 }
+
+                // 📳 TELEFON TİTREŞİMİ
+                if (VibrationManager.Instance != null)
+                {
+                    VibrationManager.Instance.ComboVibrate(currentCombo);
+                }
             }
 
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();

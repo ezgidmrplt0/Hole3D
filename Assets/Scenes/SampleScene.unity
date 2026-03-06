@@ -3050,10 +3050,6 @@ MonoBehaviour:
   shakeVibrato: 20
   comboTimeWindow: 0.8
   minComboShake: 2
-  enableMobileVibration: 1
-  vibrationCooldown: 0.08
-  androidVibrationMs: 35
-  androidVibrationAmplitude: 255
   levelText: {fileID: 0}
   damageFont: {fileID: 11400000, guid: 204de1c1ba42511499fce6c31f911f33, type: 2}
   fallDuration: 0.5
@@ -3287,6 +3283,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 843939465}
   m_CullTransparentMesh: 1
+--- !u!1 &904558225
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 904558227}
+  - component: {fileID: 904558226}
+  m_Layer: 0
+  m_Name: VibrationManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &904558226
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 904558225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a10d5ebb09141b4d87734a7efdf2305, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  vibrationCooldown: 0.2
+--- !u!4 &904558227
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 904558225}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 585, y: 1208.1056, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &916677553
 GameObject:
   m_ObjectHideFlags: 0
@@ -9475,3 +9516,4 @@ SceneRoots:
   - {fileID: 2074062848}
   - {fileID: 284786788}
   - {fileID: 962236061}
+  - {fileID: 904558227}

@@ -52,6 +52,8 @@ public class UIManager : MonoBehaviour
     public GameObject skinUnlockedPopup;          // Optional pop-up for 100%
     
     [Header("Skin Browser UI (Win Panel)")]
+    public GameObject lockedSkinOverlay; // Gray circle + Text GameObject
+    public TextMeshProUGUI lockedStarsText; // Remaining stars count text
     public UnityEngine.UI.Button skinBrowserPrevBtn;
     public UnityEngine.UI.Button skinBrowserNextBtn;
     public UnityEngine.UI.Button skinBrowserEquipBtn;
@@ -607,22 +609,54 @@ public class UIManager : MonoBehaviour
         bool isEquipped = skin.skinID == SkinManager.Instance.currentSkinID;
 
         // Preview Texture
-        if (skinPreviewImage != null && skin.texture != null)
+        if (skinPreviewImage != null)
         {
-            skinPreviewImage.sprite = Sprite.Create(skin.texture, new Rect(0, 0, skin.texture.width, skin.texture.height), new Vector2(0.5f, 0.5f));
-            
-            // Grayscale logic: If locked, set grayscale to 1.
-            if (skinPreviewImage.material != null)
+            if (isUnlocked)
             {
-                if (skinPreviewImage.material.HasProperty("_GrayscaleAmount"))
+                // Show actual skin
+                skinPreviewImage.enabled = true;
+                if (lockedSkinOverlay != null) lockedSkinOverlay.SetActive(false);
+
+                if (skin.texture != null)
                 {
-                    skinPreviewImage.material.SetFloat("_GrayscaleAmount", isUnlocked ? 0f : 1f);
+                    skinPreviewImage.sprite = Sprite.Create(skin.texture, new Rect(0, 0, skin.texture.width, skin.texture.height), new Vector2(0.5f, 0.5f));
                 }
                 
-                // Also ensure fill amount is 1 for the preview (so we see the full texture)
-                if (skinPreviewImage.material.HasProperty("_FillAmount"))
+                // Reset grayscale
+                if (skinPreviewImage.material != null && skinPreviewImage.material.HasProperty("_GrayscaleAmount"))
                 {
-                    skinPreviewImage.material.SetFloat("_FillAmount", 1f); 
+                    skinPreviewImage.material.SetFloat("_GrayscaleAmount", 0f);
+                }
+            }
+            else
+            {
+                // Show locked overlay
+                if (lockedSkinOverlay != null) lockedSkinOverlay.SetActive(true);
+                skinPreviewImage.enabled = false;
+
+                // --- STAR COUNTDOWN CALCULATION ---
+                if (lockedStarsText != null && SkinManager.Instance != null)
+                {
+                    // 1. Bu skin'in listedeki sırasını bul (kaçıncı kilitli skin?)
+                    // Örn: Default her zaman açık (Index 0). 
+                    // Index 1 -> 1. Kilitli Skin (100% / 10 Star)
+                    // Index 2 -> 2. Kilitli Skin (200% / 20 Star)
+                    
+                    int skinIndexInList = browserSkinIndex; 
+                    float currentProgress = SkinManager.Instance.GetCurrentProgress();
+                    
+                    // Toplam gereken % (Her skin 100 artar)
+                    // browserSkinIndex = 1 ise 100% lazım, 2 ise 200%...
+                    float targetTotalProgress = skinIndexInList * 100f;
+                    
+                    // Kalan %
+                    float remainingProgress = targetTotalProgress - currentProgress;
+                    
+                    // 1 Star = 10%
+                    int starsNeeded = Mathf.CeilToInt(remainingProgress / 10f);
+                    if (starsNeeded < 0) starsNeeded = 0;
+
+                    lockedStarsText.text = starsNeeded.ToString();
                 }
             }
         }

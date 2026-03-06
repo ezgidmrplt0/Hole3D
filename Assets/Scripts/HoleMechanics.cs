@@ -22,76 +22,12 @@ public class HoleMechanics : MonoBehaviour
     [Tooltip("En az kaçıncı comboda ekran sallanmaya başlasın?")]
     public int minComboShake = 1; // Mobilde daha hissedilir olması için ilk seriden itibaren
 
-    [Header("Haptics")]
-    public bool enableMobileVibration = true;
-    public float vibrationCooldown = 0.08f; // Spam vibrate'i engelle
-    public int androidVibrationMs = 35;
-    public int androidVibrationAmplitude = 255;
+    [Header("UI")]
+    public TMP_Text levelText;
     
     private float lastEatTime = -10f;
     private int currentCombo = 0;
-    private float lastVibrationTime = -10f;
     private Camera mainCam;
-
-    private void TryVibrate()
-    {
-        if (!enableMobileVibration) return;
-        if (!Application.isMobilePlatform) return;
-        if (Time.unscaledTime - lastVibrationTime < vibrationCooldown) return;
-
-#if UNITY_ANDROID && !UNITY_EDITOR
-        try
-        {
-            using (AndroidJavaClass unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-            using (AndroidJavaObject activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-            using (AndroidJavaClass contextClass = new AndroidJavaClass("android.content.Context"))
-            using (AndroidJavaObject vibrator = activity.Call<AndroidJavaObject>("getSystemService", contextClass.GetStatic<string>("VIBRATOR_SERVICE")))
-            {
-                if (vibrator != null)
-                {
-                    bool hasVibrator = vibrator.Call<bool>("hasVibrator");
-                    if (!hasVibrator)
-                    {
-                        return;
-                    }
-
-                    using (AndroidJavaClass version = new AndroidJavaClass("android.os.Build$VERSION"))
-                    {
-                        int sdkInt = version.GetStatic<int>("SDK_INT");
-                        if (sdkInt >= 26)
-                        {
-                            using (AndroidJavaClass effectClass = new AndroidJavaClass("android.os.VibrationEffect"))
-                            {
-                                int amplitude = Mathf.Clamp(androidVibrationAmplitude, 1, 255);
-                                AndroidJavaObject effect = effectClass.CallStatic<AndroidJavaObject>("createOneShot", androidVibrationMs, amplitude);
-                                vibrator.Call("vibrate", effect);
-                            }
-                        }
-                        else
-                        {
-                            vibrator.Call("vibrate", (long)androidVibrationMs);
-                        }
-                    }
-                }
-                else
-                {
-                    Handheld.Vibrate();
-                }
-            }
-        }
-        catch
-        {
-            Handheld.Vibrate();
-        }
-#else
-        Handheld.Vibrate();
-#endif
-
-        lastVibrationTime = Time.unscaledTime;
-    }
-
-    [Header("UI")]
-    public TMP_Text levelText;
     public TMP_FontAsset damageFont; // Added for dynamic font assignment
 
     [Header("Animation Settings")]
@@ -558,8 +494,6 @@ public class HoleMechanics : MonoBehaviour
         if (mainCam != null && mainCam.transform.IsChildOf(transform))
         {
              originalCamPos = mainCam.transform.localPosition;
-             // Hole büyüyünce kamera çok uzaklaşıyor. Yakınlaştırmak için local pozisyonu küçültüyoruz.
-             // 3.5x büyüdüğü için, 0.4x e çekersek -> Toplamda 1.4x uzaklaşmış olur (Daha makul).
              mainCam.transform.DOLocalMove(originalCamPos.Value * 0.4f, growDuration).SetEase(Ease.OutElastic);
         }
 
@@ -952,8 +886,6 @@ public class HoleMechanics : MonoBehaviour
                     mainCam.transform.DOComplete(); 
                     mainCam.transform.DOShakePosition(shakeDuration, shakeStrength, shakeVibrato);
                 }
-
-                TryVibrate();
             }
 
             if (LevelManager.Instance != null) LevelManager.Instance.OnZombieEaten();

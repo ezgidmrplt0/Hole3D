@@ -637,26 +637,38 @@ public class UIManager : MonoBehaviour
                 // --- STAR COUNTDOWN CALCULATION ---
                 if (lockedStarsText != null && SkinManager.Instance != null)
                 {
-                    // 1. Bu skin'in listedeki sırasını bul (kaçıncı kilitli skin?)
-                    // Örn: Default her zaman açık (Index 0). 
-                    // Index 1 -> 1. Kilitli Skin (100% / 10 Star)
-                    // Index 2 -> 2. Kilitli Skin (200% / 20 Star)
-                    
-                    int skinIndexInList = browserSkinIndex; 
-                    float currentProgress = SkinManager.Instance.GetCurrentProgress();
-                    
-                    // Toplam gereken % (Her skin 100 artar)
-                    // browserSkinIndex = 1 ise 100% lazım, 2 ise 200%...
-                    float targetTotalProgress = skinIndexInList * 100f;
-                    
-                    // Kalan %
-                    float remainingProgress = targetTotalProgress - currentProgress;
-                    
-                    // 1 Star = 10%
-                    int starsNeeded = Mathf.CeilToInt(remainingProgress / 10f);
-                    if (starsNeeded < 0) starsNeeded = 0;
+                    // 1. Find the first locked skin in the list index
+                    int firstLockedIndex = -1;
+                    for (int i = 0; i < SkinManager.Instance.skins.Count; i++)
+                    {
+                        if (!SkinManager.Instance.IsSkinUnlocked(SkinManager.Instance.skins[i].skinID))
+                        {
+                            firstLockedIndex = i;
+                            break;
+                        }
+                    }
 
-                    lockedStarsText.text = starsNeeded.ToString();
+                    if (firstLockedIndex != -1)
+                    {
+                        // 2. Calculate distance from current locked skin
+                        // If browser index is 2 and first locked is 2 -> distance 0 (100% - remainder)
+                        // If browser index is 3 and first locked is 2 -> distance 1 (200% - remainder)
+                        int indexOffset = browserSkinIndex - firstLockedIndex;
+                        float currentRemainder = SkinManager.Instance.GetCurrentProgress();
+                        
+                        // Total remaining progress to reach THIS skin
+                        float remainingPercent = (100f - currentRemainder) + (indexOffset * 100f);
+                        
+                        // 3. Remaining Stars (1 Star = 10%)
+                        int starsNeeded = Mathf.CeilToInt(remainingPercent / 10f);
+                        if (starsNeeded < 0) starsNeeded = 0;
+
+                        lockedStarsText.text = starsNeeded.ToString();
+                    }
+                    else
+                    {
+                        lockedStarsText.text = "0";
+                    }
                 }
             }
         }

@@ -65,7 +65,29 @@ public class SkinManager : MonoBehaviour
 
     private void Start()
     {
+        ValidateSkins();
         ApplySelectedSkin();
+    }
+
+    private void ValidateSkins()
+    {
+        if (skins == null) return;
+        HashSet<string> seenIDs = new HashSet<string>();
+        for (int i = 0; i < skins.Count; i++)
+        {
+            if (string.IsNullOrEmpty(skins[i].skinID))
+            {
+                Debug.LogError($"[SkinManager] Warning: Skin at index {i} has an EMPTY skinID! Please assign a unique ID.");
+            }
+            else if (seenIDs.Contains(skins[i].skinID))
+            {
+                Debug.LogError($"[SkinManager] Warning: Duplicate skinID '{skins[i].skinID}' found at index {i}. IDs must be unique!");
+            }
+            else
+            {
+                seenIDs.Add(skins[i].skinID);
+            }
+        }
     }
 
     public void ApplySelectedSkin()
@@ -161,6 +183,7 @@ public class SkinManager : MonoBehaviour
     {
         // Default skin is always unlocked
         if (skinID == "default") return true;
+        if (string.IsNullOrEmpty(skinID)) return false; // Safety
         
         string unlocked = PlayerPrefs.GetString(PREF_UNLOCKED_SKINS, "default");
         string[] unlockedList = unlocked.Split(',');

@@ -676,7 +676,11 @@ public class HoleMechanics : MonoBehaviour
             
             // --- DOMINO ETKİSİ ---
             // Etraftaki diğer parçaları da uyandır (zincirleme reaksiyon)
-            WakeUpChainReaction(victim);
+            // Sadece daha önce domino ile uyandırılmamışsa etrafındakileri uyandır (Sonsuz döngüyü önler)
+            if (victim.GetComponent<DominoTriggered>() == null)
+            {
+                WakeUpChainReaction(victim);
+            }
         } 
 
         // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli) 
@@ -809,6 +813,9 @@ public class HoleMechanics : MonoBehaviour
             
             // Hafif bir dürtme ver ki statik dengede kalmasın
             rb.angularVelocity = Random.insideUnitSphere * 2f;
+
+            // Sonsuz döngü zincirlemesini engellemek için bu objeyi işaretle
+            go.AddComponent<DominoTriggered>();
         }
     }
 
@@ -1340,4 +1347,9 @@ public class HoleMechanics : MonoBehaviour
             renderer.renderMode = ParticleSystemRenderMode.Billboard;
         }
     }
+}
+
+// Domino zincir reaksiyonunda sonsuz döngüyü önlemek için kullanılan yardımcı script
+public class DominoTriggered : MonoBehaviour
+{
 }

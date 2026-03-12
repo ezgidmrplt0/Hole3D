@@ -62,25 +62,18 @@ public class KeyPickup : MonoBehaviour
         transform.position = new Vector3(transform.position.x, newY, transform.position.z);
 
         // Logic: Check Distance to Hole
-        if (holeTransform != null)
+        if (holeTransform == null) return; // Start()'ta bulunamadıysa bırak, her frame arama
+
+        float distXZ = Vector2.Distance(
+            new Vector2(transform.position.x, transform.position.z),
+            new Vector2(holeTransform.position.x, holeTransform.position.z)
+        );
+        
+        float eatRadius = holeTransform.localScale.x * 0.7f;
+        
+        if (distXZ < eatRadius && !isFalling)
         {
-            float distXZ = Vector2.Distance(
-                new Vector2(transform.position.x, transform.position.z),
-                new Vector2(holeTransform.position.x, holeTransform.position.z)
-            );
-            
-            float eatRadius = holeTransform.localScale.x * 0.7f; // Hole scale defines radius
-            
-            if (distXZ < eatRadius && !isFalling)
-            {
-                StartFalling();
-            }
-        }
-        else
-        {
-             // Retry finding hole
-             var h = FindObjectOfType<HoleMechanics>();
-             if(h != null) holeTransform = h.transform;
+            StartFalling();
         }
     }
 

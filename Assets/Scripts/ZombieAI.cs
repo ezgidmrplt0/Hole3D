@@ -42,6 +42,16 @@ public class ZombieAI : CharacterAI
         PickNewRoamTarget();
     }
 
+    private void OnEnable()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.RegisterZombie(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.UnregisterZombie(this);
+    }
+
     void Start()
     {
         // --- TAG GÜVENLİĞİ ---
@@ -321,17 +331,27 @@ public class ZombieAI : CharacterAI
         // 1. YEME MANTIĞI: İnsanla çarpışırsa
         if (collision.gameObject.CompareTag(preyTag))
         {
-            // İnsanı yok et (Yendi!)
-            Destroy(collision.gameObject);
+            HumanAI human = collision.gameObject.GetComponent<HumanAI>();
+            if (human == null) human = collision.gameObject.GetComponentInParent<HumanAI>();
 
-            // LevelManager'a bildir (İnsan counter'ı düşsün)
-            if (LevelManager.Instance != null)
+            // Eğer insan bulunduysa ve hala aktif/canlıysa (Double-eat bug koruması)
+            if (human != null && human.enabled)
             {
-                LevelManager.Instance.OnHumanEatenByZombie();
-            }
+                // Çift sayımı engellemek için hemen kapat (Aynı frame içinde birden fazla zombi dokunabilir)
+                human.enabled = false;
 
-            // Zombiyi büyüt (Her yemekte azıcık büyüsün, ödül olsun)
-            transform.localScale = Vector3.Min(transform.localScale * 1.05f, Vector3.one * 3f);
+                // İnsanı yok et (Yendi!)
+                Destroy(human.gameObject);
+
+                // LevelManager'a bildir (İnsan counter'ı düşsün)
+                if (LevelManager.Instance != null)
+                {
+                    LevelManager.Instance.OnHumanEatenByZombie();
+                }
+
+                // Zombiyi büyüt (Her yemekte azıcık büyüsün, ödül olsun)
+                transform.localScale = Vector3.Min(transform.localScale * 1.05f, Vector3.one * 3f);
+            }
             
             return; 
         }

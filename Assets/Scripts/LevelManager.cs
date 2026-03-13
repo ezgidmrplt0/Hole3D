@@ -78,6 +78,15 @@ public class LevelManager : MonoBehaviour
     public bool isMissionCompleted = false;
     public System.Action<MissionType, int, int> OnMissionUpdated; // Type, Current, Target
 
+    [Header("Runtime Active Lists (Optimized)")]
+    public List<ZombieAI> activeZombies = new List<ZombieAI>();
+    public List<HumanAI> activeHumans = new List<HumanAI>();
+
+    public void RegisterZombie(ZombieAI z) { if (!activeZombies.Contains(z)) activeZombies.Add(z); }
+    public void UnregisterZombie(ZombieAI z) { activeZombies.Remove(z); }
+    public void RegisterHuman(HumanAI h) { if (!activeHumans.Contains(h)) activeHumans.Add(h); }
+    public void UnregisterHuman(HumanAI h) { activeHumans.Remove(h); }
+
     private GameObject currentMapInstance;
     public bool isCurrentLevelSpecial = false; // Flag for special level fever logic
     private int targetDisplayCount = -1; // -1 means use real count
@@ -204,32 +213,38 @@ public class LevelManager : MonoBehaviour
     {
         while (true)
         {
-            yield return new WaitForSeconds(1.0f); // Her 1 saniyede bir kontrol et
+            // Performance: Check interval 0.5s for better accuracy during intense action
+            yield return new WaitForSeconds(0.5f); 
 
             // Eğer Fever Modu zaten çalışıyorsa, safety check yapma (Panel açılmasın diye)
             if (isFeverSequenceActive) continue;
 
             if (totalZombiesInLevel > 0 && !GameFlowManager.Instance.IsLevelTransitioning)
             {
-                // Sahnedeki gerçek zombileri say
-                int currentRealCount = GameObject.FindGameObjectsWithTag("Zombie").Length;
+                // --- OPTIMIZED ZOMBIE SYNC ---
+                int realZombieCount = activeZombies.Count;
+                int expectedEaten = totalZombiesInLevel - realZombieCount;
                 
-                // Eğer sahnede hiç zombi kalmadıysa ama biz hala oyun devam ediyor sanıyorsak
-                if (currentRealCount == 0)
+                // Eğer sahne tamamen temizlendiyse veya sayılarda kayma varsa kontrol et
+                if (realZombieCount == 0 || currentZombiesEaten < expectedEaten)
                 {
-                    // Belki de "currentZombiesEaten" senkronize olamadı.
-                    // Zorla tamamlama yapıyoruz ama FEVER MODE ile uyumlu olmalı.
-                    
-                    
-                    // Count'u eşitle
-                    currentZombiesEaten = totalZombiesInLevel;
-                    OnZombieCountChanged?.Invoke(0);
-
-                    // Normal tamamlama fonksiyonunu çağır (Bu fonksiyon Fever Mode'u tetikler)
+                    if (currentZombiesEaten < expectedEaten)
+                    {
+                        currentZombiesEaten = expectedEaten;
+                        NotifyProgress();
+                    }
                     CheckLevelComplete();
+                }
+
+                // --- OPTIMIZED HUMAN SYNC ---
+                int realHumanCount = activeHumans.Count;
+                if (realHumanCount != currentHumansRemaining)
+                {
+                    currentHumansRemaining = realHumanCount;
+                    OnHumanCountChanged?.Invoke(currentHumansRemaining);
                     
-                    // Eski direkt bitirme kodu KALDIRILDI.
-                    // Çünkü o direkt paneli açıyordu.
+                    // Eğer insan kalmadıysa fail kontrolü yap
+                    if (currentHumansRemaining <= 0) CheckHumanGameOver();
                 }
             }
         }
@@ -274,6 +289,10 @@ public class LevelManager : MonoBehaviour
             Debug.LogWarning("LevelManager: No levels defined!");
             return;
         }
+
+        // --- OPTIMIZATION: Clear Active Lists ---
+        activeZombies.Clear();
+        activeHumans.Clear();
 
         // Level/retry başlangıcında kritik sayaçları hemen sıfırla.
         // Mobilde Destroy gecikmesiyle gelen eski callback'ler bu sayede tekrar Lose açamaz.
@@ -537,28 +556,13 @@ public class LevelManager : MonoBehaviour
         
         try
         {
-            // --- USER REQUEST: Counter depend on ACTUAL spawned count ---
-            int realZombieCount = 0;
-            
-            // Önce tag ile say
-            GameObject[] taggedZombies = GameObject.FindGameObjectsWithTag("Zombie");
-            realZombieCount = taggedZombies != null ? taggedZombies.Length : 0;
-            
-            // Yedek: Eğer hiç bulamadıysak, ZombieAI component'i ara
-            if (realZombieCount == 0)
-            {
-                ZombieAI[] zombieComponents = GameObject.FindObjectsOfType<ZombieAI>();
-                realZombieCount = zombieComponents != null ? zombieComponents.Length : 0;
-                Debug.LogWarning($"LevelManager: No tagged zombies found, using component count: {realZombieCount}");
-            }
-            
-            // --- İNSAN SAYIMI ---
-            GameObject[] taggedHumans = GameObject.FindGameObjectsWithTag("Human");
-            totalHumansInLevel = taggedHumans != null ? taggedHumans.Length : 0;
+            // --- OPTIMIZATION: Use Active Lists directly ---
+            int realZombieCount = activeZombies.Count;
+            totalHumansInLevel = activeHumans.Count;
             currentHumansRemaining = totalHumansInLevel;
             
 #if UNITY_EDITOR
-            Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount}. Humans: {totalHumansInLevel}");
+            Debug.Log($"LevelManager: Zombies - Desired {desiredCount}, Actual {realZombieCount} (ActiveList). Humans: {totalHumansInLevel}");
 #endif
             
             totalZombiesInLevel = realZombieCount;
@@ -751,7 +755,8 @@ public class LevelManager : MonoBehaviour
     // --- FEVER MODE INTEGRATION ---
     private void CheckLevelComplete()
     {
-        if (currentZombiesEaten >= totalZombiesInLevel)
+        // --- STRIKT KONTROL: Sahnedeki her şey tamamen yok edildi mi? ---
+        if (totalZombiesInLevel > 0 && activeZombies.Count == 0)
         {
              // Already ending?
              if (isFeverSequenceActive || (GameFlowManager.Instance != null && GameFlowManager.Instance.IsLevelTransitioning)) return;

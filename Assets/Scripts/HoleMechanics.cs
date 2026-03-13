@@ -35,6 +35,11 @@ public class HoleMechanics : MonoBehaviour
     // public float sinkDepth = 2f; // Removed duplicate
     public float minScale = 0.1f;
 
+    [Header("Optimization & Polish")]
+    [Tooltip("Her objenin yutulma başlangıcı arasındaki minimum süre (sıra sıra yeme etkisi)")]
+    public float staggeredEatDelay = 0.1f;
+    private float nextEatTimeAllowed = 0f;
+
     // Başlangıç değerleri (Reset için)
     private Vector3 initialScale;
     private Vector3 initialVisualsScale;
@@ -398,7 +403,7 @@ public class HoleMechanics : MonoBehaviour
         
         if (skillPickup != null)
         {
-            StartCoroutine(PhysicsFall(other.gameObject));
+            StartStaggeredSwallow(other.gameObject);
             return;
         }
         
@@ -414,9 +419,17 @@ public class HoleMechanics : MonoBehaviour
             {
                 string n = other.name.ToLower();
                 // Gerçek zemin genellikle "Floor", "Plane" veya "Ground" ismini taşır.
-                bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground");
+                bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground") || n.Contains("wall") || n.Contains("map") || n.Contains("level");
 
-                if (!isActualFloor)
+                // DEVASA objeleri bir kerede yutmayı engelle (Tüm sahnenin/prefabın aynı anda içine çekilmesini önler)
+                Collider col = other.GetComponent<Collider>();
+                Renderer r = other.GetComponent<Renderer>();
+                
+                bool isTooBig = false;
+                if (col != null && col.bounds.size.magnitude > 25f) isTooBig = true;
+                if (r != null && r.bounds.size.magnitude > 25f) isTooBig = true;
+
+                if (!isActualFloor && !isTooBig)
                 {
                     canEat = true;
                 }
@@ -438,8 +451,30 @@ public class HoleMechanics : MonoBehaviour
             }
 
             // Level kontrolü kaldırıldı - Hole her zaman tüm zombileri yiyebilir
-            StartCoroutine(PhysicsFall(other.gameObject));
+            StartStaggeredSwallow(other.gameObject);
         }
+    }
+
+    private void StartStaggeredSwallow(GameObject target)
+    {
+        float delay = 0f;
+        float now = Time.time;
+
+        // Geçmişte kalmışsa şimdiye eşitle
+        if (nextEatTimeAllowed < now) nextEatTimeAllowed = now;
+
+        delay = nextEatTimeAllowed - now;
+
+        // Bir sonraki yutulma için süreyi ileri at (sıraya sok)
+        // Fever modunda biraz daha seri yutabilir
+        float interval = isFeverMode ? (staggeredEatDelay * 0.5f) : staggeredEatDelay;
+        nextEatTimeAllowed += interval;
+
+        // Gecikme süresi çok şişerse (örneğin 50 obje aynı anda gelirse) 
+        // 1.5 saniyeden sonrasını bekletme, toplu yutmaya başla.
+        if (delay > 1.5f) delay = 1.5f;
+
+        StartCoroutine(PhysicsFall(target, delay));
     }
 
     [Header("Fever Mode")]
@@ -549,8 +584,12 @@ public class HoleMechanics : MonoBehaviour
     public float pullForce = 150f; // New strong pull force
     public float rotationSpeed = 360f; // Degrees per second
 
-    IEnumerator PhysicsFall(GameObject victim)
+    IEnumerator PhysicsFall(GameObject victim, float delay = 0f)
     {
+        // --- GECİKME (STAGGERED EAT) ---
+        if (delay > 0) yield return new WaitForSeconds(delay);
+
+        if (victim == null) yield break;
         // --- ROOT OBJE BUL VE İŞARETLE ---
         GameObject rootObject = victim;
         CharacterAI charAI = victim.GetComponentInParent<CharacterAI>();
@@ -784,12 +823,18 @@ public class HoleMechanics : MonoBehaviour
             // Zemin ve Yasaklı Obje Kontrolü
             if (go.CompareTag("MainCamera")) continue;
             string n = go.name.ToLower();
-            bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground");
+            bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground") || n.Contains("wall") || n.Contains("map") || n.Contains("level");
             if (isActualFloor) continue;
             
             // Boyut Kontrolü (Devasa duvarları vs. yanlışlıkla yıkmayalım)
+            Collider goCol = go.GetComponent<Collider>();
             Renderer r = go.GetComponent<Renderer>();
-            if (r != null && r.bounds.size.magnitude > 15f) continue;
+            
+            bool isTooBig = false;
+            if (goCol != null && goCol.bounds.size.magnitude > 25f) isTooBig = true;
+            if (r != null && r.bounds.size.magnitude > 25f) isTooBig = true;
+
+            if (isTooBig) continue;
 
             // --- FİZİK EKLE (DOMINO ETKİSİ) ---
             // MeshCollider Convex Fix

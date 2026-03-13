@@ -27,6 +27,16 @@ public class HumanAI : CharacterAI
         thinkTimer = Random.Range(0f, thinkInterval);
     }
 
+    private void OnEnable()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.RegisterHuman(this);
+    }
+
+    private void OnDestroy()
+    {
+        if (LevelManager.Instance != null) LevelManager.Instance.UnregisterHuman(this);
+    }
+
     void Update()
     {
         // 0. Çarpışma Sonrası Sekme (En yüksek öncelik)

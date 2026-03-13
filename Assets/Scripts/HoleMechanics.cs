@@ -582,7 +582,7 @@ public class HoleMechanics : MonoBehaviour
     public float voidRadius = 1.0f; 
     public float sinkDepth = 3f;
     public float pullForce = 150f; // New strong pull force
-    public float rotationSpeed = 360f; // Degrees per second
+    public float rotationSpeed = 120f; // Degrees per second
 
     IEnumerator PhysicsFall(GameObject victim, float delay = 0f)
     {
@@ -696,31 +696,10 @@ public class HoleMechanics : MonoBehaviour
         rb.isKinematic = false;
         rb.useGravity = true; 
         rb.constraints = RigidbodyConstraints.None;
-        rb.drag = 0f; // Hızlı düşsün
-        rb.angularDrag = 0.5f;
-        
-        // Rastgele bir ilk dönüş hızı ver (Tumble)
-        rb.angularVelocity = Random.insideUnitSphere * 10f; 
-
-        // SCATTER EFFECT (Dağılma Efekti)
-        // Özellikle Fever modunda objeler kaotik şekilde savrulsun
-        if (isFeverMode)
-        {
-            // Rastgele fırlat (Hafifçe havaya ve yana doğru)
-            rb.velocity = Random.insideUnitSphere * 5f; 
-            // Güçlü bir dönüş ver (Tumble)
-            rb.angularVelocity = Random.insideUnitSphere * 10f;
-            
-            // --- DOMINO ETKİSİ ---
-            // Etraftaki diğer parçaları da uyandır (zincirleme reaksiyon)
-            // Sadece daha önce domino ile uyandırılmamışsa etrafındakileri uyandır (Sonsuz döngüyü önler)
-            if (victim.GetComponent<DominoTriggered>() == null)
-            {
-                WakeUpChainReaction(victim);
-            }
-        } 
-
-        // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli) 
+        rb.drag = 4f; // Frenleme — obje saçılmasın
+        rb.angularDrag = 2f;
+        rb.velocity = Vector3.zero;        // Mevcut momentumu sıfırla
+        rb.angularVelocity = Random.insideUnitSphere * 1.5f; // Hafif tumble 
 
         // 3. Yerle Çarpışmayı Kes (ÖNEMLİ: Obje yerin içinden geçebilmeli)
         Collider[] victimCols = victim.GetComponentsInChildren<Collider>();
@@ -728,139 +707,213 @@ public class HoleMechanics : MonoBehaviour
         
         foreach (var envCol in nearbyGrounds)
         {
-            // Kendisi veya Delik değilse çarpışmayı kapat
             if (envCol.transform.root != vTransform.root && !envCol.transform.IsChildOf(this.transform))
             {
                 foreach (var vCol in victimCols) Physics.IgnoreCollision(vCol, envCol, true);
             }
         }
 
-        // 4. KÜÇÜLME EFEKTİ İPTAL (Burada hemen yapma)
-        // vTransform.DOScale(Vector3.zero, 1.0f).SetEase(Ease.InBack);
-        
-        // 4. KÜÇÜLME EFEKTİ (Girdap etkisi)
-        // Düşerken küçülerek yok olsun
+        // =============================================================
+        // FEVER MODE: Vortex Swallow (Fizik devre dışı, DOTween spiral)
+        // =============================================================
+        if (isFeverMode)
+        {
+            // Etraftaki komşuları da deliğe doğru hafifçe "heves" ettir
+            if (victim.GetComponent<DominoTriggered>() == null)
+            {
+                FeverSuckNearby(victim);
+            }
+
+            // Fizik motorunu pasif yap; animasyonu DOTween üstlensin
+            rb.isKinematic = true;
+            rb.useGravity  = false;
+
+            Vector3 startPos   = vTransform.position;
+            Vector3 holeCenter = transform.position;
+
+            // Spiral parametreleri
+            float spiralDuration = 0.55f;   // Toplam yutulma süresi
+            float startAngle     = Mathf.Atan2(startPos.z - holeCenter.z,
+                                               startPos.x - holeCenter.x); // Başlangıç açısı (radyan)
+            float startDist      = Vector2.Distance(new Vector2(startPos.x, startPos.z),
+                                                    new Vector2(holeCenter.x, holeCenter.z));
+            float startY         = startPos.y;
+            float targetY        = holeCenter.y - sinkDepth * 0.5f; // Deliğin ortasına kadar in
+
+            // 1) KÜÇÜK SCALE SHAKE: Obje deliğin kenarını "hissetti"
+            Vector3 originalScale = vTransform.localScale;
+            vTransform.DOPunchScale(originalScale * 0.25f, 0.12f, 6, 0.5f);
+
+            yield return new WaitForSeconds(0.1f); // Shake oynasın
+            if (vTransform == null) yield break;
+
+            // 2) SPİRAL ANİMASYON (Manuel coroutine ile frame-by-frame)
+            float elapsed = 0f;
+            while (elapsed < spiralDuration && vTransform != null)
+            {
+                elapsed += Time.deltaTime;
+                float t = Mathf.Clamp01(elapsed / spiralDuration);
+
+                // t=0→1: mesafe sıfırlanır, açı hızla döner (iç sarmal)
+                float currentDist  = Mathf.Lerp(startDist, 0f,  Mathf.Pow(t, 1.5f));
+                float currentAngle = startAngle + t * Mathf.PI * 0.5f; // çeyrek tur spiral
+                float currentY     = Mathf.Lerp(startY, targetY, t * t); // İvmeli aşağı
+
+                float newX = holeCenter.x + Mathf.Cos(currentAngle) * currentDist;
+                float newZ = holeCenter.z + Mathf.Sin(currentAngle) * currentDist;
+
+                vTransform.position = new Vector3(newX, currentY, newZ);
+
+                // Deliğe doğru hızla küçül (Ease.InQuart benzeri)
+                vTransform.localScale = Vector3.Lerp(originalScale, Vector3.zero, Mathf.Pow(t, 2f));
+
+                // Kendi etrafında dönsün (görsellik)
+                vTransform.Rotate(Vector3.up, 120f * Time.deltaTime, Space.World);
+
+                yield return null;
+            }
+
+            // Spiral bitti, temizle
+            if (vTransform != null)
+            {
+                vTransform.localScale = Vector3.zero;
+                ProcessEatenObject(victim);
+                Destroy(victim);
+            }
+
+            objectsBeingProcessed.Remove(rootObject);
+            yield break; // Normal fizik döngüsüne girme
+        }
+
+        // =============================================================
+        // NORMAL MODE: Mevcut fizik bazlı düşüş (değişmedi)
+        // =============================================================
+
+        // Küçülme efekti (Girdap etkisi)
         vTransform.DOScale(Vector3.zero, 1.0f).SetEase(Ease.InBack);
 
         // --- AŞAMA 3: AKTİF ÇEKİM GÜCÜ (Physics Loop) ---
         float timer = 0f;
-        
-        // 3D Çukur için limitleri ayarla
         float bottomLimit = transform.position.y - sinkDepth;
         
         while (timer < 3f && vTransform != null) 
         {
             timer += Time.deltaTime;
 
-            // Merkeze ve Aşağıya Doğru Çek
             Vector3 centerBottom = transform.position + Vector3.down * sinkDepth;
             Vector3 diff = centerBottom - vTransform.position;
             
-            // --- INFINITE FORCE KORUMASI ---
             float dist = diff.magnitude;
             
-            // Eğer mesafe çok küçükse veya NaN ise, direction sıfırla
             if (dist < 0.001f || !float.IsFinite(dist))
             {
-                // Zaten merkezdeyiz veya geçersiz konum, sadece aşağı it
                 if (rb != null) rb.AddForce(Vector3.down * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
             }
             else
             {
-                Vector3 direction = diff / dist; // safe normalized
+                Vector3 direction = diff / dist;
                 
-                // Rigidbody hala geçerli mi kontrol et
                 if (rb != null && float.IsFinite(direction.x) && float.IsFinite(direction.y) && float.IsFinite(direction.z))
                 {
-                    // Güçlü Çekim - MOBİL FIX: Time.deltaTime kullan
                     rb.AddForce(direction * pullForce * Time.deltaTime * 60f, ForceMode.Acceleration);
                     rb.AddTorque(Vector3.up * rotationSpeed * Time.deltaTime, ForceMode.Force);
+                    // Velocity'yi kısıtla — saçılmayı engelle
+                    if (rb.velocity.magnitude > 12f)
+                        rb.velocity = rb.velocity.normalized * 12f;
                 }
             }
 
-            // Çukurun dibine yaklaştı mı?
-            if (vTransform.position.y < bottomLimit + 0.5f) // Dibe yaklaştı
+            if (vTransform.position.y < bottomLimit + 0.5f)
             {
-                // Kullanıcının isteği: "0.1 salise sonra yok olsun"
-                // Önce küçültelim ki "yok oluş" pop diye olmasın
                 vTransform.DOScale(Vector3.zero, 0.1f);
                 yield return new WaitForSeconds(0.1f);
-                break; // Ve döngü biter -> Destroy çağrılır
+                break;
             }
             yield return null;
         }
 
-        // --- SONUÇ: YOK ET ve PUAN VER ---
         if (vTransform != null)
         {
-            // Puanlama Mantığı
             ProcessEatenObject(victim);
-
-            // Efekt (Varsa partikül vs eklenebilir)
             Destroy(victim);
         }
         
-        // Listeden çıkar (artık işlenmedi)
         objectsBeingProcessed.Remove(rootObject);
     }
 
-    private void WakeUpChainReaction(GameObject victim)
+    // =============================================================
+    // FEVER SUCK NEARBY: Etraftaki objeler hafifçe yukarı zıplayıp
+    // deliğe doğru "farkında" bir şekilde çekilmeye başlar.
+    // =============================================================
+    private void FeverSuckNearby(GameObject source)
     {
-        // Victim'in hemen üzerindeki veya dibindeki diğer statik objeleri bul
-        // Bu sayede "Trenin üst parçası" gibi havada duran şeyler de düşmeye başlar.
-        
-        // Biraz yukarıdan da bak (üst üste dizili şeyler için)
-        Vector3 checkPos = victim.transform.position + Vector3.up * 1.5f;
-        Collider[] colliders = Physics.OverlapSphere(checkPos, 3.0f);
-        
-        foreach (var col in colliders)
+        float suckRadius = 4.5f;
+        Collider[] nearby = Physics.OverlapSphere(source.transform.position, suckRadius);
+
+        foreach (var col in nearby)
         {
             GameObject go = col.gameObject;
-            if (go == victim) continue;
-            if (go.transform.IsChildOf(transform)) continue; // Delik parçasıysa atla
-            if (go.GetComponent<Rigidbody>() != null) continue; // Zaten fizikli (Muhtemelen zaten düşüyor)
-            
-            // Zemin ve Yasaklı Obje Kontrolü
+            if (go == source) continue;
+            if (go.transform.IsChildOf(transform)) continue;
+            if (go.GetComponent<DominoTriggered>() != null) continue; // Zaten tetiklendi
             if (go.CompareTag("MainCamera")) continue;
-            string n = go.name.ToLower();
-            bool isActualFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin") || n.Equals("ground") || n.Contains("wall") || n.Contains("map") || n.Contains("level");
-            if (isActualFloor) continue;
-            
-            // Boyut Kontrolü (Devasa duvarları vs. yanlışlıkla yıkmayalım)
-            Collider goCol = go.GetComponent<Collider>();
-            Renderer r = go.GetComponent<Renderer>();
-            
-            bool isTooBig = false;
-            if (goCol != null && goCol.bounds.size.magnitude > 25f) isTooBig = true;
-            if (r != null && r.bounds.size.magnitude > 25f) isTooBig = true;
 
+            string n = go.name.ToLower();
+            bool isFloor = n.Contains("floor") || n.Contains("plane") || n.Contains("zemin")
+                        || n.Equals("ground") || n.Contains("wall") || n.Contains("map") || n.Contains("level");
+            if (isFloor) continue;
+
+            Collider goCol = go.GetComponent<Collider>();
+            Renderer rend  = go.GetComponent<Renderer>();
+            bool isTooBig  = (goCol != null && goCol.bounds.size.magnitude > 25f)
+                          || (rend  != null && rend.bounds.size.magnitude  > 25f);
             if (isTooBig) continue;
 
-            // --- FİZİK EKLE (DOMINO ETKİSİ) ---
-            // MeshCollider Convex Fix
+            // Sonsuz döngü önleyici işaret
+            go.AddComponent<DominoTriggered>();
+
+            // MeshCollider fix
             MeshCollider mc = go.GetComponent<MeshCollider>();
             if (mc != null && !mc.convex)
             {
-                try { mc.convex = true; } 
-                catch { mc.isTrigger = true; } // Convex olamıyorsa trigger yap (Yine de düşmez ama hata vermez.. gerçi RB ekleyince düşmesi için collider lazım)
-                // O yüzden Convex yapamıyorsak BoxCollider ekleyelim fallback olarak
-                if (mc.isTrigger) 
-                {
-                    go.AddComponent<BoxCollider>();
-                }
+                try { mc.convex = true; }
+                catch { mc.isTrigger = true; if (mc.isTrigger) go.AddComponent<BoxCollider>(); }
             }
 
-            Rigidbody rb = go.AddComponent<Rigidbody>();
-            rb.mass = 1.0f;
-            rb.WakeUp(); // Uyandır!
-            
-            // Hafif bir dürtme ver ki statik dengede kalmasın
-            rb.angularVelocity = Random.insideUnitSphere * 2f;
+            Rigidbody nearRb = go.GetComponent<Rigidbody>();
+            if (nearRb == null) nearRb = go.AddComponent<Rigidbody>();
 
-            // Sonsuz döngü zincirlemesini engellemek için bu objeyi işaretle
-            go.AddComponent<DominoTriggered>();
+            nearRb.WakeUp();
+            nearRb.isKinematic = false;
+
+            // ① Önce küçük bir yukarı zıplama (farkındalık)
+            float hopDelay = Random.Range(0f, 0.2f);
+            StartCoroutine(FeverHopThenSwallow(go, nearRb, hopDelay));
         }
     }
+
+    private IEnumerator FeverHopThenSwallow(GameObject go, Rigidbody nearRb, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (go == null || nearRb == null) yield break;
+
+        // ① Küçük yukarı hop
+        nearRb.AddForce(Vector3.up * 4f, ForceMode.Impulse);
+        nearRb.angularVelocity = Random.insideUnitSphere * 5f;
+
+        yield return new WaitForSeconds(0.15f);
+        if (go == null) yield break;
+
+        // ② Deliğin triggerına gir (OnTriggerEnter ile normal yutma başlasın)
+        // Objeyi deliğin üstüne doğru hızla fırlat ki collider'a girsin
+        Vector3 toHole = (transform.position - go.transform.position);
+        toHole.y = 0f;
+        if (toHole.magnitude > 0.01f)
+        {
+            nearRb.AddForce(toHole.normalized * 8f + Vector3.down * 2f, ForceMode.Impulse);
+        }
+    }
+
 
     void ProcessEatenObject(GameObject victim)
     {

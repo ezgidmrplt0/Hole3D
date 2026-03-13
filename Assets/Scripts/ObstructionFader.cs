@@ -216,27 +216,40 @@ public class ObstructionFader : MonoBehaviour
         
         // 2. Zombi, İnsanlar ve Skill Pickup'lar (Karakterler ve pickup'lar transparan olmasın)
         if (obj.CompareTag("Zombie") || obj.CompareTag("Human") || obj.CompareTag("SkillPickup")) return true;
+        
+        // 3. Duvarlar (Kullanıcı isteği: Transparan duvarlara transparanlık etki etmesin)
+        // İsim kontrolü
+        string nameLower = obj.name.ToLower();
+        if (nameLower.Contains("wall") || nameLower.Contains("boundary") || nameLower.Contains("barrier") || nameLower.Contains("limit") || nameLower.Contains("barrier"))
+        {
+            if (showDebugLogs && Time.frameCount % 60 == 0) Debug.Log($"[ObstructionFader] Duvar/Sınır yoksayıldı (isim): {obj.name}");
+            return true;
+        }
+        
+        // Tag kontrolü
+        if (obj.CompareTag("Wall")) 
+        {
+            if (showDebugLogs && Time.frameCount % 60 == 0) Debug.Log($"[ObstructionFader] Duvar yoksayıldı (tag): {obj.name}");
+            return true;
+        }
+
         // Karakterlerin çocuk objeleri de olabilir (mesh vs), root'a bak
         Transform root = obj.transform.root;
-        if (root.CompareTag("Zombie") || root.CompareTag("Human") || root.CompareTag("SkillPickup")) return true;
+        if (root.CompareTag("Zombie") || root.CompareTag("Human") || root.CompareTag("SkillPickup") || root.CompareTag("Wall")) return true;
         
-        // 3. UI ve Water (Genelde transparan olmamalı)
+        // 4. UI ve Water (Genelde transparan olmamalı)
         if (obj.layer == LayerMask.NameToLayer("UI")) return true;
         if (obj.layer == LayerMask.NameToLayer("Water")) return true;
         
-        // 4. ZEMİN KONTROLÜ - Sadece GERÇEK zeminler (Yatay düz yüzeyler)
+        // 5. ZEMİN KONTROLÜ - Sadece GERÇEK zeminler (Yatay düz yüzeyler)
         // Ground tag'i yetersiz çünkü LevelManager her şeye Ground atıyor
-        // Bunun yerine isim kontrolü + collider yönü kontrolü yapalım
-        string nameLower = obj.name.ToLower();
-        
-        // Sadece "floor" veya "plane" içeren isimleri zemin say (Daha dar kapsam)
         // "ground" kelimesi çok genel, onu kaldırıyoruz
         if (nameLower.Contains("floor") || nameLower.Contains("plane") || nameLower.Contains("terrain"))
         {
             return true;
         }
         
-        // 5. Deliğin altındaki zemini yoksay (Y pozisyonuna göre)
+        // 6. Deliğin altındaki zemini yoksay (Y pozisyonuna göre)
         // Eğer obje deliğin altındaysa ve yatay bir yüzeyse, zemin demektir
         if (obj.transform.position.y < myTransform.position.y - 0.5f)
         {

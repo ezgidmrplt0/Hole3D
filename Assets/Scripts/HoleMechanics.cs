@@ -204,7 +204,6 @@ public class HoleMechanics : MonoBehaviour
         // Hole level ve XP'yi resetle
         holeLevel = 1;
         currentXP = 0;
-        feverComboCount = 0;
         xpToNextLevel = 15;
         
         // ObstructionFader'ı aktif et
@@ -447,7 +446,6 @@ public class HoleMechanics : MonoBehaviour
     public bool isFeverMode = false;
     private Vector3 preFeverScale;
     // Fever combo counter (tracked during fever mode)
-    private int feverComboCount = 0;
 
     public void ActivateFeverMode(float duration, System.Action onComplete)
     {

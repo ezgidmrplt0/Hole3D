@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1055087031019",
+    "project_id": "zombihole3d",
+    "storage_bucket": "zombihole3d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1055087031019:android:758c3b10d8f76ed76cc4ae",
+        "android_client_info": {
+          "package_name": "com.Fogbound.ZombiHole3D"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAE1JTQ3f_BhDd_YY2C5UKG_a7_1GNWaGg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

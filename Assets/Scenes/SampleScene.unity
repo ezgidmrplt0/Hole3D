@@ -1358,6 +1358,8 @@ MonoBehaviour:
   normalLevelIndex: 0
   currentMissionProgress: 0
   isMissionCompleted: 0
+  activeZombies: []
+  activeHumans: []
   isCurrentLevelSpecial: 0
   simplePlanePrefab: {fileID: 2074062849}
 --- !u!4 &467509983
@@ -3054,6 +3056,7 @@ MonoBehaviour:
   damageFont: {fileID: 11400000, guid: 204de1c1ba42511499fce6c31f911f33, type: 2}
   fallDuration: 0.5
   minScale: 0.1
+  staggeredEatDelay: 0.1
   holeLevel: 1
   currentXP: 0
   xpToNextLevel: 5
@@ -5586,6 +5589,50 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1519054915}
   m_CullTransparentMesh: 1
+--- !u!1 &1551164407
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1551164409}
+  - component: {fileID: 1551164408}
+  m_Layer: 0
+  m_Name: FirebaseManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1551164408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1551164407}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdf378e6936e96377947952e3c7dfe45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!4 &1551164409
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1551164407}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1562476475
 GameObject:
   m_ObjectHideFlags: 0
@@ -9517,3 +9564,4 @@ SceneRoots:
   - {fileID: 284786788}
   - {fileID: 962236061}
   - {fileID: 904558227}
+  - {fileID: 1551164409}

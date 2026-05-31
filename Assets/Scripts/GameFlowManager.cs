@@ -17,6 +17,8 @@ public class GameFlowManager : MonoBehaviour
     public bool IsGameActive { get; private set; } = false;
     private bool isLevelCompleteState = false; // Hangi moddayız? (Start vs Next Level)
 
+    private float levelStartTime = 0f;
+
 
 
     private void Awake()
@@ -95,6 +97,12 @@ public class GameFlowManager : MonoBehaviour
         
         isLevelCompleteState = true;
         IsLevelTransitioning = true;
+
+        if (LevelManager.Instance != null && FirebaseManager.Instance != null)
+        {
+            float duration = Time.realtimeSinceStartup - levelStartTime;
+            FirebaseManager.Instance.LogLevelComplete(LevelManager.Instance.currentLevelIndex, duration);
+        }
 
         if (tapToPlayPanel != null)
         {
@@ -207,13 +215,14 @@ public class GameFlowManager : MonoBehaviour
     {
         if (IsLevelTransitioning) return;
         
-        // Retry State -> Farklı bir state gibi davranabilir ama basitlik için 
-        // Level Transition mantığını kullanacağız (Inputu engellemek için)
-        // Ama isLevelCompleteState = false kalacak ki tıklandığında StartGame değil RestartGame çalışsın.
-        // Hatta en temizi:
-        
         IsLevelTransitioning = true; // Inputları kilitle (Update içinde özel kontrol ekleyeceğiz)
         isRetryState = true; // Yeni flag
+        
+        if (LevelManager.Instance != null && FirebaseManager.Instance != null)
+        {
+            float duration = Time.realtimeSinceStartup - levelStartTime;
+            FirebaseManager.Instance.LogLevelFail(LevelManager.Instance.currentLevelIndex, duration);
+        }
         
         IsGameActive = false;
         Time.timeScale = 0f; // Oyunu durdur
@@ -255,7 +264,14 @@ public class GameFlowManager : MonoBehaviour
         if (levelMarketPanel != null) levelMarketPanel.SetActive(true);
         
         // Restart Logic via LevelManager
-        if (LevelManager.Instance != null) LevelManager.Instance.RestartCurrentLevel();
+        if (LevelManager.Instance != null)
+        {
+            if (FirebaseManager.Instance != null)
+            {
+                FirebaseManager.Instance.LogLevelRetry(LevelManager.Instance.currentLevelIndex);
+            }
+            LevelManager.Instance.RestartCurrentLevel();
+        }
         
         // Skill satın almalarını sıfırla
         if (SkillManager.Instance != null)
@@ -292,6 +308,7 @@ public class GameFlowManager : MonoBehaviour
     public void StartGame()
     {
         IsGameActive = true;
+        levelStartTime = Time.realtimeSinceStartup;
         
         if (tapToPlayPanel != null)
         {
@@ -309,6 +326,11 @@ public class GameFlowManager : MonoBehaviour
         
         // --- MISSION UI REFRESH ---
         if (UIManager.Instance != null) UIManager.Instance.RefreshMissionUI();
+
+        if (LevelManager.Instance != null && FirebaseManager.Instance != null)
+        {
+            FirebaseManager.Instance.LogLevelStart(LevelManager.Instance.currentLevelIndex);
+        }
 
 #if UNITY_EDITOR
         Debug.Log("Game Started!");
